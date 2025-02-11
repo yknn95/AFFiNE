@@ -116,10 +116,7 @@ export type FindEntityInput<T extends TableSchemaBuilder> = Pretty<
     T,
     {
       [key in TableDefinedFieldNames<T>]?: key extends keyof TableDefinedEntity<T>
-        ?
-            | TableDefinedEntity<T>[key]
-            | { not: TableDefinedEntity<T>[key] | null }
-            | null
+        ? TableDefinedEntity<T>[key]
         : never;
     }
   >

@@ -1,9 +1,6 @@
-import { existsSync } from 'node:fs';
-
 import type { SpaceType } from '@affine/nbstore';
 
 import { logger } from '../../logger';
-import { getWorkspaceMeta } from '../../workspace/meta';
 import type { WorkspaceSQLiteDB } from './workspace-db-adapter';
 import { openWorkspaceDatabase } from './workspace-db-adapter';
 
@@ -38,33 +35,10 @@ async function getWorkspaceDB(spaceType: SpaceType, id: string) {
 
     process.on('beforeExit', cleanup);
   }
-
-  // oxlint-disable-next-line @typescript-eslint/no-non-null-assertion
+  // eslint-disable-next-line @typescript-eslint/no-non-null-assertion
   return db!;
 }
 
-export async function ensureSQLiteDB(
-  spaceType: SpaceType,
-  id: string
-): Promise<WorkspaceSQLiteDB | null> {
-  const meta = await getWorkspaceMeta(spaceType, id);
-
-  // do not auto create v1 db anymore
-  if (!existsSync(meta.mainDBPath)) {
-    return null;
-  }
-
+export function ensureSQLiteDB(spaceType: SpaceType, id: string) {
   return getWorkspaceDB(spaceType, id);
-}
-
-export async function ensureSQLiteDisconnected(
-  spaceType: SpaceType,
-  id: string
-) {
-  const db = await ensureSQLiteDB(spaceType, id);
-
-  if (db) {
-    await db.checkpoint();
-    await db.destroy();
-  }
 }

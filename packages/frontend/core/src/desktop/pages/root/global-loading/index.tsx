@@ -1,5 +1,5 @@
 import { Loading } from '@affine/component';
-import { globalLoadingEventsAtom } from '@affine/component/global-loading';
+import { globalLoadingEventsAtom } from '@affine/component/global-loading/index.jotai';
 import { useAtomValue } from 'jotai';
 import { type ReactNode, useEffect, useState } from 'react';
 

@@ -1,4 +1,4 @@
-import { AllDocsIcon, HomeIcon } from '@blocksuite/icons/rc';
+import { AllDocsIcon, MobileHomeIcon } from '@blocksuite/icons/rc';
 import type { Framework } from '@toeverything/infra';
 
 import { AppTabCreate } from './create';
@@ -28,7 +28,7 @@ export const tabs: Tab[] = [
   {
     key: 'home',
     to: '/home',
-    Icon: HomeIcon,
+    Icon: MobileHomeIcon,
   },
   {
     key: 'all',

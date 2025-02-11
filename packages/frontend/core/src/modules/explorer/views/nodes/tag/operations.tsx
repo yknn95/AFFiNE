@@ -3,6 +3,7 @@ import { usePageHelper } from '@affine/core/components/blocksuite/block-suite-pa
 import { IsFavoriteIcon } from '@affine/core/components/pure/icons';
 import { DocsService } from '@affine/core/modules/doc';
 import { FavoriteService } from '@affine/core/modules/favorite';
+import { FeatureFlagService } from '@affine/core/modules/feature-flag';
 import { TagService } from '@affine/core/modules/tag';
 import { WorkbenchService } from '@affine/core/modules/workbench';
 import { WorkspaceService } from '@affine/core/modules/workspace';
@@ -28,19 +29,28 @@ export const useExplorerTagNodeOperations = (
   }
 ): NodeOperation[] => {
   const t = useI18n();
-  const { workbenchService, workspaceService, tagService, favoriteService } =
-    useServices({
-      WorkbenchService,
-      WorkspaceService,
-      TagService,
-      DocsService,
-      FavoriteService,
-    });
+  const {
+    workbenchService,
+    workspaceService,
+    tagService,
+    favoriteService,
+    featureFlagService,
+  } = useServices({
+    WorkbenchService,
+    WorkspaceService,
+    TagService,
+    DocsService,
+    FavoriteService,
+    FeatureFlagService,
+  });
 
   const favorite = useLiveData(
     favoriteService.favoriteList.favorite$('tag', tagId)
   );
   const tagRecord = useLiveData(tagService.tagList.tagByTagId$(tagId));
+  const enableMultiView = useLiveData(
+    featureFlagService.flags.enable_multi_view.$
+  );
 
   const { createPage } = usePageHelper(
     workspaceService.workspace.docCollection
@@ -105,7 +115,7 @@ export const useExplorerTagNodeOperations = (
           </MenuItem>
         ),
       },
-      ...(BUILD_CONFIG.isElectron
+      ...(BUILD_CONFIG.isElectron && enableMultiView
         ? [
             {
               index: 100,
@@ -151,6 +161,7 @@ export const useExplorerTagNodeOperations = (
       },
     ],
     [
+      enableMultiView,
       favorite,
       handleMoveToTrash,
       handleNewDoc,

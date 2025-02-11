@@ -365,7 +365,6 @@ if (!nativeBinding) {
 }
 
 module.exports.DocStorage = nativeBinding.DocStorage
-module.exports.DocStoragePool = nativeBinding.DocStoragePool
 module.exports.SqliteConnection = nativeBinding.SqliteConnection
 module.exports.mintChallengeResponse = nativeBinding.mintChallengeResponse
 module.exports.ValidationResult = nativeBinding.ValidationResult

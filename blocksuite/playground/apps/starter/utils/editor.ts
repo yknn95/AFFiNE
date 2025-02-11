@@ -1,9 +1,12 @@
-import { BlockServiceWatcher, type EditorHost } from '@blocksuite/block-std';
+import {
+  BlockServiceWatcher,
+  type EditorHost,
+  type ExtensionType,
+} from '@blocksuite/block-std';
 import {
   AffineFormatBarWidget,
   CommunityCanvasTextFonts,
   DocModeProvider,
-  EditorSettingExtension,
   FontConfigExtension,
   GenerateDocUrlExtension,
   NotificationExtension,
@@ -15,7 +18,7 @@ import {
   toolbarDefaultConfig,
 } from '@blocksuite/blocks';
 import { AffineEditorContainer, CommentPanel } from '@blocksuite/presets';
-import type { ExtensionType, Workspace } from '@blocksuite/store';
+import type { DocCollection } from '@blocksuite/store';
 
 import { AttachmentViewerPanel } from '../../_common/components/attachment-viewer-panel.js';
 import { CustomFramePanel } from '../../_common/components/custom-frame-panel.js';
@@ -23,6 +26,7 @@ import { CustomOutlinePanel } from '../../_common/components/custom-outline-pane
 import { CustomOutlineViewer } from '../../_common/components/custom-outline-viewer.js';
 import { DocsPanel } from '../../_common/components/docs-panel.js';
 import { LeftSidePanel } from '../../_common/components/left-side-panel.js';
+import { SidePanel } from '../../_common/components/side-panel.js';
 import { StarterDebugMenu } from '../../_common/components/starter-debug-menu.js';
 import {
   getDocFromUrlParams,
@@ -31,7 +35,6 @@ import {
 } from '../../_common/history.js';
 import {
   mockDocModeService,
-  mockEditorSetting,
   mockGenerateDocUrlService,
   mockNotificationService,
   mockParseDocUrlService,
@@ -42,7 +45,7 @@ function configureFormatBar(formatBar: AffineFormatBarWidget) {
   toolbarDefaultConfig(formatBar);
 }
 
-export async function mountDefaultDocEditor(collection: Workspace) {
+export async function mountDefaultDocEditor(collection: DocCollection) {
   const app = document.getElementById('app');
   if (!app) return;
 
@@ -76,7 +79,6 @@ export async function mountDefaultDocEditor(collection: Workspace) {
     GenerateDocUrlExtension(mockGenerateDocUrlService(collection)),
     NotificationExtension(mockNotificationService(editor)),
     OverrideThemeExtension(themeExtension),
-    EditorSettingExtension(mockEditorSetting()),
     {
       setup: di => {
         di.override(DocModeProvider, () =>
@@ -84,6 +86,7 @@ export async function mountDefaultDocEditor(collection: Workspace) {
         );
       },
     },
+    // mockPeekViewExtension(attachmentViewerPanel),
   ];
 
   const pageSpecs = SpecProvider.getInstance().getSpec('page');
@@ -118,6 +121,9 @@ export async function mountDefaultDocEditor(collection: Workspace) {
   const modeService = editor.std.provider.get(DocModeProvider);
   editor.mode = modeService.getPrimaryMode(doc.id);
   setDocModeFromUrlParams(modeService, url.searchParams, doc.id);
+  editor.slots.docUpdated.on(({ newDocId }) => {
+    editor.mode = modeService.getPrimaryMode(newDocId);
+  });
 
   const outlinePanel = new CustomOutlinePanel();
   outlinePanel.editor = editor;
@@ -130,6 +136,8 @@ export async function mountDefaultDocEditor(collection: Workspace) {
 
   const framePanel = new CustomFramePanel();
   framePanel.editor = editor;
+
+  const sidePanel = new SidePanel();
 
   const leftSidePanel = new LeftSidePanel();
 
@@ -145,6 +153,7 @@ export async function mountDefaultDocEditor(collection: Workspace) {
   debugMenu.outlinePanel = outlinePanel;
   debugMenu.outlineViewer = outlineViewer;
   debugMenu.framePanel = framePanel;
+  debugMenu.sidePanel = sidePanel;
   debugMenu.leftSidePanel = leftSidePanel;
   debugMenu.docsPanel = docsPanel;
   debugMenu.commentPanel = commentPanel;
@@ -153,6 +162,7 @@ export async function mountDefaultDocEditor(collection: Workspace) {
   document.body.append(outlinePanel);
   document.body.append(outlineViewer);
   document.body.append(framePanel);
+  document.body.append(sidePanel);
   document.body.append(leftSidePanel);
   document.body.append(debugMenu);
 

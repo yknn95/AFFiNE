@@ -41,19 +41,10 @@ function isNetworkResource(pathname: string) {
 }
 
 async function handleFileRequest(request: Request) {
-  const urlObject = new URL(request.url);
-
-  // Redirect to webpack dev server if defined
-  if (process.env.DEV_SERVER_URL) {
-    const devServerUrl = new URL(
-      urlObject.pathname,
-      process.env.DEV_SERVER_URL
-    );
-    return net.fetch(devServerUrl.toString(), request);
-  }
   const clonedRequest = Object.assign(request.clone(), {
     bypassCustomProtocolHandlers: true,
   });
+  const urlObject = new URL(request.url);
   // this will be file types (in the web-static folder)
   let filepath = '';
   // if is a file type, load the file in resources
@@ -190,12 +181,6 @@ export function registerProtocol() {
           .join('; ');
         delete details.requestHeaders['cookie'];
         details.requestHeaders['Cookie'] = cookieString;
-
-        // mitigate the issue of the worker not being able to access the origin
-        if (isNetworkResource(pathname)) {
-          details.requestHeaders['origin'] = url.origin;
-          details.requestHeaders['referer'] = url.origin;
-        }
       }
     })()
       .catch(err => {

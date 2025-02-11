@@ -63,9 +63,5 @@
 	</array>
 	<key>UIViewControllerBasedStatusBarAppearance</key>
 	<true/>
-	<key>NSCameraUsageDescription</key>
-	<string>AFFiNE requires access to the camera to capture images and insert them into your documents</string>
-	<key>NSPhotoLibraryUsageDescription</key>
-	<string>AFFiNE requires access to select photos from your photo library and insert them into your documents</string>
 </dict>
 </plist>

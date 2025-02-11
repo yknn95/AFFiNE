@@ -21,7 +21,7 @@ export async function buildShowcaseWorkspace(
 
   const { workspace, dispose } = workspacesService.open({ metadata: meta });
 
-  await workspace.engine.doc.waitForDocReady(workspace.id);
+  await workspace.engine.waitForRootDocReady();
 
   const docsService = workspace.scope.get(DocsService);
 

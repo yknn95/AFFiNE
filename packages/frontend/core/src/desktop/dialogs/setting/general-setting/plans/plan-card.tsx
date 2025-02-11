@@ -130,7 +130,6 @@ const ActionButton = ({ detail, recurring }: PlanCardProps) => {
   //  if contact                                => 'Contact Sales'
   //  if not signed in:
   //    if free                                 => 'Sign up free'
-  //    if team                                 => 'Upgrade'
   //    else                                    => 'Buy Pro'
   //  else
   //    if team                                 => 'Start 14-day free trial'

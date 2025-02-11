@@ -21,3 +21,5 @@ consumer.register('renderWorkspaceProfile', data => {
     avatar: typeof avatar === 'string' ? avatar : undefined,
   };
 });
+
+consumer.listen();

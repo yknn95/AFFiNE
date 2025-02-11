@@ -2,91 +2,45 @@ import { ParagraphBlockComponent } from '@blocksuite/affine-block-paragraph';
 import {
   addNoteAtPoint,
   getSurfaceBlock,
-  SurfaceBlockModel,
 } from '@blocksuite/affine-block-surface';
-import { DropIndicator } from '@blocksuite/affine-components/drop-indicator';
+import type { EmbedCardStyle, NoteBlockModel } from '@blocksuite/affine-model';
 import {
-  AttachmentBlockModel,
-  BookmarkBlockModel,
-  DatabaseBlockModel,
-  type EmbedCardStyle,
-  ListBlockModel,
-  NoteBlockModel,
-} from '@blocksuite/affine-model';
-import {
-  BLOCK_CHILDREN_CONTAINER_PADDING_LEFT,
   EMBED_CARD_HEIGHT,
   EMBED_CARD_WIDTH,
 } from '@blocksuite/affine-shared/consts';
 import {
+  DndApiExtensionIdentifier,
   DocModeProvider,
   TelemetryProvider,
 } from '@blocksuite/affine-shared/services';
 import {
+  calcDropTarget,
   captureEventTarget,
-  type DropTarget as DropResult,
+  type DropResult,
   getBlockComponentsExcludeSubtrees,
-  getRectByBlockComponent,
-  getScrollContainer,
+  getClosestBlockComponentByPoint,
   matchFlavours,
 } from '@blocksuite/affine-shared/utils';
 import {
   type BlockComponent,
-  type BlockStdScope,
-  type DragFromBlockSuite,
-  type DragPayload,
-  type DropPayload,
+  type DndEventState,
   isGfxBlockComponent,
+  type UIEventHandler,
+  type UIEventStateContext,
 } from '@blocksuite/block-std';
 import { GfxControllerIdentifier } from '@blocksuite/block-std/gfx';
-import { Bound, last, Point, Rect } from '@blocksuite/global/utils';
-import { Slice, type SliceSnapshot } from '@blocksuite/store';
+import { Bound, Point } from '@blocksuite/global/utils';
+import { Job, Slice, type SliceSnapshot } from '@blocksuite/store';
 
+import { DropIndicator } from '../components/drop-indicator.js';
+import { AFFINE_DRAG_HANDLE_WIDGET } from '../consts.js';
 import type { AffineDragHandleWidget } from '../drag-handle.js';
-import { PreviewHelper } from '../helpers/preview-helper.js';
 import { newIdCrossDoc } from '../middleware/new-id-cross-doc.js';
 import { reorderList } from '../middleware/reorder-list';
 import { surfaceRefToEmbed } from '../middleware/surface-ref-to-embed.js';
-import {
-  containBlock,
-  extractIdsFromSnapshot,
-  getParentNoteBlock,
-  includeTextSelection,
-  isOutOfNoteBlock,
-} from '../utils.js';
+import { containBlock, includeTextSelection } from '../utils.js';
 
-export type DragBlockEntity = {
-  type: 'blocks';
-  snapshot?: SliceSnapshot;
-  modelIds: string[];
-};
-
-export type DragBlockPayload = DragPayload<DragBlockEntity, DragFromBlockSuite>;
-
-declare module '@blocksuite/block-std' {
-  interface DNDEntity {
-    blocks: DragBlockPayload;
-  }
-}
 export class DragEventWatcher {
-  dropIndicator: null | DropIndicator = null;
-
-  previewHelper = new PreviewHelper(this.widget);
-
-  dropTargetCleanUps: Map<string, (() => void)[]> = new Map();
-
-  get host() {
-    return this.widget.host;
-  }
-
-  get mode() {
-    return this.widget.mode;
-  }
-
-  get std() {
-    return this.widget.std;
-  }
-
   private get _gfx() {
     return this.widget.std.get(GfxControllerIdentifier);
   }
@@ -117,165 +71,129 @@ export class DragEventWatcher {
   };
 
   private readonly _createDropIndicator = () => {
-    if (!this.dropIndicator) {
-      this.dropIndicator = new DropIndicator();
-      this.widget.ownerDocument.body.append(this.dropIndicator);
-    }
-  };
-
-  private readonly _clearDropIndicator = () => {
-    if (this.dropIndicator) {
-      this.dropIndicator.remove();
-      this.dropIndicator = null;
+    if (!this.widget.dropIndicator) {
+      this.widget.dropIndicator = new DropIndicator();
+      this.widget.rootComponent.append(this.widget.dropIndicator);
     }
   };
 
   private readonly _cleanup = () => {
-    this._clearDropIndicator();
+    this.widget.previewHelper.removeDragPreview();
+    this.widget.clearRaf();
     this.widget.hide(true);
-    this.std.selection.setGroup('gfx', []);
+    this._std.selection.setGroup('gfx', []);
   };
 
-  private readonly _onDragMove = (
-    point: Point,
-    payload: DragBlockPayload,
-    dropPayload: DropPayload,
-    block: BlockComponent
-  ) => {
-    this._createDropIndicator();
-    this._updateDropIndicator(point, payload, dropPayload, block);
+  private readonly _dragEndHandler: UIEventHandler = () => {
+    this._cleanup();
+  };
+
+  private readonly _dragMoveHandler: UIEventHandler = ctx => {
+    if (
+      this.widget.isHoverDragHandleVisible ||
+      this.widget.isTopLevelDragHandleVisible
+    ) {
+      this.widget.hide();
+    }
+
+    if (!this.widget.dragging || this.widget.draggingElements.length === 0) {
+      return false;
+    }
+
+    ctx.get('defaultState').event.preventDefault();
+    const state = ctx.get('dndState');
+
+    // call default drag move handler if no option return true
+    return this._onDragMove(state);
   };
 
   /**
-   * When dragging, should update indicator position and target drop block id
+   * When start dragging, should set dragging elements and create drag preview
    */
-  private readonly _getDropResult = (
-    dropBlock: BlockComponent,
-    dragPayload: DragBlockPayload,
-    dropPayload: DropPayload
-  ): DropResult | null => {
-    const model = dropBlock.model;
-
-    const snapshot = dragPayload?.bsEntity?.snapshot;
-    if (
-      !snapshot ||
-      snapshot.content.length === 0 ||
-      !dragPayload?.from ||
-      matchFlavours(model, [DatabaseBlockModel])
-    )
-      return null;
-
-    const isDropOnNoteBlock = matchFlavours(model, [NoteBlockModel]);
-
-    const edge = dropPayload.edge;
-    const scale = this.widget.scale.peek();
-    let result: DropResult;
-
-    if (edge === 'right' && matchFlavours(dropBlock.model, [ListBlockModel])) {
-      const domRect = getRectByBlockComponent(dropBlock);
-      const placement = 'in';
-      const rect = Rect.fromLWTH(
-        domRect.left + BLOCK_CHILDREN_CONTAINER_PADDING_LEFT,
-        domRect.width - BLOCK_CHILDREN_CONTAINER_PADDING_LEFT,
-        domRect.top + domRect.height,
-        3 * scale
-      );
-
-      result = {
-        placement,
-        rect,
-        modelState: {
-          model: dropBlock.model,
-          rect: domRect,
-          element: dropBlock,
-        },
-      };
-    } else {
-      const placement =
-        isDropOnNoteBlock &&
-        this.widget.doc.schema.safeValidate(
-          snapshot.content[0].flavour,
-          'affine:note'
-        )
-          ? 'in'
-          : edge === 'top'
-            ? 'before'
-            : 'after';
-      const domRect = getRectByBlockComponent(dropBlock);
-      const y =
-        placement === 'after'
-          ? domRect.top + domRect.height
-          : domRect.top - 3 * scale;
-
-      result = {
-        placement,
-        rect: Rect.fromLWTH(domRect.left, domRect.width, y, 3 * scale),
-        modelState: {
-          model,
-          rect: domRect,
-          element: dropBlock,
-        },
-      };
+  private readonly _dragStartHandler: UIEventHandler = ctx => {
+    const state = ctx.get('dndState');
+    // If not click left button to start dragging, should do nothing
+    const { button } = state.raw;
+    if (button !== 0) {
+      return false;
     }
 
-    return result;
+    return this._onDragStart(state);
   };
 
-  private readonly _updateDropIndicator = (
-    point: Point,
-    dragPayload: DragBlockPayload,
-    dropPayload: DropPayload,
-    dropBlock: BlockComponent
-  ) => {
-    const closestNoteBlock = dropBlock && getParentNoteBlock(dropBlock);
-
-    if (
-      !closestNoteBlock ||
-      isOutOfNoteBlock(
-        this.host,
-        closestNoteBlock,
-        point,
-        this.widget.scale.peek()
-      )
-    ) {
-      this._resetDropResult();
-    } else {
-      const dropResult = this._getDropResult(
-        dropBlock,
-        dragPayload,
-        dropPayload
-      );
-      this._updateDropResult(dropResult);
+  private readonly _dropHandler = (context: UIEventStateContext) => {
+    const raw = context.get('dndState').raw;
+    const fileLength = raw.dataTransfer?.files.length ?? 0;
+    // If drop files, should let file drop extension handle it
+    if (fileLength > 0) {
+      return;
     }
+    this._onDrop(context);
+    this._cleanup();
   };
 
-  private readonly _resetDropResult = () => {
-    if (this.dropIndicator) this.dropIndicator.rect = null;
+  private readonly _onDragMove = (state: DndEventState) => {
+    this.widget.clearRaf();
+
+    this.widget.rafID = requestAnimationFrame(() => {
+      this.widget.edgelessWatcher.updateDragPreviewPosition(state);
+      this.widget.updateDropIndicator(state, true);
+    });
+    return true;
   };
 
-  private readonly _updateDropResult = (dropResult: DropResult | null) => {
-    if (!this.dropIndicator) return;
+  private readonly _onDragStart = (state: DndEventState) => {
+    // Get current hover block element by path
+    const hoverBlock = this.widget.anchorBlockComponent.peek();
+    if (!hoverBlock) return false;
 
-    if (dropResult?.rect) {
-      const { left, top, width, height } = dropResult.rect;
-      const rect = Rect.fromLWTH(left, width, top, height);
-
-      this.dropIndicator.rect = rect;
-    } else {
-      this.dropIndicator.rect = dropResult?.rect ?? null;
-    }
-  };
-
-  private readonly _getSnapshotFromHoveredBlocks = () => {
-    const hoverBlock = this.widget.anchorBlockComponent.peek()!;
+    const element = captureEventTarget(state.raw.target);
+    const dragByHandle = !!element?.closest(AFFINE_DRAG_HANDLE_WIDGET);
     const isInSurface = isGfxBlockComponent(hoverBlock);
 
-    if (isInSurface) {
-      return {
-        models: [hoverBlock.model],
-        snapshot: this._toSnapshot([hoverBlock]),
-      };
+    if (isInSurface && dragByHandle) {
+      this._startDragging([hoverBlock], state);
+      return true;
     }
+
+    const selectBlockAndStartDragging = () => {
+      this._std.selection.setGroup('note', [
+        this._std.selection.create('block', {
+          blockId: hoverBlock.blockId,
+        }),
+      ]);
+      this._startDragging([hoverBlock], state);
+    };
+
+    if (this.widget.draggingElements.length === 0) {
+      const dragByBlock =
+        hoverBlock.contains(element) && !hoverBlock.model.text;
+
+      const canDragByBlock =
+        matchFlavours(hoverBlock.model, [
+          'affine:attachment',
+          'affine:bookmark',
+        ]) || hoverBlock.model.flavour.startsWith('affine:embed-');
+
+      if (!isInSurface && dragByBlock && canDragByBlock) {
+        selectBlockAndStartDragging();
+        return true;
+      }
+    }
+
+    // Should only start dragging when pointer down on drag handle
+    // And current mouse button is left button
+    if (!dragByHandle) {
+      this.widget.hide();
+      return false;
+    }
+
+    if (this.widget.draggingElements.length === 1 && !isInSurface) {
+      selectBlockAndStartDragging();
+      return true;
+    }
+
+    if (!this.widget.isHoverDragHandleVisible) return false;
 
     let selections = this.widget.selectionHelper.selectedBlocks;
 
@@ -283,8 +201,7 @@ export class DragEventWatcher {
     // Should set BlockSelection for the blocks in native range
     if (selections.length > 0 && includeTextSelection(selections)) {
       const nativeSelection = document.getSelection();
-      const rangeManager = this.std.range;
-
+      const rangeManager = this._std.range;
       if (nativeSelection && nativeSelection.rangeCount > 0 && rangeManager) {
         const range = nativeSelection.getRangeAt(0);
         const blocks = rangeManager.getSelectedBlockComponentsByRange(range, {
@@ -306,7 +223,10 @@ export class DragEventWatcher {
         this.widget.anchorBlockId.peek()!
       )
     ) {
-      this.widget.selectionHelper.setSelectedBlocks([hoverBlock]);
+      const block = this.widget.anchorBlockComponent.peek();
+      if (block) {
+        this.widget.selectionHelper.setSelectedBlocks([block]);
+      }
     }
 
     const collapsedBlock: BlockComponent[] = [];
@@ -337,73 +257,58 @@ export class DragEventWatcher {
       blocks
     ) as BlockComponent[];
 
-    return {
-      models: blocksExcludingChildren.map(block => block.model),
-      snapshot: this._toSnapshot(blocksExcludingChildren),
-    };
+    if (blocksExcludingChildren.length === 0) return false;
+
+    this._startDragging(blocksExcludingChildren, state);
+    this.widget.hide();
+    return true;
   };
 
-  private readonly _onDrop = (
-    dropBlock: BlockComponent,
-    dragPayload: DragBlockPayload,
-    dropPayload: DropPayload,
-    point: Point
-  ) => {
-    const result = this._getDropResult(dropBlock, dragPayload, dropPayload);
-    const snapshot = dragPayload?.bsEntity?.snapshot;
+  private readonly _onDrop = (context: UIEventStateContext) => {
+    const state = context.get('dndState');
 
-    if (!result || !snapshot || snapshot.content.length === 0) return;
+    const event = state.raw;
+    event.preventDefault();
 
-    {
-      const isEdgelessContainer = dropBlock.closest('.edgeless-container');
-      if (isEdgelessContainer) {
-        // drop to edgeless container
-        this._onDropOnEdgelessCanvas(
-          dropBlock,
-          dragPayload,
-          dropPayload,
-          point
-        );
-        return;
-      }
-    }
+    const { clientX, clientY } = event;
+    const point = new Point(clientX, clientY);
+    const element = getClosestBlockComponentByPoint(point.clone());
+    if (!element) {
+      const target = captureEventTarget(event.target);
+      const isEdgelessContainer =
+        target?.classList.contains('edgeless-container');
+      if (!isEdgelessContainer) return;
 
-    const model = result.modelState.model;
-    const parent =
-      result.placement === 'in' ? model : this.std.store.getParent(model);
-
-    if (!parent) return;
-    if (matchFlavours(parent, [SurfaceBlockModel])) {
+      // drop to edgeless container
+      this._onDropOnEdgelessCanvas(context);
       return;
     }
+    const model = element.model;
+    const parent = this._std.doc.getParent(model.id);
+    if (!parent) return;
+    if (matchFlavours(parent, ['affine:surface'])) {
+      return;
+    }
+    const result: DropResult | null = calcDropTarget(point, model, element);
+    if (!result) return;
 
     const index =
-      result.placement === 'in'
-        ? 0
-        : parent.children.indexOf(model) +
-          (result.placement === 'before' ? 0 : 1);
+      parent.children.indexOf(model) + (result.type === 'before' ? 0 : 1);
 
-    if (matchFlavours(parent, [NoteBlockModel])) {
-      const [first] = snapshot.content;
-      if (first.flavour === 'affine:note') {
-        if (parent.id !== first.id) {
-          this._onDropNoteOnNote(snapshot, parent.id, index);
+    if (matchFlavours(parent, ['affine:note'])) {
+      const snapshot = this._deserializeSnapshot(state);
+      if (snapshot) {
+        const [first] = snapshot.content;
+        if (first.flavour === 'affine:note') {
+          if (parent.id !== first.id) {
+            this._onDropNoteOnNote(snapshot, parent.id, index);
+          }
+          return;
         }
-        return;
       }
     }
 
-    if (
-      (dragPayload.from?.docId === this.widget.doc.id &&
-        result.placement === 'after' &&
-        parent.children[index]?.id === snapshot.content[0].id) ||
-      (result.placement === 'before' &&
-        parent.children[index - 1]?.id === last(snapshot.content)!.id)
-    ) {
-      return;
-    }
-
-    this._dropToModel(snapshot, parent.id, index).catch(console.error);
+    this._deserializeData(state, parent.id, index).catch(console.error);
   };
 
   private readonly _onDropNoteOnNote = (
@@ -414,35 +319,30 @@ export class DragEventWatcher {
     const [first] = snapshot.content;
     const id = first.id;
 
-    const std = this.std;
+    const std = this._std;
     const job = this._getJob();
     const snapshotWithoutNote = {
       ...snapshot,
       content: first.children,
     };
     job
-      .snapshotToSlice(snapshotWithoutNote, std.store, parent, index)
+      .snapshotToSlice(snapshotWithoutNote, std.doc, parent, index)
       .then(() => {
-        const block = std.store.getBlock(id)?.model;
+        const block = std.doc.getBlock(id)?.model;
         if (block) {
-          std.store.deleteBlock(block);
+          std.doc.deleteBlock(block);
         }
       })
       .catch(console.error);
   };
 
-  private readonly _onDropOnEdgelessCanvas = (
-    dropBlock: BlockComponent,
-    dragPayload: DragBlockPayload,
-    dropPayload: DropPayload,
-    point: Point
-  ) => {
+  private readonly _onDropOnEdgelessCanvas = (context: UIEventStateContext) => {
+    const state = context.get('dndState');
+    // If drop a note, should do nothing
+    const snapshot = this._deserializeSnapshot(state);
     const surfaceBlockModel = getSurfaceBlock(this.widget.doc);
-    const result = this._getDropResult(dropBlock, dragPayload, dropPayload);
 
-    const snapshot = dragPayload?.bsEntity?.snapshot;
-
-    if (!result || !snapshot || !surfaceBlockModel) {
+    if (!snapshot || !surfaceBlockModel) {
       return;
     }
 
@@ -459,10 +359,10 @@ export class DragEventWatcher {
         first.props.width = width;
         first.props.height = height;
 
-        const std = this.std;
+        const std = this._std;
         const job = this._getJob();
         job
-          .snapshotToSlice(snapshot, std.store, surfaceBlockModel.id)
+          .snapshotToSlice(snapshot, std.doc, surfaceBlockModel.id)
           .catch(console.error);
       };
 
@@ -475,8 +375,8 @@ export class DragEventWatcher {
         const height = EMBED_CARD_HEIGHT[style];
 
         const newBound = this._computeEdgelessBound(
-          point.x,
-          point.y,
+          state.raw.clientX,
+          state.raw.clientY,
           width,
           height
         );
@@ -496,8 +396,8 @@ export class DragEventWatcher {
         const height = Number(first.props.height || 100) * noteScale;
 
         const newBound = this._computeEdgelessBound(
-          point.x,
-          point.y,
+          state.raw.clientX,
+          state.raw.clientY,
           width,
           height
         );
@@ -508,11 +408,10 @@ export class DragEventWatcher {
       }
     }
 
+    const { left: viewportLeft, top: viewportTop } = this._gfx.viewport;
     const newNoteId = addNoteAtPoint(
-      this.std,
-      Point.from(
-        this._gfx.viewport.toModelCoordFromClientCoord([point.x, point.y])
-      ),
+      this._std,
+      new Point(state.raw.x - viewportLeft, state.raw.y - viewportTop),
       {
         scale: this.widget.noteScale.peek(),
       }
@@ -533,32 +432,49 @@ export class DragEventWatcher {
       },
     });
 
-    this._dropToModel(snapshot, newNoteId).catch(console.error);
+    this._deserializeData(state, newNoteId).catch(console.error);
   };
 
-  private readonly _toSnapshot = (blocks: BlockComponent[]) => {
+  private readonly _startDragging = (
+    blocks: BlockComponent[],
+    state: DndEventState,
+    dragPreviewEl?: HTMLElement,
+    dragPreviewOffset?: Point
+  ) => {
+    if (!blocks.length) {
+      return;
+    }
+
+    this.widget.draggingElements = blocks;
+
+    this.widget.dragPreview = this.widget.previewHelper.createDragPreview(
+      blocks,
+      state,
+      dragPreviewEl,
+      dragPreviewOffset
+    );
+
     const slice = Slice.fromModels(
-      this.std.store,
+      this._std.doc,
       blocks.map(block => block.model)
     );
-    const job = this._getJob();
 
-    const snapshot = job.sliceToSnapshot(slice);
-    if (!snapshot) return;
-
-    return snapshot;
+    this.widget.dragging = true;
+    this._createDropIndicator();
+    this.widget.hide();
+    this._serializeData(slice, state);
   };
 
   private readonly _trackLinkedDocCreated = (id: string) => {
-    const isNewBlock = !this.std.store.hasBlock(id);
+    const isNewBlock = !this._std.doc.hasBlock(id);
     if (!isNewBlock) {
       return;
     }
 
     const mode =
-      this.std.getOptional(DocModeProvider)?.getEditorMode() ?? 'page';
+      this._std.getOptional(DocModeProvider)?.getEditorMode() ?? 'page';
 
-    const telemetryService = this.std.getOptional(TelemetryProvider);
+    const telemetryService = this._std.getOptional(TelemetryProvider);
     telemetryService?.track('LinkedDocCreated', {
       control: `drop on ${mode}`,
       module: 'drag and drop',
@@ -567,205 +483,88 @@ export class DragEventWatcher {
     });
   };
 
+  private get _dndAPI() {
+    return this._std.get(DndApiExtensionIdentifier);
+  }
+
+  private get _std() {
+    return this.widget.std;
+  }
+
   constructor(readonly widget: AffineDragHandleWidget) {}
 
-  private async _dropToModel(
-    snapshot: SliceSnapshot,
+  private async _deserializeData(
+    state: DndEventState,
     parent?: string,
     index?: number
   ) {
     try {
-      const std = this.std;
+      const dataTransfer = state.raw.dataTransfer;
+      if (!dataTransfer) throw new Error('No data transfer');
+
+      const std = this._std;
       const job = this._getJob();
 
-      if (snapshot.content.length === 1) {
-        const [first] = snapshot.content;
-        if (first.flavour === 'affine:embed-linked-doc') {
-          this._trackLinkedDocCreated(first.id);
+      const snapshot = this._deserializeSnapshot(state);
+      if (snapshot) {
+        if (snapshot.content.length === 1) {
+          const [first] = snapshot.content;
+          if (first.flavour === 'affine:embed-linked-doc') {
+            this._trackLinkedDocCreated(first.id);
+          }
         }
+        // use snapshot
+        const slice = await job.snapshotToSlice(
+          snapshot,
+          std.doc,
+          parent,
+          index
+        );
+        return slice;
       }
-      // use snapshot
-      const slice = await job.snapshotToSlice(
-        snapshot,
-        std.store,
-        parent,
-        index
-      );
-      return slice;
+
+      return null;
+    } catch {
+      return null;
+    }
+  }
+
+  private _deserializeSnapshot(state: DndEventState) {
+    try {
+      const dataTransfer = state.raw.dataTransfer;
+      if (!dataTransfer) throw new Error('No data transfer');
+      const data = dataTransfer.getData(this._dndAPI.mimeType);
+      const snapshot = this._dndAPI.decodeSnapshot(data);
+
+      return snapshot;
     } catch {
       return null;
     }
   }
 
   private _getJob() {
-    const std = this.std;
-    return std.getTransformer([
-      newIdCrossDoc(std),
-      reorderList(std),
-      surfaceRefToEmbed(std),
-    ]);
-  }
-
-  private _isDropOnCurrentEditor(std?: BlockStdScope) {
-    return std === this.std;
-  }
-
-  private _makeDraggable(target: HTMLElement) {
-    const std = this.std;
-
-    return std.dnd.draggable<DragBlockEntity>({
-      element: target,
-      canDrag: () => {
-        const hoverBlock = this.widget.anchorBlockComponent.peek();
-        return hoverBlock ? true : false;
-      },
-      onDragStart: () => {
-        this.widget.dragging = true;
-      },
-      onDrop: () => {
-        this._cleanup();
-      },
-      setDragPreview: ({ source, container, setOffset }) => {
-        if (!source.data?.bsEntity?.modelIds.length) {
-          return;
-        }
-
-        this.previewHelper.renderDragPreview(
-          source.data?.bsEntity?.modelIds,
-          container
-        );
-
-        const rect = container.getBoundingClientRect();
-        setOffset({ x: rect.width / 2, y: rect.height / 2 });
-      },
-      setDragData: () => {
-        const { snapshot } = this._getSnapshotFromHoveredBlocks();
-
-        return {
-          type: 'blocks',
-          modelIds: snapshot ? extractIdsFromSnapshot(snapshot) : [],
-          snapshot,
-        };
-      },
+    const std = this._std;
+    return new Job({
+      collection: std.collection,
+      middlewares: [
+        newIdCrossDoc(std),
+        reorderList(std),
+        surfaceRefToEmbed(std),
+      ],
     });
   }
 
-  private _makeDropTarget(view: BlockComponent) {
-    if (view.model.role !== 'content' && view.model.role !== 'hub') {
-      return;
-    }
+  private _serializeData(slice: Slice, state: DndEventState) {
+    const dataTransfer = state.raw.dataTransfer;
+    if (!dataTransfer) return;
 
-    const widget = this.widget;
-    const cleanups: (() => void)[] = [];
+    const job = this._getJob();
 
-    cleanups.push(
-      this.std.dnd.dropTarget<
-        DragBlockEntity,
-        {
-          modelId: string;
-        }
-      >({
-        element: view,
-        getIsSticky: () => true,
-        canDrop: ({ source }) => {
-          if (source.data.bsEntity?.type === 'blocks') {
-            return (
-              source.data.from?.docId !== widget.doc.id ||
-              source.data.bsEntity.modelIds.every(id => id !== view.model.id)
-            );
-          }
+    const snapshot = job.sliceToSnapshot(slice);
+    if (!snapshot) return;
 
-          return false;
-        },
-        setDropData: () => {
-          return {
-            modelId: view.model.id,
-          };
-        },
-      })
-    );
-
-    if (matchFlavours(view.model, [AttachmentBlockModel, BookmarkBlockModel])) {
-      cleanups.push(this._makeDraggable(view));
-    }
-
-    if (this.dropTargetCleanUps.has(view.model.id)) {
-      this.dropTargetCleanUps.get(view.model.id)!.forEach(clean => clean());
-    }
-
-    this.dropTargetCleanUps.set(view.model.id, cleanups);
-  }
-
-  private _monitorBlockDrag() {
-    return this.std.dnd.monitor<DragBlockEntity>({
-      canMonitor: ({ source }) => {
-        const entity = source.data?.bsEntity;
-
-        return entity?.type === 'blocks' && !!entity.snapshot;
-      },
-      onDropTargetChange: ({ location }) => {
-        this._clearDropIndicator();
-
-        if (
-          !this._isDropOnCurrentEditor(
-            (location.current.dropTargets[0]?.element as BlockComponent)?.std
-          )
-        ) {
-          return;
-        }
-      },
-      onDrop: ({ location, source }) => {
-        this._clearDropIndicator();
-
-        if (
-          !this._isDropOnCurrentEditor(
-            (location.current.dropTargets[0]?.element as BlockComponent)?.std
-          )
-        ) {
-          return;
-        }
-
-        const target = location.current.dropTargets[0];
-        const point = new Point(
-          location.current.input.clientX,
-          location.current.input.clientY
-        );
-        const dragPayload = source.data;
-        const dropPayload = target.data;
-
-        this._onDrop(
-          target.element as BlockComponent,
-          dragPayload,
-          dropPayload,
-          point
-        );
-      },
-      onDrag: ({ location, source }) => {
-        if (
-          !this._isDropOnCurrentEditor(
-            (location.current.dropTargets[0]?.element as BlockComponent)?.std
-          ) ||
-          !location.current.dropTargets[0]
-        ) {
-          return;
-        }
-
-        const target = location.current.dropTargets[0];
-        const point = new Point(
-          location.current.input.clientX,
-          location.current.input.clientY
-        );
-        const dragPayload = source.data;
-        const dropPayload = target.data;
-
-        this._onDragMove(
-          point,
-          dragPayload,
-          dropPayload,
-          target.element as BlockComponent
-        );
-      },
-    });
+    const data = this._dndAPI.encodeSnapshot(snapshot);
+    dataTransfer.setData(this._dndAPI.mimeType, data);
   }
 
   watch() {
@@ -794,47 +593,17 @@ export class DragEventWatcher {
 
       return;
     });
-
-    const widget = this.widget;
-    const std = this.std;
-    const disposables = widget.disposables;
-    const scrollable = getScrollContainer(this.host);
-
-    if (scrollable) {
-      disposables.add(
-        std.dnd.autoScroll<DragBlockEntity>({
-          element: scrollable,
-          canScroll: ({ source }) => {
-            return source.data?.bsEntity?.type === 'blocks';
-          },
-        })
-      );
-    }
-
-    disposables.add(this._makeDraggable(this.widget));
-
-    // used to handle drag move and drop
-    disposables.add(this._monitorBlockDrag());
-
-    disposables.add(
-      std.view.viewUpdated.on(payload => {
-        if (payload.type === 'add') {
-          this._makeDropTarget(payload.view);
-        } else if (
-          payload.type === 'delete' &&
-          this.dropTargetCleanUps.has(payload.id)
-        ) {
-          this.dropTargetCleanUps.get(payload.id)!.forEach(clean => clean());
-          this.dropTargetCleanUps.delete(payload.id);
-        }
-      })
-    );
-
-    std.view.views.forEach(block => this._makeDropTarget(block));
-
-    disposables.add(() => {
-      this.dropTargetCleanUps.forEach(cleanUps => cleanUps.forEach(fn => fn()));
-      this.dropTargetCleanUps.clear();
+    this.widget.handleEvent('nativeDragStart', this._dragStartHandler, {
+      global: true,
+    });
+    this.widget.handleEvent('nativeDragMove', this._dragMoveHandler, {
+      global: true,
+    });
+    this.widget.handleEvent('nativeDragEnd', this._dragEndHandler, {
+      global: true,
+    });
+    this.widget.handleEvent('nativeDrop', this._dropHandler, {
+      global: true,
     });
   }
 }

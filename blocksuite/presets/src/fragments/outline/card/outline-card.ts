@@ -1,32 +1,195 @@
-import { ShadowlessElement } from '@blocksuite/block-std';
 import {
+  type ColorScheme,
   createButtonPopper,
   type NoteBlockModel,
   NoteDisplayMode,
+  on,
+  once,
 } from '@blocksuite/blocks';
 import { SignalWatcher, WithDisposable } from '@blocksuite/global/utils';
-import { ArrowDownSmallIcon, InvisibleIcon } from '@blocksuite/icons/lit';
-import type { BlockModel } from '@blocksuite/store';
-import { consume } from '@lit/context';
-import { signal } from '@preact/signals-core';
-import { html } from 'lit';
-import { property, query } from 'lit/decorators.js';
+import type { BlockModel, Doc } from '@blocksuite/store';
+import { baseTheme } from '@toeverything/theme';
+import { css, html, LitElement, nothing, unsafeCSS } from 'lit';
+import { property, query, state } from 'lit/decorators.js';
 import { classMap } from 'lit/directives/class-map.js';
 
-import { type TocContext, tocContext } from '../config';
-import type { SelectEvent } from '../utils/custom-events';
-import type { NoteCardEntity, NoteDropPayload } from '../utils/drag';
-import * as styles from './outline-card.css';
+import { HiddenIcon, SmallArrowDownIcon } from '../../_common/icons.js';
+import type { SelectEvent } from '../utils/custom-events.js';
+
+const styles = css`
+  :host {
+    display: block;
+    position: relative;
+  }
+
+  .card-container {
+    position: relative;
+
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    box-sizing: border-box;
+  }
+
+  .card-preview {
+    position: relative;
+
+    width: 100%;
+
+    border-radius: 4px;
+
+    cursor: default;
+    user-select: none;
+  }
+
+  .card-preview.edgeless:hover {
+    background: var(--affine-hover-color);
+  }
+
+  .card-header-container {
+    padding: 0 8px;
+    width: 100%;
+    min-height: 28px;
+    display: none;
+    align-items: center;
+    gap: 8px;
+    box-sizing: border-box;
+  }
+
+  .card-header-container.enable-sorting {
+    display: flex;
+  }
+
+  .card-header-container .card-number {
+    text-align: center;
+    font-size: var(--affine-font-sm);
+    font-family: ${unsafeCSS(baseTheme.fontSansFamily)};
+    color: var(--affine-brand-color, #1e96eb);
+    font-weight: 500;
+    line-height: 14px;
+    line-height: 20px;
+  }
+
+  .card-header-container .card-header-icon {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+  }
+
+  .card-header-container .card-divider {
+    height: 1px;
+    flex: 1;
+    border-top: 1px dashed var(--affine-border-color);
+    transform: translateY(50%);
+  }
+
+  .display-mode-button-group {
+    display: none;
+    position: absolute;
+    right: 8px;
+    top: -6px;
+    padding-top: 8px;
+    padding-bottom: 8px;
+    align-items: center;
+    gap: 4px;
+    font-size: 12px;
+    font-weight: 500;
+    line-height: 20px;
+  }
+
+  .card-preview:hover .display-mode-button-group {
+    display: flex;
+  }
+
+  .display-mode-button-label {
+    color: var(--affine-text-primary-color);
+  }
+
+  .display-mode-button {
+    display: flex;
+    border-radius: 4px;
+    background-color: var(--affine-hover-color);
+    align-items: center;
+  }
+
+  .current-mode-label {
+    display: flex;
+    padding: 2px 0px 2px 4px;
+    align-items: center;
+  }
+
+  note-display-mode-panel {
+    position: absolute;
+    display: none;
+    background: var(--affine-background-overlay-panel-color);
+    border-radius: 8px;
+    box-shadow: var(--affine-shadow-2);
+    box-sizing: border-box;
+    padding: 8px;
+    font-size: var(--affine-font-sm);
+    color: var(--affine-text-primary-color);
+    line-height: 22px;
+    font-weight: 400;
+    font-family: ${unsafeCSS(baseTheme.fontSansFamily)};
+  }
+
+  note-display-mode-panel[data-show] {
+    display: flex;
+  }
+
+  .card-content {
+    font-family: ${unsafeCSS(baseTheme.fontSansFamily)};
+    user-select: none;
+    color: var(--affine-text-primary-color);
+  }
+
+  .card-preview.edgeless .card-content:hover {
+    cursor: pointer;
+  }
+
+  .card-preview.edgeless .card-header-container:hover {
+    cursor: grab;
+  }
+
+  .card-container.placeholder {
+    pointer-events: none;
+    opacity: 0.5;
+  }
+
+  .card-container.selected .card-preview.edgeless {
+    background: var(--affine-hover-color);
+  }
+
+  .card-container.placeholder .card-preview.edgeless {
+    background: var(--affine-hover-color);
+    opacity: 0.9;
+  }
+
+  .card-container[data-sortable='true'] {
+    padding: 2px 0;
+  }
+
+  .card-container[data-invisible='true'] .card-header-container .card-number,
+  .card-container[data-invisible='true']
+    .card-header-container
+    .card-header-icon,
+  .card-container[data-invisible='true'] .card-preview .card-content {
+    color: var(--affine-text-disable-color);
+    pointer-events: none;
+  }
+
+  .card-preview.page outline-block-preview:hover {
+    color: var(--affine-brand-color);
+  }
+`;
 
 export const AFFINE_OUTLINE_NOTE_CARD = 'affine-outline-note-card';
 
-export class OutlineNoteCard extends SignalWatcher(
-  WithDisposable(ShadowlessElement)
-) {
+export class OutlineNoteCard extends SignalWatcher(WithDisposable(LitElement)) {
+  static override styles = styles;
+
   private _displayModePopper: ReturnType<typeof createButtonPopper> | null =
     null;
-
-  private readonly _showPopper$ = signal(false);
 
   private _dispatchClickBlockEvent(block: BlockModel) {
     const event = new CustomEvent('clickblock', {
@@ -38,15 +201,50 @@ export class OutlineNoteCard extends SignalWatcher(
     this.dispatchEvent(event);
   }
 
-  private _dispatchDisplayModeChangeEvent(newMode: NoteDisplayMode) {
+  private _dispatchDisplayModeChangeEvent(
+    note: NoteBlockModel,
+    newMode: NoteDisplayMode
+  ) {
     const event = new CustomEvent('displaymodechange', {
       detail: {
-        note: this.note,
+        note,
         newMode,
       },
     });
 
     this.dispatchEvent(event);
+  }
+
+  private _dispatchDragEvent(e: MouseEvent) {
+    e.preventDefault();
+    if (
+      e.button !== 0 ||
+      this.editorMode === 'page' ||
+      !this.enableNotesSorting
+    )
+      return;
+
+    const { clientX: startX, clientY: startY } = e;
+    const disposeDragStart = on(this.ownerDocument, 'mousemove', e => {
+      if (
+        Math.abs(startX - e.clientX) < 5 &&
+        Math.abs(startY - e.clientY) < 5
+      ) {
+        return;
+      }
+      if (this.status !== 'selected') {
+        this._dispatchSelectEvent(e);
+      }
+
+      const event = new CustomEvent('drag');
+
+      this.dispatchEvent(event);
+      disposeDragStart();
+    });
+
+    once(this.ownerDocument, 'mouseup', () => {
+      disposeDragStart();
+    });
   }
 
   private _dispatchFitViewEvent(e: MouseEvent) {
@@ -67,6 +265,7 @@ export class OutlineNoteCard extends SignalWatcher(
       detail: {
         id: this.note.id,
         selected: this.status !== 'selected',
+        number: this.number,
         multiselect: e.shiftKey,
       },
     }) as SelectEvent;
@@ -87,53 +286,12 @@ export class OutlineNoteCard extends SignalWatcher(
     }
   }
 
-  private _watchDragEvents() {
-    const std = this._context.editor$.value.std;
-    this.disposables.add(
-      std.dnd.draggable<NoteCardEntity>({
-        element: this,
-        canDrag: () => this.note.displayMode !== NoteDisplayMode.EdgelessOnly,
-        onDragStart: () => {
-          if (this.status !== 'selected') {
-            this.dispatchEvent(
-              new CustomEvent('select', {
-                detail: {
-                  id: this.note.id,
-                  selected: true,
-                  multiselect: false,
-                },
-              })
-            );
-          }
-        },
-        setDragData: () => ({
-          type: 'toc-card',
-          noteId: this.note.id,
-        }),
-      })
-    );
-
-    this.disposables.add(
-      std.dnd.dropTarget<NoteCardEntity, NoteDropPayload>({
-        element: this,
-        setDropData: () => ({
-          noteId: this.note.id,
-        }),
-      })
-    );
-  }
-
-  override connectedCallback() {
-    super.connectedCallback();
-    this._watchDragEvents();
-  }
-
   override firstUpdated() {
     this._displayModePopper = createButtonPopper(
       this._displayModeButtonGroup,
       this._displayModePanel,
       ({ display }) => {
-        this._showPopper$.value = display === 'show';
+        this._showPopper = display === 'show';
       },
       {
         mainAxis: 0,
@@ -145,75 +303,74 @@ export class OutlineNoteCard extends SignalWatcher(
   }
 
   override render() {
+    if (this.note.isEmpty.peek()) return nothing;
+
     const { children, displayMode } = this.note;
     const currentMode = this._getCurrentModeLabel(displayMode);
-    const invisible =
-      this.note.displayMode$.value === NoteDisplayMode.EdgelessOnly;
-
-    const enableSorting = this._context.enableSorting$.value;
+    const cardHeaderClasses = classMap({
+      'card-header-container': true,
+      'enable-sorting': this.enableNotesSorting,
+    });
 
     return html`
       <div
-        data-visibility=${this.note.displayMode}
-        data-sortable=${enableSorting}
-        data-status=${this.status}
-        class=${styles.outlineCard}
+        data-invisible="${this.invisible ? 'true' : 'false'}"
+        data-sortable="${this.enableNotesSorting ? 'true' : 'false'}"
+        class="card-container ${this.status ?? ''} ${this.theme}"
       >
         <div
-          class=${styles.cardPreview}
+          class="card-preview ${this.editorMode}"
+          @mousedown=${this._dispatchDragEvent}
           @click=${this._dispatchSelectEvent}
           @dblclick=${this._dispatchFitViewEvent}
         >
-        ${html`<div class=${styles.cardHeader}>
+        ${html`<div class=${cardHeaderClasses}>
           ${
-            invisible
-              ? html`<span class=${styles.headerIcon}
-                  >${InvisibleIcon({ width: '20px', height: '20px' })}</span
-                >`
-              : html`<span class=${styles.headerNumber}
-                  >${this.index + 1}</span
-                >`
+            this.invisible
+              ? html`<span class="card-header-icon">${HiddenIcon}</span>`
+              : html`<span class="card-number">${this.number}</span>`
           }
-          <span class=${styles.divider}></span>
-          <div class=${styles.displayModeButtonGroup}>
-            <span>Show in</span>
+          <span class="card-divider"></span>
+          <div class="display-mode-button-group">
+            <span class="display-mode-button-label">Show in</span>
             <edgeless-tool-icon-button
-              .tooltip=${this._showPopper$.value ? '' : 'Display Mode'}
+              .tooltip=${this._showPopper ? '' : 'Display Mode'}
               .tipPosition=${'left-start'}
               .iconContainerPadding=${0}
-              data-testid="display-mode-button"
               @click=${(e: MouseEvent) => {
                 e.stopPropagation();
                 this._displayModePopper?.toggle();
               }}
               @dblclick=${(e: MouseEvent) => e.stopPropagation()}
             >
-              <div class=${styles.displayModeButton}>
-                <span class=${styles.currentModeLabel}>${currentMode}</span>
-                ${ArrowDownSmallIcon({ width: '16px', height: '16px' })}
+              <div class="display-mode-button">
+                <span class="current-mode-label">${currentMode}</span>
+                ${SmallArrowDownIcon}
               </div>
             </edgeless-tool-icon-button>
           </div>
           </div>
           <note-display-mode-panel
-            class=${styles.modeChangePanel}
             .displayMode=${displayMode}
             .panelWidth=${220}
             .onSelect=${(newMode: NoteDisplayMode) => {
-              this._dispatchDisplayModeChangeEvent(newMode);
+              this._dispatchDisplayModeChangeEvent(this.note, newMode);
               this._displayModePopper?.hide();
             }}
           >
           </note-display-mode-panel>
         </div>`}
-          <div class=${styles.cardContent}>
+          <div class="card-content">
             ${children.map(block => {
               return html`<affine-outline-block-preview
-                class=${classMap({ active: this.activeHeadingId === block.id })}
                 .block=${block}
-                .disabledIcon=${invisible}
+                .className=${this.activeHeadingId === block.id ? 'active' : ''}
+                .showPreviewIcon=${this.showPreviewIcon}
+                .disabledIcon=${this.invisible}
+                .cardNumber=${this.number}
+                .enableNotesSorting=${this.enableNotesSorting}
                 @click=${() => {
-                  if (invisible) return;
+                  if (this.editorMode === 'edgeless' || this.invisible) return;
                   this._dispatchClickBlockEvent(block);
                 }}
               ></affine-outline-block-preview>`;
@@ -225,26 +382,47 @@ export class OutlineNoteCard extends SignalWatcher(
     `;
   }
 
-  @query(`.${styles.displayModeButtonGroup}`)
+  @query('.display-mode-button-group')
   private accessor _displayModeButtonGroup!: HTMLDivElement;
 
   @query('note-display-mode-panel')
   private accessor _displayModePanel!: HTMLDivElement;
 
+  @state()
+  private accessor _showPopper = false;
+
   @property({ attribute: false })
   accessor activeHeadingId: string | null = null;
 
   @property({ attribute: false })
-  accessor note!: NoteBlockModel;
-
-  @property({ attribute: true, type: Number })
-  accessor index: number = 0;
+  accessor doc!: Doc;
 
   @property({ attribute: false })
-  accessor status: 'selected' | 'dragging' | 'normal' = 'normal';
+  accessor editorMode: 'page' | 'edgeless' = 'page';
 
-  @consume({ context: tocContext })
-  private accessor _context!: TocContext;
+  @property({ attribute: false })
+  accessor enableNotesSorting!: boolean;
+
+  @property({ attribute: false })
+  accessor index!: number;
+
+  @property({ attribute: false })
+  accessor invisible = false;
+
+  @property({ attribute: false })
+  accessor note!: NoteBlockModel;
+
+  @property({ attribute: false })
+  accessor number!: number;
+
+  @property({ attribute: false })
+  accessor showPreviewIcon!: boolean;
+
+  @property({ attribute: false })
+  accessor status: 'selected' | 'placeholder' | undefined = undefined;
+
+  @property({ attribute: false })
+  accessor theme!: ColorScheme;
 }
 
 declare global {

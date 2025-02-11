@@ -1,45 +1,42 @@
-import {
-  type DropTargetDragEvent,
-  MenuItem,
-  shallowUpdater,
-  useDraggable,
-  useDropTarget,
-} from '@affine/component';
-import type { AffineDNDData } from '@affine/core/types/dnd';
+import { MenuItem } from '@affine/component';
 import { useI18n } from '@affine/i18n';
-import track from '@affine/track';
 import {
-  CloseIcon,
-  ExpandFullIcon,
-  InsertLeftIcon,
-  InsertRightIcon,
+  ExpandCloseIcon,
+  MoveToLeftDuotoneIcon,
+  MoveToRightDuotoneIcon,
+  SoloViewIcon,
 } from '@blocksuite/icons/rc';
+import { useSortable } from '@dnd-kit/sortable';
 import { useLiveData, useService } from '@toeverything/infra';
 import { assignInlineVars } from '@vanilla-extract/dynamic';
-import { useAtom } from 'jotai';
-import type { HTMLAttributes, PropsWithChildren } from 'react';
-import { memo, useCallback, useMemo } from 'react';
+import type {
+  Dispatch,
+  HTMLAttributes,
+  PropsWithChildren,
+  RefObject,
+  SetStateAction,
+} from 'react';
+import {
+  memo,
+  useCallback,
+  useLayoutEffect,
+  useMemo,
+  useRef,
+  useState,
+} from 'react';
 
 import type { View } from '../../entities/view';
 import { WorkbenchService } from '../../services/workbench';
 import { SplitViewIndicator } from './indicator';
-import { ResizeHandle } from './resize-handle';
 import * as styles from './split-view.css';
-import {
-  draggingOverViewAtom,
-  draggingViewAtom,
-  resizingViewAtom,
-} from './state';
-import { allowedSplitViewEntityTypes } from './types';
 
 export interface SplitViewPanelProps
   extends PropsWithChildren<HTMLAttributes<HTMLDivElement>> {
   view: View;
-  index: number;
   resizeHandle?: React.ReactNode;
-  onMove: (from: number, to: number) => void;
-  onResizing: (dxy: { x: number; y: number }) => void;
-  draggingEntity: boolean;
+  setSlots?: Dispatch<
+    SetStateAction<Record<string, RefObject<HTMLDivElement | null>>>
+  >;
 }
 
 export const SplitViewPanelContainer = ({
@@ -53,303 +50,128 @@ export const SplitViewPanelContainer = ({
   );
 };
 
-/**
- * Calculate the order of the panel
- */
-function calculateOrder(
-  index: number,
-  draggingIndex: number,
-  droppingIndex: number
-) {
-  // If not dragging or invalid indices, return original index
-  if (draggingIndex === -1 || draggingIndex < 0 || droppingIndex < 0) {
-    return index;
-  }
-
-  // If this is the dragging item, move it to the dropping position
-  if (index === draggingIndex) {
-    return droppingIndex;
-  }
-
-  // If dropping before the dragging item
-  if (droppingIndex < draggingIndex) {
-    // Items between drop and drag positions shift right
-    if (index >= droppingIndex && index < draggingIndex) {
-      return index + 1;
-    }
-  }
-  // If dropping after the dragging item
-  else if (
-    droppingIndex > draggingIndex &&
-    index > draggingIndex &&
-    index <= droppingIndex
-  ) {
-    // Items between drag and drop positions shift left
-    return index - 1;
-  }
-
-  // For all other items, keep their original position
-  return index;
-}
-
 export const SplitViewPanel = memo(function SplitViewPanel({
   children,
   view,
-  onMove,
-  onResizing,
-  draggingEntity,
-  index,
+  setSlots,
 }: SplitViewPanelProps) {
+  const [indicatorPressed, setIndicatorPressed] = useState(false);
+  const ref = useRef<HTMLDivElement>(null);
   const size = useLiveData(view.size$);
   const workbench = useService(WorkbenchService).workbench;
-
   const activeView = useLiveData(workbench.activeView$);
   const views = useLiveData(workbench.views$);
+  const isLast = views[views.length - 1] === view;
 
+  const {
+    attributes,
+    listeners,
+    transform,
+    transition,
+    isDragging: dndIsDragging,
+    setNodeRef,
+  } = useSortable({ id: view.id, attributes: { role: 'group' } });
+
+  const isDragging = dndIsDragging || indicatorPressed;
   const isActive = activeView === view;
 
-  const [draggingView, setDraggingView] = useAtom(draggingViewAtom);
-  const [draggingOverView, setDraggingOverView] = useAtom(draggingOverViewAtom);
-  const [resizingView, setResizingView] = useAtom(resizingViewAtom);
+  useLayoutEffect(() => {
+    if (ref.current) {
+      setSlots?.(slots => ({ ...slots, [view.id]: ref }));
+    }
+  }, [setSlots, view.id]);
 
-  const order = useMemo(
-    () =>
-      calculateOrder(
-        index,
-        draggingView?.index ?? -1,
-        draggingOverView?.index ?? -1
-      ),
-    [index, draggingView, draggingOverView]
+  const style = useMemo(
+    () => ({
+      ...assignInlineVars({ '--size': size.toString() }),
+    }),
+    [size]
   );
-
-  const isFirst = order === 0;
-  const isLast = views.length - 1 === order;
-
-  const style = useMemo(() => {
-    return {
-      ...assignInlineVars({
-        [styles.size]: size.toString(),
-        [styles.panelOrder]: order.toString(),
-      }),
-    };
-  }, [size, order]);
-
-  const { dropTargetRef } = useDropTarget<AffineDNDData>(() => {
-    const handleDrag = (data: DropTargetDragEvent<AffineDNDData>) => {
-      // only the first view has left edge
-      const edge = data.closestEdge as 'left' | 'right';
-      const switchEdge = edge === 'left' && !isFirst;
-
-      const newDraggingOver = {
-        view: switchEdge ? views[index - 1] : view,
-        index: order,
-        edge: switchEdge ? 'right' : edge,
-      };
-
-      setDraggingOverView(shallowUpdater(newDraggingOver));
-    };
-
-    return {
-      closestEdge: {
-        allowedEdges: ['left', 'right'],
-      },
-      isSticky: true,
-      canDrop(data) {
-        const entityType = data.source.data.entity?.type;
-        return (
-          (BUILD_CONFIG.isElectron &&
-            data.source.data.from?.at === 'workbench:view') ||
-          data.source.data.from?.at === 'workbench:link' ||
-          (!!entityType && allowedSplitViewEntityTypes.has(entityType))
-        );
-      },
-      onDragEnter: handleDrag,
-      onDrag: handleDrag,
-    };
-  }, [index, isFirst, order, setDraggingOverView, view, views]);
-
-  const { dragRef } = useDraggable<AffineDNDData>(() => {
-    return {
-      data: () => {
-        return {
-          from: {
-            at: 'workbench:view',
-            viewId: view.id,
-          },
-        };
-      },
-      onDrop() {
-        if (order !== index && draggingOverView) {
-          onMove?.(index, draggingOverView.index);
-        }
-        setDraggingView(null);
-        setDraggingOverView(null);
-        track.$.splitViewIndicator.$.splitViewAction({
-          control: 'indicator',
-          action: 'move',
-        });
-      },
-      onDragStart() {
-        setDraggingView({
-          view,
-          index: order,
-        });
-      },
-      canDrag() {
-        return BUILD_CONFIG.isElectron && views.length > 1;
-      },
-      disableDragPreview: true,
-    };
-  }, [
-    draggingOverView,
-    index,
-    onMove,
-    order,
-    setDraggingOverView,
-    setDraggingView,
-    view,
-    views.length,
-  ]);
-
-  const dragging = draggingView?.view.id === view.id;
-
-  const onResizeStart = useCallback(() => {
-    setResizingView({ view, index });
-  }, [setResizingView, view, index]);
-
-  const onResizeEnd = useCallback(() => {
-    setResizingView(null);
-  }, [setResizingView]);
-
-  const indicatingEdge =
-    draggingOverView?.view === view ? draggingOverView.edge : null;
+  const dragStyle = useMemo(
+    () => ({
+      transform: `translate3d(${transform?.x ?? 0}px, 0, 0)`,
+      transition,
+    }),
+    [transform, transition]
+  );
 
   return (
     <SplitViewPanelContainer
       style={style}
-      data-is-resizing={!!resizingView}
-      data-is-reordering={!!draggingView}
-      data-is-dragging={dragging}
+      data-is-dragging={isDragging}
       data-is-active={isActive && views.length > 1}
-      data-is-first={isFirst}
       data-is-last={isLast}
-      data-testid="split-view-panel"
     >
-      {isFirst ? (
-        <ResizeHandle
-          edge="left"
-          view={view}
-          state={
-            draggingEntity && indicatingEdge === 'left'
-              ? 'drop-indicator'
-              : 'idle'
-          }
-        />
-      ) : null}
       <div
-        ref={dropTargetRef}
-        data-is-active={isActive && views.length > 1 && !draggingEntity}
+        ref={setNodeRef}
+        style={dragStyle}
         className={styles.splitViewPanelDrag}
+        {...attributes}
       >
-        <div draggable={false} className={styles.splitViewPanelContent}>
-          {children}
-        </div>
-        {views.length > 1 && onMove ? (
+        <div className={styles.splitViewPanelContent} ref={ref} />
+        {views.length > 1 ? (
           <SplitViewIndicator
-            view={view}
+            listeners={listeners}
+            isDragging={isDragging}
             isActive={isActive}
-            isDragging={dragging}
-            dragHandleRef={dragRef}
-            menuItems={<SplitViewMenu view={view} onMove={onMove} />}
+            menuItems={<SplitViewMenu view={view} />}
+            setPressed={setIndicatorPressed}
           />
         ) : null}
       </div>
-      {!draggingView ? (
-        <ResizeHandle
-          edge="right"
-          view={view}
-          state={
-            resizingView?.view.id === view.id
-              ? 'resizing'
-              : draggingEntity && indicatingEdge === 'right'
-                ? 'drop-indicator'
-                : 'idle'
-          }
-          onResizeStart={onResizeStart}
-          onResizeEnd={onResizeEnd}
-          onResizing={onResizing}
-        />
-      ) : null}
+      {children}
     </SplitViewPanelContainer>
   );
 });
 
-const SplitViewMenu = ({
-  view,
-  onMove,
-}: {
-  view: View;
-  onMove: (from: number, to: number) => void;
-}) => {
+const SplitViewMenu = ({ view }: { view: View }) => {
   const t = useI18n();
   const workbench = useService(WorkbenchService).workbench;
   const views = useLiveData(workbench.views$);
 
   const viewIndex = views.findIndex(v => v === view);
 
-  const handleClose = useCallback(() => {
-    workbench.close(view);
-    track.$.splitViewIndicator.$.splitViewAction({
-      control: 'menu',
-      action: 'close',
-    });
-  }, [view, workbench]);
+  const handleClose = useCallback(
+    () => workbench.close(view),
+    [view, workbench]
+  );
   const handleMoveLeft = useCallback(() => {
-    onMove(viewIndex, viewIndex - 1);
-    track.$.splitViewIndicator.$.splitViewAction({
-      control: 'menu',
-      action: 'move',
-    });
-  }, [onMove, viewIndex]);
+    workbench.moveView(viewIndex, viewIndex - 1);
+  }, [viewIndex, workbench]);
   const handleMoveRight = useCallback(() => {
-    onMove(viewIndex, viewIndex + 1);
-    track.$.splitViewIndicator.$.splitViewAction({
-      control: 'menu',
-      action: 'move',
-    });
-  }, [onMove, viewIndex]);
+    workbench.moveView(viewIndex, viewIndex + 1);
+  }, [viewIndex, workbench]);
   const handleCloseOthers = useCallback(() => {
     workbench.closeOthers(view);
-    track.$.splitViewIndicator.$.splitViewAction({
-      control: 'menu',
-      action: 'closeOthers',
-    });
   }, [view, workbench]);
 
   const CloseItem =
     views.length > 1 ? (
-      <MenuItem prefixIcon={<CloseIcon />} onClick={handleClose}>
+      <MenuItem prefixIcon={<ExpandCloseIcon />} onClick={handleClose}>
         {t['com.affine.workbench.split-view-menu.close']()}
       </MenuItem>
     ) : null;
 
   const MoveLeftItem =
     viewIndex > 0 && views.length > 1 ? (
-      <MenuItem onClick={handleMoveLeft} prefixIcon={<InsertRightIcon />}>
+      <MenuItem onClick={handleMoveLeft} prefixIcon={<MoveToLeftDuotoneIcon />}>
         {t['com.affine.workbench.split-view-menu.move-left']()}
       </MenuItem>
     ) : null;
 
   const FullScreenItem =
     views.length > 1 ? (
-      <MenuItem onClick={handleCloseOthers} prefixIcon={<ExpandFullIcon />}>
+      <MenuItem onClick={handleCloseOthers} prefixIcon={<SoloViewIcon />}>
         {t['com.affine.workbench.split-view-menu.keep-this-one']()}
       </MenuItem>
     ) : null;
 
   const MoveRightItem =
     viewIndex < views.length - 1 ? (
-      <MenuItem onClick={handleMoveRight} prefixIcon={<InsertLeftIcon />}>
+      <MenuItem
+        onClick={handleMoveRight}
+        prefixIcon={<MoveToRightDuotoneIcon />}
+      >
         {t['com.affine.workbench.split-view-menu.move-right']()}
       </MenuItem>
     ) : null;

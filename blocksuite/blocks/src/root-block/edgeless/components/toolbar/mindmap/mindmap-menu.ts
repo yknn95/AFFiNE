@@ -2,7 +2,6 @@ import { toast } from '@blocksuite/affine-components/toast';
 import type { MindmapStyle } from '@blocksuite/affine-model';
 import {
   EditPropsStore,
-  FeatureFlagService,
   TelemetryProvider,
 } from '@blocksuite/affine-shared/services';
 import type { BlockStdScope } from '@blocksuite/block-std';
@@ -22,8 +21,8 @@ import { getTooltipWithShortcut } from '../../utils.js';
 import { EdgelessDraggableElementController } from '../common/draggable/draggable-element.controller.js';
 import { EdgelessToolbarToolMixin } from '../mixins/tool.mixin.js';
 import { getMindMaps, type ToolbarMindmapItem } from './assets.js';
-import { mediaRender, textRender } from './basket-elements.js';
-import { importMindMapIcon, mindmapMenuMediaIcon, textIcon } from './icons.js';
+import { textRender } from './basket-elements.js';
+import { importMindMapIcon, textIcon } from './icons.js';
 import { MindMapPlaceholder } from './mindmap-importing-placeholder.js';
 
 type TextItem = {
@@ -32,24 +31,12 @@ type TextItem = {
   render: typeof textRender;
 };
 
-type MediaItem = {
-  type: 'media';
-  icon: TemplateResult;
-  render: typeof mediaRender;
-};
-
 type ImportItem = {
   type: 'import';
   icon: TemplateResult;
 };
 
 const textItem: TextItem = { type: 'text', icon: textIcon, render: textRender };
-
-const mediaItem: MediaItem = {
-  type: 'media',
-  icon: mindmapMenuMediaIcon,
-  render: mediaRender,
-};
 
 export class EdgelessMindmapMenu extends EdgelessToolbarToolMixin(
   SignalWatcher(LitElement)
@@ -72,8 +59,7 @@ export class EdgelessMindmapMenu extends EdgelessToolbarToolMixin(
       height: 48px;
       background: var(--affine-border-color);
     }
-    .text-item,
-    .media-item {
+    .text-item {
       width: 60px;
     }
     .mindmap-item {
@@ -81,7 +67,6 @@ export class EdgelessMindmapMenu extends EdgelessToolbarToolMixin(
     }
 
     .text-item,
-    .media-item,
     .mindmap-item {
       border-radius: 4px;
       height: 48px;
@@ -91,7 +76,6 @@ export class EdgelessMindmapMenu extends EdgelessToolbarToolMixin(
       justify-content: center;
     }
     .text-item > button,
-    .media-item > button,
     .mindmap-item > button {
       position: absolute;
       border-radius: inherit;
@@ -101,13 +85,11 @@ export class EdgelessMindmapMenu extends EdgelessToolbarToolMixin(
       padding: 0;
     }
     .text-item:hover,
-    .media-item:hover,
     .mindmap-item[data-is-active='true'],
     .mindmap-item:hover {
       background: var(--affine-hover-color);
     }
     .text-item > button.next,
-    .media-item > button.next,
     .mindmap-item > button.next {
       transition: transform 0.3s ease-in-out;
     }
@@ -120,7 +102,7 @@ export class EdgelessMindmapMenu extends EdgelessToolbarToolMixin(
   });
 
   draggableController!: EdgelessDraggableElementController<
-    ToolbarMindmapItem | TextItem | ImportItem | MediaItem
+    ToolbarMindmapItem | TextItem | ImportItem
   >;
 
   override type = 'empty' as const;
@@ -232,26 +214,21 @@ export class EdgelessMindmapMenu extends EdgelessToolbarToolMixin(
       },
       onDrop: (element, bound) => {
         if ('render' in element.data) {
-          element.data
-            .render(bound, this.edgeless.service, this.edgeless)
-            .then(id => {
-              if (!id) return;
-              if (element.data.type === 'mindmap') {
-                this.onActiveStyleChange?.(element.data.style);
-                this.setEdgelessTool({ type: 'default' });
-                this.edgeless.gfx.selection.set({
-                  elements: [id],
-                  editing: false,
-                });
-              } else if (
-                element.data.type === 'text' ||
-                element.data.type === 'media'
-              ) {
-                this.setEdgelessTool({ type: 'default' });
-              }
-            })
-            .catch(console.error);
-        } else if (element.data.type === 'import') {
+          const id = element.data.render(
+            bound,
+            this.edgeless.service,
+            this.edgeless
+          );
+          if (element.data.type === 'mindmap') {
+            this.onActiveStyleChange?.(element.data.style);
+            this.setEdgelessTool({ type: 'default' });
+            this.edgeless.gfx.selection.set({ elements: [id], editing: false });
+          } else if (element.data.type === 'text') {
+            this.setEdgelessTool({ type: 'default' });
+          }
+        }
+
+        if (element.data.type === 'import') {
           this._onImportMindMap?.(bound);
         }
       },
@@ -262,40 +239,10 @@ export class EdgelessMindmapMenu extends EdgelessToolbarToolMixin(
     const { cancelled, draggingElement, dragOut } =
       this.draggableController?.states || {};
 
-    const isDraggingMedia = draggingElement?.data?.type === 'media';
     const isDraggingText = draggingElement?.data?.type === 'text';
     const showNextText = dragOut && !cancelled;
     return html`<edgeless-slide-menu .height=${'64px'}>
       <div class="text-and-mindmap">
-        <div class="media-item">
-          ${isDraggingMedia
-            ? html`<button
-                class="next"
-                style="transform: translateY(${showNextText ? 0 : 64}px)"
-              >
-                ${mediaItem.icon}
-              </button>`
-            : nothing}
-          <button
-            style="opacity: ${isDraggingMedia ? 0 : 1}"
-            @mousedown=${(e: MouseEvent) =>
-              this.draggableController.onMouseDown(e, {
-                preview: mediaItem.icon,
-                data: mediaItem,
-              })}
-            @touchstart=${(e: TouchEvent) =>
-              this.draggableController.onTouchStart(e, {
-                preview: mediaItem.icon,
-                data: mediaItem,
-              })}
-          >
-            ${mediaItem.icon}
-          </button>
-          <affine-tooltip tip-position="top" .offset=${12}>
-            ${getTooltipWithShortcut('Add media')}
-          </affine-tooltip>
-        </div>
-        <div class="thin-divider"></div>
         <div class="text-item">
           ${isDraggingText
             ? html`<button
@@ -369,9 +316,7 @@ export class EdgelessMindmapMenu extends EdgelessToolbarToolMixin(
             </div>
           `;
         })}
-        ${this.std.store
-          .get(FeatureFlagService)
-          .getFlag('enable_mind_map_import')
+        ${this.std.doc.awarenessStore.getFlag('enable_mind_map_import')
           ? this._importMindMapEntry()
           : nothing}
       </div>

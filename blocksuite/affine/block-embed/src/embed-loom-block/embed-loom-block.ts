@@ -1,7 +1,6 @@
 import { OpenIcon } from '@blocksuite/affine-components/icons';
 import type { EmbedLoomModel, EmbedLoomStyles } from '@blocksuite/affine-model';
 import { ThemeProvider } from '@blocksuite/affine-shared/services';
-import { BlockSelection } from '@blocksuite/block-std';
 import { html } from 'lit';
 import { property, state } from 'lit/decorators.js';
 import { classMap } from 'lit/directives/class-map.js';
@@ -47,7 +46,7 @@ export class EmbedLoomBlockComponent extends EmbedBlockComponent<
 
   private _selectBlock() {
     const selectionManager = this.host.selection;
-    const blockSelection = selectionManager.create(BlockSelection, {
+    const blockSelection = selectionManager.create('block', {
       blockId: this.blockId,
     });
     selectionManager.setGroup('note', [blockSelection]);
@@ -92,21 +91,25 @@ export class EmbedLoomBlockComponent extends EmbedBlockComponent<
 
     // this is required to prevent iframe from capturing pointer events
     this.disposables.add(
-      this.selected$.subscribe(selected => {
-        this._showOverlay = this._isResizing || this._isDragging || !selected;
+      this.std.selection.slots.changed.on(() => {
+        this._isSelected =
+          !!this.selected?.is('block') || !!this.selected?.is('surface');
+
+        this._showOverlay =
+          this._isResizing || this._isDragging || !this._isSelected;
       })
     );
     // this is required to prevent iframe from capturing pointer events
     this.handleEvent('dragStart', () => {
       this._isDragging = true;
       this._showOverlay =
-        this._isResizing || this._isDragging || !this.selected$.peek();
+        this._isResizing || this._isDragging || !this._isSelected;
     });
 
     this.handleEvent('dragEnd', () => {
       this._isDragging = false;
       this._showOverlay =
-        this._isResizing || this._isDragging || !this.selected$.peek();
+        this._isResizing || this._isDragging || !this._isSelected;
     });
   }
 
@@ -132,7 +135,7 @@ export class EmbedLoomBlockComponent extends EmbedBlockComponent<
           class=${classMap({
             'affine-embed-loom-block': true,
             loading,
-            selected: this.selected$.value,
+            selected: this._isSelected,
           })}
           style=${styleMap({
             transform: `scale(${this._scale})`,
@@ -187,6 +190,9 @@ export class EmbedLoomBlockComponent extends EmbedBlockComponent<
       `
     );
   }
+
+  @state()
+  protected accessor _isSelected = false;
 
   @state()
   protected accessor _showOverlay = true;

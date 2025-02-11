@@ -1,10 +1,10 @@
 import { RefNodeSlotsProvider } from '@blocksuite/affine-components/rich-text';
 import { AffineEditorContainer } from '@blocksuite/presets';
-import { Text, type Workspace } from '@blocksuite/store';
+import { type DocCollection, Text } from '@blocksuite/store';
 
 import type { InitFn } from './utils.js';
 
-export const multiEditor: InitFn = (collection: Workspace, id: string) => {
+export const multiEditor: InitFn = (collection: DocCollection, id: string) => {
   const doc = collection.createDoc({ id });
   doc.load(() => {
     // Add root block and surface block at root level
@@ -48,7 +48,7 @@ multiEditor.displayName = 'Multiple Editor Example';
 multiEditor.description = 'Multiple Editor basic example';
 
 export const multiEditorVertical: InitFn = (
-  collection: Workspace,
+  collection: DocCollection,
   docId: string
 ) => {
   const doc = collection.createDoc({ id: docId });

@@ -2,8 +2,6 @@ import type { DefaultOpenProperty } from '@affine/core/components/doc-properties
 import {
   type DocMode,
   EdgelessRootService,
-  FeatureFlagService as BSFeatureFlagService,
-  HighlightSelection,
   type ReferenceParams,
 } from '@blocksuite/affine/blocks';
 import type {
@@ -17,7 +15,6 @@ import { defaults, isEqual, omit } from 'lodash-es';
 import { skip } from 'rxjs';
 
 import type { DocService } from '../../doc';
-import { AFFINE_FLAGS, type FeatureFlagService } from '../../feature-flag';
 import { paramsParseOptions, preprocessParams } from '../../navigation/utils';
 import type { WorkbenchView } from '../../workbench';
 import type { WorkspaceService } from '../../workspace';
@@ -121,6 +118,7 @@ export class Editor extends Entity {
 
     const stablePrimaryMode = this.doc.getPrimaryMode();
 
+    // eslint-disable-next-line rxjs/finnish
     const viewParams$ = view
       .queryString$<ReferenceParams & { refreshKey?: string }>(
         paramsParseOptions
@@ -195,8 +193,6 @@ export class Editor extends Entity {
     if (this.editorContainer$.value) {
       throw new Error('already bound');
     }
-
-    this._setupBlocksuiteEditorFlags(editorContainer);
     this.editorContainer$.next(editorContainer);
     const unsubs: (() => void)[] = [];
 
@@ -239,7 +235,7 @@ export class Editor extends Entity {
 
         if (mode === this.mode$.value) {
           selection?.setGroup('scene', [
-            selection?.create(HighlightSelection, {
+            selection?.create('highlight', {
               mode,
               [key]: [id],
             }),
@@ -294,7 +290,7 @@ export class Editor extends Entity {
         const { id, key, mode } = anchor;
 
         selection.setGroup('scene', [
-          selection.create(HighlightSelection, {
+          selection.create('highlight', {
             mode,
             [key]: [id],
           }),
@@ -329,24 +325,9 @@ export class Editor extends Entity {
     };
   }
 
-  private _setupBlocksuiteEditorFlags(editorContainer: AffineEditorContainer) {
-    const affineFeatureFlagService = this.featureFlagService;
-    const bsFeatureFlagService = editorContainer.doc.get(BSFeatureFlagService);
-    Object.entries(AFFINE_FLAGS).forEach(([key, flag]) => {
-      if (flag.category === 'blocksuite') {
-        const value =
-          affineFeatureFlagService.flags[key as keyof AFFINE_FLAGS].value;
-        if (value !== undefined) {
-          bsFeatureFlagService.setFlag(flag.bsFlag, value);
-        }
-      }
-    });
-  }
-
   constructor(
     private readonly docService: DocService,
-    private readonly workspaceService: WorkspaceService,
-    private readonly featureFlagService: FeatureFlagService
+    private readonly workspaceService: WorkspaceService
   ) {
     super();
   }

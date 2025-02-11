@@ -22,25 +22,11 @@ type ChannelMessage =
       collectId: string;
     };
 
-interface BroadcastChannelAwarenessStorageOptions {
-  id: string;
-}
-
 export class BroadcastChannelAwarenessStorage extends AwarenessStorageBase {
-  static readonly identifier = 'BroadcastChannelAwarenessStorage';
-
   override readonly storageType = 'awareness';
-  override readonly connection = new BroadcastChannelConnection({
-    id: this.options.id,
-  });
+  override readonly connection = new BroadcastChannelConnection(this.options);
   get channel() {
     return this.connection.inner;
-  }
-
-  constructor(
-    private readonly options: BroadcastChannelAwarenessStorageOptions
-  ) {
-    super();
   }
 
   private readonly subscriptions = new Map<

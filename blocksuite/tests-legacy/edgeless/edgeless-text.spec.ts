@@ -1,4 +1,4 @@
-import type { EdgelessTextBlockComponent } from '@blocksuite/affine-block-edgeless-text';
+import type { EdgelessTextBlockComponent } from '@blocks/edgeless-text-block/edgeless-text-block.js';
 import { Bound } from '@blocksuite/global/utils';
 import { expect, type Page } from '@playwright/test';
 
@@ -54,7 +54,11 @@ async function assertEdgelessTextModelRect(
 
 test.describe('edgeless text block', () => {
   test.beforeEach(async ({ page }) => {
-    await enterPlaygroundRoom(page);
+    await enterPlaygroundRoom(page, {
+      flags: {
+        enable_edgeless_text: true,
+      },
+    });
     await initEmptyEdgelessState(page);
     await switchEditorMode(page);
   });
@@ -494,9 +498,6 @@ test.describe('edgeless text block', () => {
     await page.locator('affine-latex-node').click();
     await waitNextFrame(page);
     await type(page, 'ccc');
-    const menu = page.locator('latex-editor-menu');
-    const confirm = menu.locator('.latex-editor-confirm');
-    await confirm.click();
     await assertRichTextInlineDeltas(
       page,
       [
@@ -510,7 +511,6 @@ test.describe('edgeless text block', () => {
       1
     );
 
-    await page.locator('affine-latex-node').click();
     await page.locator('.latex-editor-hint').click();
     await type(page, 'sss');
     await assertRichTextInlineDeltas(
@@ -528,7 +528,6 @@ test.describe('edgeless text block', () => {
     await page.locator('latex-editor-unit').click();
     await selectAllByKeyboard(page);
     await type(page, 'sss');
-    await confirm.click();
     await assertRichTextInlineDeltas(
       page,
       [
@@ -547,11 +546,15 @@ test.describe('edgeless text block', () => {
 test('press backspace at the start of first line when edgeless text exist', async ({
   page,
 }, testInfo) => {
-  await enterPlaygroundRoom(page);
+  await enterPlaygroundRoom(page, {
+    flags: {
+      enable_edgeless_text: true,
+    },
+  });
   await page.evaluate(() => {
     const { doc } = window;
     const rootId = doc.addBlock('affine:page', {
-      title: new window.$blocksuite.store.Text(),
+      title: new doc.Text(),
     });
     doc.addBlock('affine:surface', {}, rootId);
     doc.addBlock('affine:note', {}, rootId);

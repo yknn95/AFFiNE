@@ -16,7 +16,7 @@ import {
   MoreHorizontalIcon,
 } from '@blocksuite/icons/lit';
 import { nanoid } from '@blocksuite/store';
-import { flip, offset, shift } from '@floating-ui/dom';
+import { flip, offset } from '@floating-ui/dom';
 import { computed, type ReadonlySignal, signal } from '@preact/signals-core';
 import { cssVarV2 } from '@toeverything/theme/v2';
 import { nothing } from 'lit';
@@ -570,7 +570,7 @@ export const popTagSelect = (target: PopupTarget, ops: TagSelectOptions) => {
   };
   const remove = createPopup(target, component, {
     onClose: ops.onComplete,
-    middleware: [flip(), offset({ mainAxis: -28, crossAxis: 112 }), shift()],
+    middleware: [flip(), offset({ mainAxis: -28, crossAxis: 112 })],
     container: ops.container,
   });
   return remove;

@@ -1,9 +1,9 @@
 import { type Container, createIdentifier } from '@blocksuite/global/di';
 import { BlockSuiteError, ErrorCode } from '@blocksuite/global/exceptions';
 import { DisposableGroup } from '@blocksuite/global/utils';
-import { Extension } from '@blocksuite/store';
 
 import type { PointerEventState } from '../../event/index.js';
+import { Extension } from '../../extension/extension.js';
 import type { GfxController } from '../controller.js';
 import { GfxControllerIdentifier } from '../identifiers.js';
 import type { ToolEventTarget } from './tool-controller.js';

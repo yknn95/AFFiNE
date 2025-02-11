@@ -1,67 +1,83 @@
-import type {
-  StoreClient,
-  WorkerInitOptions,
-} from '@affine/nbstore/worker/client';
-import { Entity } from '@toeverything/infra';
+import {
+  AwarenessEngine,
+  BlobEngine,
+  DocEngine,
+  Entity,
+  throwIfAborted,
+} from '@toeverything/infra';
+import type { Doc as YDoc } from 'yjs';
 
-import type { NbstoreService } from '../../storage';
 import { WorkspaceEngineBeforeStart } from '../events';
+import type { WorkspaceEngineProvider } from '../providers/flavour';
 import type { WorkspaceService } from '../services/workspace';
 
 export class WorkspaceEngine extends Entity<{
-  isSharedMode?: boolean;
-  engineWorkerInitOptions: WorkerInitOptions;
+  engineProvider: WorkspaceEngineProvider;
 }> {
-  client?: StoreClient;
-  started = false;
+  doc = new DocEngine(
+    this.props.engineProvider.getDocStorage(),
+    this.props.engineProvider.getDocServer()
+  );
 
-  constructor(
-    private readonly workspaceService: WorkspaceService,
-    private readonly nbstoreService: NbstoreService
-  ) {
+  blob = new BlobEngine(
+    this.props.engineProvider.getLocalBlobStorage(),
+    this.props.engineProvider.getRemoteBlobStorages()
+  );
+
+  awareness = new AwarenessEngine(
+    this.props.engineProvider.getAwarenessConnections()
+  );
+
+  constructor(private readonly workspaceService: WorkspaceService) {
     super();
   }
 
-  get doc() {
-    if (!this.client) {
-      throw new Error('Engine is not initialized');
-    }
-    return this.client.docFrontend;
-  }
-
-  get blob() {
-    if (!this.client) {
-      throw new Error('Engine is not initialized');
-    }
-    return this.client.blobFrontend;
-  }
-
-  get awareness() {
-    if (!this.client) {
-      throw new Error('Engine is not initialized');
-    }
-    return this.client.awarenessFrontend;
+  setRootDoc(yDoc: YDoc) {
+    this.doc.setPriority(yDoc.guid, 100);
+    this.doc.addDoc(yDoc);
   }
 
   start() {
-    if (this.started) {
-      throw new Error('Engine is already started');
-    }
-    this.started = true;
-
-    const { store, dispose } = this.nbstoreService.openStore(
-      (this.props.isSharedMode ? 'shared:' : '') +
-        `workspace:${this.workspaceService.workspace.flavour}:${this.workspaceService.workspace.id}`,
-      this.props.engineWorkerInitOptions
-    );
-    this.client = store;
-    this.disposables.push(dispose);
     this.eventBus.emit(WorkspaceEngineBeforeStart, this);
-
-    const rootDoc = this.workspaceService.workspace.docCollection.doc;
-    // priority load root doc
-    this.doc.addPriority(rootDoc.guid, 100);
     this.doc.start();
-    this.disposables.push(() => this.doc.stop());
+    this.awareness.connect(this.workspaceService.workspace.awareness);
+    if (!BUILD_CONFIG.isMobileEdition) {
+      // currently, blob synchronization consumes a lot of memory and is temporarily disabled on mobile devices.
+      this.blob.start();
+    }
+  }
+
+  canGracefulStop() {
+    return this.doc.engineState$.value.saving === 0;
+  }
+
+  async waitForGracefulStop(abort?: AbortSignal) {
+    await this.doc.waitForSaved();
+    throwIfAborted(abort);
+    this.forceStop();
+  }
+
+  forceStop() {
+    this.doc.stop();
+    this.awareness.disconnect();
+    this.blob.stop();
+  }
+
+  docEngineState$ = this.doc.engineState$;
+
+  rootDocState$ = this.doc.docState$(this.workspaceService.workspace.id);
+
+  waitForDocSynced() {
+    return this.doc.waitForSynced();
+  }
+
+  waitForRootDocReady() {
+    return this.doc.waitForReady(this.workspaceService.workspace.id);
+  }
+
+  override dispose(): void {
+    this.forceStop();
+    this.doc.dispose();
+    this.awareness.dispose();
   }
 }

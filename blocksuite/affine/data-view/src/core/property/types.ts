@@ -15,12 +15,6 @@ export type PropertyConfig<
   Value = unknown,
 > = {
   name: string;
-  hide?: boolean;
-  fixed?: {
-    defaultData: Data;
-    defaultOrder?: string;
-    defaultShow?: boolean;
-  };
   defaultData: () => Data;
   type: (
     config: WithCommonPropertyConfig<{
@@ -44,7 +38,12 @@ export type PropertyConfig<
       value?: Value;
     }>
   ) => unknown[];
-  cellToString: (config: { value: Value; data: Data }) => string;
+  cellToString: (
+    config: WithCommonPropertyConfig<{
+      value: Value;
+      data: Data;
+    }>
+  ) => string;
   cellFromString: (
     config: WithCommonPropertyConfig<{
       value: string;
@@ -56,7 +55,7 @@ export type PropertyConfig<
   };
   cellToJson: (
     config: WithCommonPropertyConfig<{
-      value?: Value;
+      value: Value;
       data: Data;
     }>
   ) => DVJSON;

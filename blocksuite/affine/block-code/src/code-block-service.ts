@@ -6,7 +6,6 @@ import { type Signal, signal } from '@preact/signals-core';
 import {
   bundledLanguagesInfo,
   createHighlighterCore,
-  createOnigurumaEngine,
   type HighlighterCore,
   type MaybeGetter,
 } from 'shiki';
@@ -43,7 +42,7 @@ export class CodeBlockService extends BlockService {
     this.bindHotKey(textKeymap(this.std));
 
     createHighlighterCore({
-      engine: createOnigurumaEngine(() => getWasm),
+      loadWasm: getWasm,
     })
       .then(async highlighter => {
         const config = this.std.getConfig('affine:code');

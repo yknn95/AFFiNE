@@ -1,8 +1,6 @@
-import { selectBlock } from '@blocksuite/affine-block-note';
 import { CaptionedBlockComponent } from '@blocksuite/affine-components/caption';
 import { createLitPortal } from '@blocksuite/affine-components/portal';
 import type { LatexBlockModel } from '@blocksuite/affine-model';
-import { BlockSelection } from '@blocksuite/block-std';
 import type { Placement } from '@floating-ui/dom';
 import { effect } from '@preact/signals-core';
 import katex from 'katex';
@@ -21,7 +19,7 @@ export class LatexBlockComponent extends CaptionedBlockComponent<LatexBlockModel
   }
 
   get isBlockSelected() {
-    const blockSelection = this.selection.filter(BlockSelection);
+    const blockSelection = this.selection.filter('block');
     return blockSelection.some(
       selection => selection.blockId === this.model.id
     );
@@ -97,7 +95,7 @@ export class LatexBlockComponent extends CaptionedBlockComponent<LatexBlockModel
   }
 
   selectBlock() {
-    this.host.command.exec(selectBlock, {
+    this.host.command.exec('selectBlock', {
       focusBlock: this,
     });
   }

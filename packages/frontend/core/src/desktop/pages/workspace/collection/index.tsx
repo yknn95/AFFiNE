@@ -4,7 +4,6 @@ import { VirtualizedPageList } from '@affine/core/components/page-list';
 import { CollectionService } from '@affine/core/modules/collection';
 import { WorkspaceDialogService } from '@affine/core/modules/dialogs';
 import { GlobalContextService } from '@affine/core/modules/global-context';
-import { WorkspacePermissionService } from '@affine/core/modules/permissions';
 import { WorkspaceService } from '@affine/core/modules/workspace';
 import type { Collection } from '@affine/env/filter';
 import { useI18n } from '@affine/i18n';
@@ -21,7 +20,6 @@ import {
   ViewIcon,
   ViewTitle,
 } from '../../../../modules/workbench';
-import { AllDocSidebarTabs } from '../layouts/all-doc-sidebar-tabs';
 import { CollectionDetailHeader } from './header';
 
 export const CollectionDetail = ({
@@ -32,9 +30,6 @@ export const CollectionDetail = ({
   const { workspaceDialogService } = useServices({
     WorkspaceDialogService,
   });
-  const permissionService = useService(WorkspacePermissionService);
-  const isAdmin = useLiveData(permissionService.permission.isAdmin$);
-  const isOwner = useLiveData(permissionService.permission.isOwner$);
   const [hideHeaderCreateNew, setHideHeaderCreateNew] = useState(true);
 
   const handleEditCollection = useCallback(() => {
@@ -55,7 +50,6 @@ export const CollectionDetail = ({
         <VirtualizedPageList
           collection={collection}
           setHideHeaderCreateNewPage={setHideHeaderCreateNew}
-          disableMultiDelete={!isAdmin && !isOwner}
         />
       </ViewBody>
     </>
@@ -124,7 +118,6 @@ export const Component = function CollectionPage() {
     <>
       <ViewIcon icon="collection" />
       <ViewTitle title={collection.name} />
-      <AllDocSidebarTabs />
       {inner}
     </>
   );

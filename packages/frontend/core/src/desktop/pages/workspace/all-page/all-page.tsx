@@ -5,11 +5,10 @@ import {
   VirtualizedPageList,
 } from '@affine/core/components/page-list';
 import { GlobalContextService } from '@affine/core/modules/global-context';
-import { WorkspacePermissionService } from '@affine/core/modules/permissions';
 import { WorkspaceService } from '@affine/core/modules/workspace';
 import type { Filter } from '@affine/env/filter';
 import { useI18n } from '@affine/i18n';
-import { useLiveData, useService } from '@toeverything/infra';
+import { useService } from '@toeverything/infra';
 import { useEffect, useState } from 'react';
 
 import {
@@ -19,7 +18,6 @@ import {
   ViewIcon,
   ViewTitle,
 } from '../../../../modules/workbench';
-import { AllDocSidebarTabs } from '../layouts/all-doc-sidebar-tabs';
 import { EmptyPageList } from '../page-list-empty';
 import * as styles from './all-page.css';
 import { FilterContainer } from './all-page-filter';
@@ -28,11 +26,8 @@ import { AllPageHeader } from './all-page-header';
 export const AllPage = () => {
   const currentWorkspace = useService(WorkspaceService).workspace;
   const globalContext = useService(GlobalContextService).globalContext;
-  const permissionService = useService(WorkspacePermissionService);
   const pageMetas = useBlockSuiteDocMeta(currentWorkspace.docCollection);
   const [hideHeaderCreateNew, setHideHeaderCreateNew] = useState(true);
-  const isAdmin = useLiveData(permissionService.permission.isAdmin$);
-  const isOwner = useLiveData(permissionService.permission.isOwner$);
 
   const [filters, setFilters] = useState<Filter[]>([]);
   const filteredPageMetas = useFilteredPageMetas(pageMetas, {
@@ -70,7 +65,6 @@ export const AllPage = () => {
           <FilterContainer filters={filters} onChangeFilters={setFilters} />
           {filteredPageMetas.length > 0 ? (
             <VirtualizedPageList
-              disableMultiDelete={!isAdmin && !isOwner}
               setHideHeaderCreateNewPage={setHideHeaderCreateNew}
               filters={filters}
             />
@@ -79,7 +73,6 @@ export const AllPage = () => {
           )}
         </div>
       </ViewBody>
-      <AllDocSidebarTabs />
     </>
   );
 };

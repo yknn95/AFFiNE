@@ -17,7 +17,6 @@ import type { DocCustomPropertyInfo } from '@affine/core/modules/db';
 import { DocsService } from '@affine/core/modules/doc';
 import { DocDatabaseBacklinkInfo } from '@affine/core/modules/doc-info';
 import { DocsSearchService } from '@affine/core/modules/docs-search';
-import { GuardService } from '@affine/core/modules/permissions';
 import { useI18n } from '@affine/i18n';
 import { PlusIcon } from '@blocksuite/icons/rc';
 import { LiveData, useLiveData, useServices } from '@toeverything/infra';
@@ -31,17 +30,12 @@ export const DocInfoSheet = ({
   docId: string;
   defaultOpenProperty?: DefaultOpenProperty;
 }) => {
-  const { docsSearchService, docsService, guardService } = useServices({
+  const { docsSearchService, docsService } = useServices({
     DocsSearchService,
     DocsService,
-    GuardService,
   });
   const t = useI18n();
 
-  const canEditPropertyInfo = useLiveData(
-    guardService.can$('Workspace_Properties_Update')
-  );
-  const canEditProperty = useLiveData(guardService.can$('Doc_Update', docId));
   const links = useLiveData(
     useMemo(
       () => LiveData.from(docsSearchService.watchRefsFrom(docId), null),
@@ -108,11 +102,16 @@ export const DocInfoSheet = ({
                   key={property.id}
                   propertyInfo={property}
                   defaultOpenEditMenu={newPropertyId === property.id}
-                  propertyInfoReadonly={!canEditPropertyInfo}
-                  readonly={!canEditProperty}
                 />
               ))}
-              {!canEditPropertyInfo ? (
+              <Menu
+                items={<CreatePropertyMenuItems onCreated={onPropertyAdded} />}
+                contentOptions={{
+                  onClick(e) {
+                    e.stopPropagation();
+                  },
+                }}
+              >
                 <Button
                   variant="plain"
                   prefix={<PlusIcon />}
@@ -120,26 +119,7 @@ export const DocInfoSheet = ({
                 >
                   {t['com.affine.page-properties.add-property']()}
                 </Button>
-              ) : (
-                <Menu
-                  items={
-                    <CreatePropertyMenuItems onCreated={onPropertyAdded} />
-                  }
-                  contentOptions={{
-                    onClick(e) {
-                      e.stopPropagation();
-                    },
-                  }}
-                >
-                  <Button
-                    variant="plain"
-                    prefix={<PlusIcon />}
-                    className={styles.addPropertyButton}
-                  >
-                    {t['com.affine.page-properties.add-property']()}
-                  </Button>
-                </Menu>
-              )}
+              </Menu>
             </PropertyCollapsibleContent>
           </PropertyCollapsibleSection>
           <Divider size="thinner" />

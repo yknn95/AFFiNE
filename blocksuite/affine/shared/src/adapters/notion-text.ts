@@ -1,4 +1,5 @@
 import { DefaultTheme } from '@blocksuite/affine-model';
+import type { ExtensionType } from '@blocksuite/block-std';
 import { BlockSuiteError, ErrorCode } from '@blocksuite/global/exceptions';
 import type { DeltaInsert } from '@blocksuite/inline';
 import {
@@ -6,13 +7,12 @@ import {
   BaseAdapter,
   type BlockSnapshot,
   type DocSnapshot,
-  type ExtensionType,
   type FromBlockSnapshotResult,
   type FromDocSnapshotResult,
   type FromSliceSnapshotResult,
+  type Job,
   nanoid,
   type SliceSnapshot,
-  type Transformer,
 } from '@blocksuite/store';
 
 import type { AffineTextAttributes } from '../types';
@@ -164,7 +164,7 @@ export const NotionTextAdapterFactoryIdentifier =
 export const NotionTextAdapterFactoryExtension: ExtensionType = {
   setup: di => {
     di.addImpl(NotionTextAdapterFactoryIdentifier, () => ({
-      get: (job: Transformer) => new NotionTextAdapter(job),
+      get: (job: Job) => new NotionTextAdapter(job),
     }));
   },
 };

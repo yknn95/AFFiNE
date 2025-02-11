@@ -1,10 +1,23 @@
 {
-  "extends": "../../../tsconfig.web.json",
+  "extends": "../../../tsconfig.json",
   "include": ["./src"],
   "compilerOptions": {
-    "rootDir": "./src",
-    "outDir": "./dist",
-    "tsBuildInfoFile": "./dist/tsconfig.tsbuildinfo"
+    "composite": true,
+    "noEmit": false,
+    "outDir": "lib"
   },
-  "references": [{ "path": "../infra" }, { "path": "../../frontend/graphql" }]
+  "references": [
+    {
+      "path": "../../frontend/graphql"
+    },
+    {
+      "path": "../../frontend/electron-api"
+    },
+    {
+      "path": "../infra"
+    },
+    {
+      "path": "../../../blocksuite/affine/all"
+    }
+  ]
 }

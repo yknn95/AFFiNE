@@ -1,4 +1,4 @@
-import type { ExtensionType } from '@blocksuite/store';
+import type { ExtensionType } from '@blocksuite/block-std';
 
 import { EmbedLoomBlockHtmlAdapterExtension } from './html.js';
 import { EmbedLoomMarkdownAdapterExtension } from './markdown.js';

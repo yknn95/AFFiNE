@@ -1,9 +1,8 @@
-import { type DropTargetGetFeedback, Skeleton } from '@affine/component';
+import { Skeleton } from '@affine/component';
 import { ResizePanel } from '@affine/component/resize-panel';
 import { useAppSettingHelper } from '@affine/core/components/hooks/affine/use-app-setting-helper';
 import { NavigateContext } from '@affine/core/components/hooks/use-navigate-helper';
 import { WorkspaceNavigator } from '@affine/core/components/workspace-selector';
-import type { AffineDNDData } from '@affine/core/types/dnd';
 import { useI18n } from '@affine/i18n';
 import {
   useLiveData,
@@ -15,8 +14,6 @@ import { debounce } from 'lodash-es';
 import type { PropsWithChildren, ReactElement } from 'react';
 import { useCallback, useContext, useEffect, useMemo, useState } from 'react';
 
-import { WorkbenchService } from '../../workbench';
-import { allowedSplitViewEntityTypes } from '../../workbench/view/split-view/types';
 import { WorkspaceService } from '../../workspace';
 import { AppSidebarService } from '../services/app-sidebar';
 import * as styles from './fallback.css';
@@ -47,7 +44,6 @@ export function AppSidebar({ children }: PropsWithChildren) {
   const clientBorder = appSettings.clientBorder;
 
   const appSidebarService = useService(AppSidebarService).sidebar;
-  const workbenchService = useService(WorkbenchService).workbench;
 
   const open = useLiveData(appSidebarService.open$);
   const width = useLiveData(appSidebarService.width$);
@@ -151,31 +147,6 @@ export function AppSidebar({ children }: PropsWithChildren) {
     };
   }, [appSidebarService, resizing, sidebarState, width]);
 
-  const resizeHandleDropTargetOptions = useMemo(() => {
-    return () => ({
-      data: () => {
-        const firstView = workbenchService.views$.value.at(0);
-
-        if (!firstView) {
-          return {};
-        }
-
-        return {
-          at: 'workbench:resize-handle',
-          edge: 'left', // left of the first view
-          viewId: firstView.id,
-        };
-      },
-      canDrop: (data: DropTargetGetFeedback<AffineDNDData>) => {
-        return (
-          (!!data.source.data.entity?.type &&
-            allowedSplitViewEntityTypes.has(data.source.data.entity?.type)) ||
-          data.source.data.from?.at === 'workbench:link'
-        );
-      },
-    });
-  }, [workbenchService.views$.value]);
-
   if (!initialized) {
     return null;
   }
@@ -183,7 +154,6 @@ export function AppSidebar({ children }: PropsWithChildren) {
   return (
     <>
       <ResizePanel
-        resizeHandleDropTargetOptions={resizeHandleDropTargetOptions}
         floating={
           sidebarState === 'floating' || sidebarState === 'floating-with-mask'
         }
@@ -265,7 +235,11 @@ export function FallbackHeaderWithWorkspaceNavigator() {
   return (
     <div className={styles.fallbackHeader}>
       {currentWorkspace && navigate ? (
-        <WorkspaceNavigator showSyncStatus showEnableCloudButton />
+        <WorkspaceNavigator
+          showSettingsButton
+          showSyncStatus
+          showEnableCloudButton
+        />
       ) : (
         <FallbackHeaderSkeleton />
       )}

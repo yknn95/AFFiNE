@@ -9,11 +9,15 @@ import { property, query } from 'lit/decorators.js';
 import { classMap } from 'lit/directives/class-map.js';
 import { type StyleInfo, styleMap } from 'lit/directives/style-map.js';
 
+import type { BookmarkBlockService } from './bookmark-service.js';
 import { refreshBookmarkUrlData } from './utils.js';
 
 export const BOOKMARK_MIN_WIDTH = 450;
 
-export class BookmarkBlockComponent extends CaptionedBlockComponent<BookmarkBlockModel> {
+export class BookmarkBlockComponent extends CaptionedBlockComponent<
+  BookmarkBlockModel,
+  BookmarkBlockService
+> {
   private _fetchAbortController?: AbortController;
 
   blockDraggable = true;
@@ -69,16 +73,13 @@ export class BookmarkBlockComponent extends CaptionedBlockComponent<BookmarkBloc
   }
 
   override renderBlock() {
-    const selected = this.selected$.value;
-    const isInEdgeless =
-      this.std.get(DocModeProvider).getEditorMode() === 'edgeless';
-
+    const selected = !!this.selected?.is('block');
     return html`
       <div
         draggable="${this.blockDraggable ? 'true' : 'false'}"
         class=${classMap({
           'affine-bookmark-container': true,
-          'selected-style': selected && !isInEdgeless,
+          'selected-style': selected,
         })}
         style=${this.containerStyleMap}
       >

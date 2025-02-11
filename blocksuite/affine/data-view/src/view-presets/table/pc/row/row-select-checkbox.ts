@@ -1,15 +1,15 @@
 import { ShadowlessElement } from '@blocksuite/block-std';
 import { SignalWatcher, WithDisposable } from '@blocksuite/global/utils';
-import { CheckBoxCheckSolidIcon, CheckBoxUnIcon } from '@blocksuite/icons/lit';
+import { CheckBoxCkeckSolidIcon, CheckBoxUnIcon } from '@blocksuite/icons/lit';
 import { computed, type ReadonlySignal } from '@preact/signals-core';
 import { css, html } from 'lit';
 import { property } from 'lit/decorators.js';
 import { classMap } from 'lit/directives/class-map.js';
 
 import {
-  TableViewRowSelection,
+  TableRowSelection,
   type TableViewSelectionWithType,
-} from '../../selection';
+} from '../../types.js';
 
 export class RowSelectCheckbox extends SignalWatcher(
   WithDisposable(ShadowlessElement)
@@ -49,7 +49,7 @@ export class RowSelectCheckbox extends SignalWatcher(
     if (!selection || selection.selectionType !== 'row') {
       return false;
     }
-    return TableViewRowSelection.includes(selection, {
+    return TableRowSelection.includes(selection, {
       id: this.rowId,
       groupKey: this.groupKey,
     });
@@ -74,7 +74,7 @@ export class RowSelectCheckbox extends SignalWatcher(
     return html`
       <div class="${classString}">
         ${this.isSelected$.value
-          ? CheckBoxCheckSolidIcon({ style: `color:#1E96EB` })
+          ? CheckBoxCkeckSolidIcon({ style: `color:#1E96EB` })
           : CheckBoxUnIcon()}
       </div>
     `;

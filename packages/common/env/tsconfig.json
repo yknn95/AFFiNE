@@ -1,11 +1,9 @@
 {
-  "extends": "../../../tsconfig.web.json",
-  "compilerOptions": {
-    "types": ["build-config", "affine__env"],
-    "rootDir": "./src",
-    "outDir": "./dist",
-    "tsBuildInfoFile": "./dist/tsconfig.tsbuildinfo"
-  },
+  "extends": "../../../tsconfig.json",
   "include": ["./src"],
-  "references": []
+  "compilerOptions": {
+    "composite": true,
+    "noEmit": false,
+    "outDir": "lib"
+  }
 }

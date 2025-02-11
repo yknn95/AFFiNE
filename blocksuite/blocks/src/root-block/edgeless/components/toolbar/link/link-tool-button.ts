@@ -1,4 +1,3 @@
-import { insertLinkByQuickSearchCommand } from '@blocksuite/affine-block-bookmark';
 import { LinkIcon } from '@blocksuite/affine-components/icons';
 import { TelemetryProvider } from '@blocksuite/affine-shared/services';
 import { css, html, LitElement } from 'lit';
@@ -18,8 +17,8 @@ export class EdgelessLinkToolButton extends QuickToolMixin(LitElement) {
   override type = 'default' as const;
 
   private _onClick() {
-    const [_, { insertedLinkType }] = this.edgeless.std.command.exec(
-      insertLinkByQuickSearchCommand
+    const { insertedLinkType } = this.edgeless.std.command.exec(
+      'insertLinkByQuickSearch'
     );
     insertedLinkType
       ?.then(type => {

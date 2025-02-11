@@ -1,30 +1,21 @@
-import {
-  AFFINE_EDGELESS_NOTE,
-  type EdgelessNoteBlockComponent,
-} from '@blocksuite/affine-block-note';
 import { ParagraphBlockComponent } from '@blocksuite/affine-block-paragraph';
-import {
-  DatabaseBlockModel,
-  ListBlockModel,
-  type ParagraphBlockModel,
-} from '@blocksuite/affine-model';
+import type { ParagraphBlockModel } from '@blocksuite/affine-model';
 import { DocModeProvider } from '@blocksuite/affine-shared/services';
 import {
   calcDropTarget,
-  type DropTarget,
+  type DropResult,
   findClosestBlockComponent,
   getBlockProps,
   getClosestBlockComponentByPoint,
   matchFlavours,
 } from '@blocksuite/affine-shared/utils';
-import type { BlockComponent, EditorHost } from '@blocksuite/block-std';
-import { Point, Rect } from '@blocksuite/global/utils';
 import type {
   BaseSelection,
-  BlockModel,
-  BlockSnapshot,
-  SliceSnapshot,
-} from '@blocksuite/store';
+  BlockComponent,
+  EditorHost,
+} from '@blocksuite/block-std';
+import { Point, Rect } from '@blocksuite/global/utils';
+import type { BlockModel } from '@blocksuite/store';
 
 import {
   DRAG_HANDLE_CONTAINER_HEIGHT,
@@ -83,25 +74,6 @@ export const containBlock = (blockIDs: string[], targetID: string) => {
   return blockIDs.some(blockID => blockID === targetID);
 };
 
-export const extractIdsFromSnapshot = (snapshot: SliceSnapshot) => {
-  const ids: string[] = [];
-  const extractFromBlock = (block: BlockSnapshot) => {
-    ids.push(block.id);
-
-    if (block.children) {
-      for (const child of block.children) {
-        extractFromBlock(child);
-      }
-    }
-  };
-
-  for (const block of snapshot.content) {
-    extractFromBlock(block);
-  }
-
-  return ids;
-};
-
 // TODO: this is a hack, need to find a better way
 export const insideDatabaseTable = (element: Element) => {
   return !!element.closest('.affine-database-block-table');
@@ -150,10 +122,6 @@ export const isOutOfNoteBlock = (
     : true;
 };
 
-export const getParentNoteBlock = (blockComponent: BlockComponent) => {
-  return blockComponent.closest('affine-note') ?? null;
-};
-
 export const getClosestNoteBlock = (
   editorHost: EditorHost,
   rootComponent: BlockComponent,
@@ -163,7 +131,7 @@ export const getClosestNoteBlock = (
     editorHost.std.get(DocModeProvider).getEditorMode() === 'page';
   return isInsidePageEditor
     ? findClosestBlockComponent(rootComponent, point, 'affine-note')
-    : getHoveringNote(point);
+    : getHoveringNote(point)?.closest('affine-edgeless-note');
 };
 
 export const getClosestBlockByPoint = (
@@ -210,7 +178,7 @@ export const getClosestBlockByPoint = (
 export const getDropResult = (
   event: MouseEvent,
   scale: number = 1
-): DropTarget | null => {
+): DropResult | null => {
   let dropIndicator = null;
   const point = new Point(event.x, event.y);
   const closestBlock = getClosestBlockComponentByPoint(point) as BlockComponent;
@@ -220,7 +188,7 @@ export const getDropResult = (
 
   const model = closestBlock.model;
 
-  const isDatabase = matchFlavours(model, [DatabaseBlockModel]);
+  const isDatabase = matchFlavours(model, ['affine:database']);
   if (isDatabase) {
     return dropIndicator;
   }
@@ -236,7 +204,7 @@ export const getDropResult = (
 export function getDragHandleLeftPadding(blocks: BlockComponent[]) {
   const hasToggleList = blocks.some(
     block =>
-      (matchFlavours(block.model, [ListBlockModel]) &&
+      (matchFlavours(block.model, ['affine:list']) &&
         block.model.children.length > 0) ||
       (block instanceof ParagraphBlockComponent &&
         block.model.type.startsWith('h') &&
@@ -269,11 +237,11 @@ export function getDuplicateBlocks(blocks: BlockModel[]) {
  */
 function getHoveringNote(point: Point) {
   return (
-    document
-      .elementsFromPoint(point.x, point.y)
-      .find(
-        (e): e is EdgelessNoteBlockComponent =>
-          e.tagName.toLowerCase() === AFFINE_EDGELESS_NOTE
-      ) || null
+    document.elementsFromPoint(point.x, point.y).find(isEdgelessChildNote) ||
+    null
   );
+}
+
+function isEdgelessChildNote({ classList }: Element) {
+  return classList.contains('note-background');
 }

@@ -1,4 +1,4 @@
-import type { DeltaInsert } from '@blocksuite/inline';
+import type { DeltaInsert } from '@inline/types.js';
 import { expect } from '@playwright/test';
 
 import {
@@ -453,10 +453,10 @@ test('should format quick bar position correct at the start of second line', asy
   await page.evaluate(() => {
     const { doc } = window;
     const rootId = doc.addBlock('affine:page', {
-      title: new window.$blocksuite.store.Text(),
+      title: new doc.Text(),
     });
     const note = doc.addBlock('affine:note', {}, rootId);
-    const text = new window.$blocksuite.store.Text('a'.repeat(100));
+    const text = new doc.Text('a'.repeat(100));
     const paragraphId = doc.addBlock('affine:paragraph', { text }, note);
     return paragraphId;
   });
@@ -715,7 +715,7 @@ test('should format bar style active correctly', async ({ page }) => {
   await page.evaluate(() => {
     const { doc } = window;
     const rootId = doc.addBlock('affine:page', {
-      title: new window.$blocksuite.store.Text(),
+      title: new doc.Text(),
     });
     const note = doc.addBlock('affine:note', {}, rootId);
     const delta = [
@@ -723,7 +723,7 @@ test('should format bar style active correctly', async ({ page }) => {
       { insert: '2', attributes: { bold: true, underline: true } },
       { insert: '3', attributes: { bold: true, code: true } },
     ];
-    const text = new window.$blocksuite.store.Text(delta as DeltaInsert[]);
+    const text = new doc.Text(delta as DeltaInsert[]);
     doc.addBlock('affine:paragraph', { text }, note);
   });
 
@@ -869,7 +869,7 @@ test('should update the format quick bar state when there is a change in keyboar
   await page.evaluate(() => {
     const { doc } = window;
     const rootId = doc.addBlock('affine:page', {
-      title: new window.$blocksuite.store.Text(),
+      title: new doc.Text(),
     });
     const note = doc.addBlock('affine:note', {}, rootId);
     const delta = [
@@ -877,7 +877,7 @@ test('should update the format quick bar state when there is a change in keyboar
       { insert: '2', attributes: { bold: true } },
       { insert: '3', attributes: { bold: false } },
     ];
-    const text = new window.$blocksuite.store.Text(delta as DeltaInsert[]);
+    const text = new doc.Text(delta as DeltaInsert[]);
     doc.addBlock('affine:paragraph', { text }, note);
   });
   await focusTitle(page);

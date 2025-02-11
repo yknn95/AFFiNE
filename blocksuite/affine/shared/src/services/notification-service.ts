@@ -1,5 +1,5 @@
+import type { ExtensionType } from '@blocksuite/block-std';
 import { createIdentifier } from '@blocksuite/global/di';
-import type { ExtensionType } from '@blocksuite/store';
 import type { TemplateResult } from 'lit';
 
 export interface NotificationService {
@@ -29,7 +29,6 @@ export interface NotificationService {
   notify(options: {
     title: string | TemplateResult;
     message?: string | TemplateResult;
-    footer?: string | TemplateResult;
     accent?: 'info' | 'success' | 'warning' | 'error';
     duration?: number; // unit ms, give 0 to disable auto dismiss
     abort?: AbortSignal;

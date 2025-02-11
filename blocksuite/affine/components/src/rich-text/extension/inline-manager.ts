@@ -1,5 +1,9 @@
 import type { AffineTextAttributes } from '@blocksuite/affine-shared/types';
-import { type BlockStdScope, StdIdentifier } from '@blocksuite/block-std';
+import {
+  type BlockStdScope,
+  type ExtensionType,
+  StdIdentifier,
+} from '@blocksuite/block-std';
 import {
   createIdentifier,
   type ServiceIdentifier,
@@ -12,8 +16,7 @@ import {
   KEYBOARD_ALLOW_DEFAULT,
   type KeyboardBindingContext,
 } from '@blocksuite/inline';
-import type { ExtensionType } from '@blocksuite/store';
-import type * as Y from 'yjs';
+import type { Y } from '@blocksuite/store';
 import { z, type ZodObject, type ZodTypeAny } from 'zod';
 
 import { MarkdownMatcherIdentifier } from './markdown-matcher.js';

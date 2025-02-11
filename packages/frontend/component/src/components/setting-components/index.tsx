@@ -1,4 +1,3 @@
-export * from './pagination';
 export { SettingHeader } from './setting-header';
 export { SettingRow } from './setting-row';
 export * from './workspace-detail-skeleton';

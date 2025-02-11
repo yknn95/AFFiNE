@@ -1,18 +1,12 @@
-import { Container, type ServiceProvider } from '@blocksuite/global/di';
+import type { ServiceProvider } from '@blocksuite/global/di';
+import { Container } from '@blocksuite/global/di';
 import { BlockSuiteError, ErrorCode } from '@blocksuite/global/exceptions';
-import {
-  type ExtensionType,
-  type Store,
-  StoreSelectionExtension,
-  Transformer,
-  type TransformerMiddleware,
-} from '@blocksuite/store';
+import type { Doc } from '@blocksuite/store';
 
 import { Clipboard } from '../clipboard/index.js';
 import { CommandManager } from '../command/index.js';
 import { UIEventDispatcher } from '../event/index.js';
-import { DndController } from '../extension/dnd/index.js';
-import type { BlockService } from '../extension/index.js';
+import type { BlockService, ExtensionType } from '../extension/index.js';
 import { GfxController } from '../gfx/controller.js';
 import { GfxSelectionManager } from '../gfx/selection.js';
 import { SurfaceMiddlewareExtension } from '../gfx/surface-middleware.js';
@@ -25,12 +19,19 @@ import {
   StdIdentifier,
 } from '../identifier.js';
 import { RangeManager } from '../range/index.js';
+import {
+  BlockSelectionExtension,
+  CursorSelectionExtension,
+  SelectionManager,
+  SurfaceSelectionExtension,
+  TextSelectionExtension,
+} from '../selection/index.js';
 import { ServiceManager } from '../service/index.js';
 import { EditorHost } from '../view/element/index.js';
 import { ViewStore } from '../view/view-store.js';
 
 export interface BlockStdOptions {
-  store: Store;
+  doc: Doc;
   extensions: ExtensionType[];
 }
 
@@ -38,22 +39,28 @@ const internalExtensions = [
   ServiceManager,
   CommandManager,
   UIEventDispatcher,
+  SelectionManager,
   RangeManager,
   ViewStore,
   Clipboard,
   GfxController,
+  BlockSelectionExtension,
+  TextSelectionExtension,
+  SurfaceSelectionExtension,
+  CursorSelectionExtension,
   GfxSelectionManager,
   SurfaceMiddlewareExtension,
   ViewManager,
-  DndController,
 ];
 
 export class BlockStdScope {
   static internalExtensions = internalExtensions;
 
+  private _getHost: () => EditorHost;
+
   readonly container: Container;
 
-  readonly store: Store;
+  readonly doc: Doc;
 
   readonly provider: ServiceProvider;
 
@@ -63,18 +70,12 @@ export class BlockStdScope {
     return this.provider.getAll(LifeCycleWatcherIdentifier);
   }
 
-  private _host!: EditorHost;
-
-  get dnd() {
-    return this.get(DndController);
-  }
-
   get clipboard() {
     return this.get(Clipboard);
   }
 
-  get workspace() {
-    return this.store.workspace;
+  get collection() {
+    return this.doc.collection;
   }
 
   get command() {
@@ -94,14 +95,7 @@ export class BlockStdScope {
   }
 
   get host() {
-    if (!this._host) {
-      throw new BlockSuiteError(
-        ErrorCode.ValueNotExists,
-        'Host is not ready to use, the `render` method should be called first'
-      );
-    }
-
-    return this._host;
+    return this._getHost();
   }
 
   get range() {
@@ -109,7 +103,7 @@ export class BlockStdScope {
   }
 
   get selection() {
-    return this.get(StoreSelectionExtension);
+    return this.get(SelectionManager);
   }
 
   get view() {
@@ -117,7 +111,13 @@ export class BlockStdScope {
   }
 
   constructor(options: BlockStdOptions) {
-    this.store = options.store;
+    this._getHost = () => {
+      throw new BlockSuiteError(
+        ErrorCode.ValueNotExists,
+        'Host is not ready to use, the `render` method should be called first'
+      );
+    };
+    this.doc = options.doc;
     this.userExtensions = options.extensions;
     this.container = new Container();
     this.container.addImpl(StdIdentifier, () => this);
@@ -132,10 +132,10 @@ export class BlockStdScope {
       ext.setup(container);
     });
 
-    this.provider = this.container.provider(undefined, this.store.provider);
+    this.provider = this.container.provider();
 
     this._lifeCycleWatchers.forEach(watcher => {
-      watcher.created();
+      watcher.created.call(watcher);
     });
   }
 
@@ -168,32 +168,19 @@ export class BlockStdScope {
     return this.getOptional(BlockViewIdentifier(flavour));
   }
 
-  getTransformer(middlewares: TransformerMiddleware[] = []) {
-    return new Transformer({
-      schema: this.workspace.schema,
-      blobCRUD: this.workspace.blobSync,
-      docCRUD: {
-        create: (id: string) => this.workspace.createDoc({ id }),
-        get: (id: string) => this.workspace.getDoc(id),
-        delete: (id: string) => this.workspace.removeDoc(id),
-      },
-      middlewares,
-    });
-  }
-
   mount() {
     this._lifeCycleWatchers.forEach(watcher => {
-      watcher.mounted();
+      watcher.mounted.call(watcher);
     });
   }
 
   render() {
     const element = new EditorHost();
     element.std = this;
-    element.doc = this.store;
-    this._host = element;
+    element.doc = this.doc;
+    this._getHost = () => element;
     this._lifeCycleWatchers.forEach(watcher => {
-      watcher.rendered();
+      watcher.rendered.call(watcher);
     });
 
     return element;
@@ -201,8 +188,9 @@ export class BlockStdScope {
 
   unmount() {
     this._lifeCycleWatchers.forEach(watcher => {
-      watcher.unmounted();
+      watcher.unmounted.call(watcher);
     });
+    this._getHost = () => null as unknown as EditorHost;
   }
 }
 

@@ -1,6 +1,6 @@
 import { BlockSuiteError, ErrorCode } from '@blocksuite/global/exceptions';
 import { SignalWatcher, WithDisposable } from '@blocksuite/global/utils';
-import { type BlockModel, type BlockViewType, Store } from '@blocksuite/store';
+import { type BlockModel, BlockViewType, Doc } from '@blocksuite/store';
 import { consume, provide } from '@lit/context';
 import { computed } from '@preact/signals-core';
 import { nothing, type TemplateResult } from 'lit';
@@ -12,7 +12,6 @@ import { html } from 'lit/static-html.js';
 import type { EventName, UIEventHandler } from '../../event/index.js';
 import type { BlockService } from '../../extension/index.js';
 import type { BlockStdScope } from '../../scope/index.js';
-import { BlockSelection } from '../../selection/index.js';
 import { PropTypes, requiredProperties } from '../decorators/index.js';
 import {
   blockComponentSymbol,
@@ -24,7 +23,7 @@ import { ShadowlessElement } from './shadowless-element.js';
 import type { WidgetComponent } from './widget-component.js';
 
 @requiredProperties({
-  doc: PropTypes.instanceOf(Store),
+  doc: PropTypes.instanceOf(Doc),
   std: PropTypes.object,
   widgets: PropTypes.recordOf(PropTypes.object),
 })
@@ -36,12 +35,16 @@ export class BlockComponent<
   @consume({ context: stdContext })
   accessor std!: BlockStdScope;
 
-  selected$ = computed(() => {
-    const selection = this.std.selection.value.find(
-      selection => selection.blockId === this.model?.id
-    );
-    if (!selection) return false;
-    return selection.is(BlockSelection);
+  private readonly _selected = computed(() => {
+    const selection = this.std.selection.value.find(selection => {
+      return selection.blockId === this.model?.id;
+    });
+
+    if (!selection) {
+      return null;
+    }
+
+    return selection;
   });
 
   [blockComponentSymbol] = true;
@@ -138,6 +141,10 @@ export class BlockComponent<
     return rootComponent ?? null;
   }
 
+  get selected() {
+    return this._selected.value;
+  }
+
   get selection() {
     return this.host.selection;
   }
@@ -180,9 +187,9 @@ export class BlockComponent<
 
   private _renderViewType(content: unknown) {
     return choose(this.viewType, [
-      ['display', () => content],
-      ['hidden', () => nothing],
-      ['bypass', () => this.renderChildren(this.model)],
+      [BlockViewType.Display, () => content],
+      [BlockViewType.Hidden, () => nothing],
+      [BlockViewType.Bypass, () => this.renderChildren(this.model)],
     ]);
   }
 
@@ -211,7 +218,7 @@ export class BlockComponent<
 
     this.std.view.setBlock(this);
 
-    const disposable = this.std.store.slots.blockUpdated.on(({ type, id }) => {
+    const disposable = this.std.doc.slots.blockUpdated.on(({ type, id }) => {
       if (id === this.model.id && type === 'delete') {
         this.std.view.deleteBlock(this);
         disposable.dispose();
@@ -300,10 +307,10 @@ export class BlockComponent<
   private accessor _service: Service | null = null;
 
   @consume({ context: docContext })
-  accessor doc!: Store;
+  accessor doc!: Doc;
 
   @property({ attribute: false })
-  accessor viewType: BlockViewType = 'display';
+  accessor viewType: BlockViewType = BlockViewType.Display;
 
   @property({
     attribute: false,

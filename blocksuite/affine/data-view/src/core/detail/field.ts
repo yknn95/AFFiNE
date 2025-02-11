@@ -184,7 +184,8 @@ export class RecordField extends SignalWatcher(
               menu.action({
                 name: 'Duplicate',
                 prefix: DuplicateIcon(),
-                hide: () => !this.column.canDuplicate,
+                hide: () =>
+                  !this.column.duplicate || this.column.type$.value === 'title',
                 select: () => {
                   this.column.duplicate?.();
                 },
@@ -192,7 +193,8 @@ export class RecordField extends SignalWatcher(
               menu.action({
                 name: 'Delete',
                 prefix: DeleteIcon(),
-                hide: () => !this.column.canDelete,
+                hide: () =>
+                  !this.column.delete || this.column.type$.value === 'title',
                 select: () => {
                   this.column.delete?.();
                 },

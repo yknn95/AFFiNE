@@ -1,9 +1,8 @@
-import { ListBlockModel } from '@blocksuite/affine-model';
 import {
   getNextContentBlock,
   matchFlavours,
 } from '@blocksuite/affine-shared/utils';
-import { type BlockStdScope, TextSelection } from '@blocksuite/block-std';
+import type { BlockStdScope } from '@blocksuite/block-std';
 import type { Text } from '@blocksuite/store';
 
 // When deleting at line end of a list block,
@@ -21,12 +20,12 @@ import type { Text } from '@blocksuite/store';
  - Line9
  */
 export function forwardDelete(std: BlockStdScope): true | undefined {
-  const text = std.selection.find(TextSelection);
+  const text = std.selection.find('text');
   if (!text) return;
   const isCollapsed = text.isCollapsed();
-  const doc = std.store;
+  const doc = std.doc;
   const model = doc.getBlock(text.from.blockId)?.model;
-  if (!model || !matchFlavours(model, [ListBlockModel])) return;
+  if (!model || !matchFlavours(model, ['affine:list'])) return;
   const isEnd = isCollapsed && text.from.index === model.text.length;
   if (!isEnd) return;
   // Has children in list

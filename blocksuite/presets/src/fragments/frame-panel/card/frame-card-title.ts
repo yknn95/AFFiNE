@@ -1,9 +1,9 @@
 import { ShadowlessElement } from '@blocksuite/block-std';
 import type { FrameBlockModel } from '@blocksuite/blocks';
 import { DisposableGroup, WithDisposable } from '@blocksuite/global/utils';
+import type { Y } from '@blocksuite/store';
 import { css, html, type PropertyValues } from 'lit';
 import { property, query } from 'lit/decorators.js';
-import type * as Y from 'yjs';
 
 import { FrameCardTitleEditor } from './frame-card-title-editor.js';
 

@@ -1,6 +1,6 @@
 import { z } from 'zod';
 
-import { ColorSchema } from './color';
+import { ColorSchema } from './color.js';
 
 export const PaletteSchema = z.object({
   key: z.string(),

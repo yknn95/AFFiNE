@@ -1,5 +1,5 @@
 import { unsafeCSSVarV2 } from '@blocksuite/affine-shared/theme';
-import { CheckBoxCheckSolidIcon, CheckBoxUnIcon } from '@blocksuite/icons/lit';
+import { CheckBoxCkeckSolidIcon, CheckBoxUnIcon } from '@blocksuite/icons/lit';
 import { css, html } from 'lit';
 import { query } from 'lit/decorators.js';
 
@@ -97,7 +97,7 @@ export class CheckboxCell extends BaseCellRenderer<boolean> {
   override render() {
     const checked = this.value ?? false;
     const icon = checked
-      ? CheckBoxCheckSolidIcon({ style: `color:#1E96EB` })
+      ? CheckBoxCkeckSolidIcon({ style: `color:#1E96EB` })
       : CheckBoxUnIcon();
     return html` <div class="affine-database-checkbox-container">
       <div

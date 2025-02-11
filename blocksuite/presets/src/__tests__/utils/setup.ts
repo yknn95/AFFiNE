@@ -1,8 +1,5 @@
-import '@toeverything/theme/style.css';
-import '@toeverything/theme/fonts.css';
-
 import { effects as blocksEffects } from '@blocksuite/blocks/effects';
-import type { Store, Transformer } from '@blocksuite/store';
+import type { BlockCollection } from '@blocksuite/store';
 
 import { effects } from '../../effects.js';
 
@@ -13,15 +10,15 @@ import {
   CommunityCanvasTextFonts,
   type DocMode,
   FontConfigExtension,
-  StoreExtensions,
 } from '@blocksuite/blocks';
 import { AffineSchemas } from '@blocksuite/blocks/schemas';
 import { assertExists } from '@blocksuite/global/utils';
-import { Schema, Text } from '@blocksuite/store';
 import {
-  createAutoIncrementIdGenerator,
-  TestWorkspace,
-} from '@blocksuite/store/test';
+  DocCollection,
+  IdGeneratorType,
+  Schema,
+  Text,
+} from '@blocksuite/store';
 
 import { AffineEditorContainer } from '../../index.js';
 
@@ -31,7 +28,7 @@ function createCollectionOptions() {
 
   schema.register(AffineSchemas);
 
-  const idGenerator = createAutoIncrementIdGenerator();
+  const idGenerator: IdGeneratorType = IdGeneratorType.AutoIncrement; // works only in single user mode
 
   return {
     id: room,
@@ -47,7 +44,7 @@ function createCollectionOptions() {
   };
 }
 
-function initCollection(collection: TestWorkspace) {
+function initCollection(collection: DocCollection) {
   const doc = collection.createDoc({ id: 'doc:home' });
 
   doc.load(() => {
@@ -59,11 +56,13 @@ function initCollection(collection: TestWorkspace) {
   doc.resetHistory();
 }
 
-async function createEditor(collection: TestWorkspace, mode: DocMode = 'page') {
+async function createEditor(collection: DocCollection, mode: DocMode = 'page') {
   const app = document.createElement('div');
-  const blockCollection = collection.docs.values().next().value;
+  const blockCollection = collection.docs.values().next().value as
+    | BlockCollection
+    | undefined;
   assertExists(blockCollection, 'Need to create a doc first');
-  const doc = blockCollection.getStore();
+  const doc = blockCollection.getDoc();
   const editor = new AffineEditorContainer();
   editor.doc = doc;
   editor.mode = mode;
@@ -80,7 +79,6 @@ async function createEditor(collection: TestWorkspace, mode: DocMode = 'page') {
 
   app.style.width = '100%';
   app.style.height = '1280px';
-  app.style.overflowY = 'auto';
 
   document.body.append(app);
   await editor.updateComplete;
@@ -88,8 +86,7 @@ async function createEditor(collection: TestWorkspace, mode: DocMode = 'page') {
 }
 
 export async function setupEditor(mode: DocMode = 'page') {
-  const collection = new TestWorkspace(createCollectionOptions());
-  collection.storeExtensions = StoreExtensions;
+  const collection = new DocCollection(createCollectionOptions());
   collection.meta.initialize();
 
   window.collection = collection;
@@ -111,17 +108,4 @@ export function cleanup() {
   delete (window as any).editor;
 
   delete (window as any).doc;
-}
-
-declare global {
-  const editor: AffineEditorContainer;
-  const doc: Store;
-  const collection: TestWorkspace;
-  const job: Transformer;
-  interface Window {
-    editor: AffineEditorContainer;
-    doc: Store;
-    job: Transformer;
-    collection: TestWorkspace;
-  }
 }

@@ -1,4 +1,4 @@
-/* oxlint-disable @typescript-eslint/no-non-null-assertion */
+/* eslint-disable @typescript-eslint/no-non-null-assertion */
 // Custom configurations for AFFiNE Cloud
 // ====================================================================================
 // Q: WHY THIS FILE EXISTS?
@@ -31,8 +31,6 @@ if (env.R2_OBJECT_STORAGE_ACCOUNT_ID) {
       accessKeyId: env.R2_OBJECT_STORAGE_ACCESS_KEY_ID!,
       secretAccessKey: env.R2_OBJECT_STORAGE_SECRET_ACCESS_KEY!,
     },
-    requestChecksumCalculation: 'WHEN_REQUIRED',
-    responseChecksumValidation: 'WHEN_REQUIRED',
   });
   AFFiNE.storages.avatar.provider = 'cloudflare-r2';
   AFFiNE.storages.avatar.bucket = 'account-avatar';

@@ -1,6 +1,6 @@
 import { IconButton } from '@affine/component';
 import { useI18n } from '@affine/i18n';
-import { ToggleRightIcon } from '@blocksuite/icons/rc';
+import { ToggleCollapseIcon } from '@blocksuite/icons/rc';
 import { Trigger as CollapsibleTrigger } from '@radix-ui/react-collapsible';
 
 import * as styles from './section.css';
@@ -14,7 +14,7 @@ export const DocPropertyListSidebarSection = () => {
       </span>
       <CollapsibleTrigger asChild>
         <IconButton>
-          <ToggleRightIcon className={styles.collapseIcon} />
+          <ToggleCollapseIcon className={styles.collapseIcon} />
         </IconButton>
       </CollapsibleTrigger>
     </div>
@@ -30,7 +30,7 @@ export const AddDocPropertySidebarSection = () => {
       </span>
       <CollapsibleTrigger asChild>
         <IconButton>
-          <ToggleRightIcon className={styles.collapseIcon} />
+          <ToggleCollapseIcon className={styles.collapseIcon} />
         </IconButton>
       </CollapsibleTrigger>
     </div>

@@ -1,13 +1,12 @@
+import { CommonUtils } from '@blocksuite/affine-block-surface';
 import type { BlockComponent } from '@blocksuite/block-std';
-import { generateKeyBetween } from '@blocksuite/block-std/gfx';
 import type {
   EdgelessRootBlockComponent,
   GroupElementModel,
   NoteBlockModel,
 } from '@blocksuite/blocks';
-import type { BlockModel, Store } from '@blocksuite/store';
+import { type BlockModel, type Doc, DocCollection } from '@blocksuite/store';
 import { beforeEach, describe, expect, test } from 'vitest';
-import * as Y from 'yjs';
 
 import { wait } from '../utils/common.js';
 import {
@@ -19,7 +18,7 @@ import { setupEditor } from '../utils/setup.js';
 
 let service!: EdgelessRootBlockComponent['service'];
 
-const addNote = (doc: Store, props: Record<string, unknown> = {}) => {
+const addNote = (doc: Doc, props: Record<string, unknown> = {}) => {
   return _addNote(doc, {
     index: service.layer.generateIndex(),
     ...props,
@@ -238,7 +237,7 @@ test('blocks should rerender when their z-index changed', async () => {
 
   service.crud.addElement('shape', {
     shapeType: 'rect',
-    index: generateKeyBetween(
+    index: CommonUtils.generateKeyBetween(
       service.crud.getElementById(blocks[1])!.index,
       service.crud.getElementById(blocks[2])!.index
     ),
@@ -410,7 +409,7 @@ describe('group related functionality', () => {
     service: EdgelessRootBlockComponent['service'],
     childIds: string[]
   ) => {
-    const children = new Y.Map<boolean>();
+    const children = new DocCollection.Y.Map<boolean>();
     childIds.forEach(id => children.set(id, true));
 
     return service.crud.addElement('group', {
@@ -575,7 +574,7 @@ describe('compare function', () => {
     childIds: string[]
     // eslint-disable-next-line sonarjs/no-identical-functions
   ) => {
-    const children = new Y.Map<boolean>();
+    const children = new DocCollection.Y.Map<boolean>();
     childIds.forEach(id => children.set(id, true));
 
     return service.crud.addElement('group', {

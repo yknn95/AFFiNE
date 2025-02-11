@@ -6,8 +6,7 @@ import {
   ToastTitle,
   ToastViewport,
 } from '@affine/admin/components/ui/toast';
-
-import { useToast } from './use-toast';
+import { useToast } from '@affine/admin/components/ui/use-toast';
 
 export function Toaster() {
   const { toasts } = useToast();

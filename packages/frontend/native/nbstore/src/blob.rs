@@ -1,18 +1,18 @@
 use std::ops::Deref;
 
-use super::{error::Result, storage::SqliteDocStorage, Blob, ListedBlob, SetBlob};
+use super::{storage::SqliteDocStorage, Blob, ListedBlob, SetBlob};
+
+type Result<T> = std::result::Result<T, sqlx::Error>;
 
 impl SqliteDocStorage {
   pub async fn get_blob(&self, key: String) -> Result<Option<Blob>> {
-    let result = sqlx::query_as!(
+    sqlx::query_as!(
       Blob,
       "SELECT key, data, size, mime, created_at FROM blobs WHERE key = ? AND deleted_at IS NULL",
       key
     )
     .fetch_optional(&self.pool)
-    .await?;
-
-    Ok(result)
+    .await
   }
 
   pub async fn set_blob(&self, blob: SetBlob) -> Result<()> {
@@ -58,15 +58,12 @@ impl SqliteDocStorage {
   }
 
   pub async fn list_blobs(&self) -> Result<Vec<ListedBlob>> {
-    let result = sqlx::query_as!(
+    sqlx::query_as!(
       ListedBlob,
-      "SELECT key, size, mime, created_at FROM blobs WHERE deleted_at IS NULL ORDER BY created_at \
-       DESC;"
+      "SELECT key, size, mime, created_at FROM blobs WHERE deleted_at IS NULL ORDER BY created_at DESC;"
     )
     .fetch_all(&self.pool)
-    .await?;
-
-    Ok(result)
+    .await
   }
 }
 
@@ -91,7 +88,7 @@ mod tests {
       storage
         .set_blob(SetBlob {
           key: format!("test_{}", i),
-          data: vec![0, 0],
+          data: vec![0, 0].into(),
           mime: "text/plain".to_string(),
         })
         .await
@@ -131,7 +128,7 @@ mod tests {
       storage
         .set_blob(SetBlob {
           key: format!("test_{}", i),
-          data: vec![0, 0],
+          data: vec![0, 0].into(),
           mime: "text/plain".to_string(),
         })
         .await
@@ -179,7 +176,7 @@ mod tests {
       storage
         .set_blob(SetBlob {
           key: format!("test_{}", i),
-          data: vec![0, 0],
+          data: vec![0, 0].into(),
           mime: "text/plain".to_string(),
         })
         .await

@@ -44,10 +44,6 @@ export enum StrokeStyle {
   Solid = 'solid',
 }
 
-export const StrokeStyleSchema = z.nativeEnum(StrokeStyle);
-
-export const NoteDisplayModeSchema = z.nativeEnum(NoteDisplayMode);
-
 export const DEFAULT_NOTE_BORDER_STYLE = StrokeStyle.None;
 
 export const StrokeStyleMap = createEnumMap(StrokeStyle);

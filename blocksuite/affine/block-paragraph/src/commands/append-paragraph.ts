@@ -1,27 +1,27 @@
 import { focusTextModel } from '@blocksuite/affine-components/rich-text';
 import { getLastNoteBlock } from '@blocksuite/affine-shared/utils';
 import type { Command } from '@blocksuite/block-std';
-import { Text } from '@blocksuite/store';
 
 /**
  * Append a paragraph block at the end of the whole page.
  */
-export const appendParagraphCommand: Command<{ text?: string }> = (
-  ctx,
-  next
-) => {
+export const appendParagraphCommand: Command<
+  never,
+  never,
+  { text?: string }
+> = (ctx, next) => {
   const { std, text = '' } = ctx;
-  const { store } = std;
-  if (!store.root) return;
+  const { doc } = std;
+  if (!doc.root) return;
 
-  const note = getLastNoteBlock(store);
+  const note = getLastNoteBlock(doc);
   let noteId = note?.id;
   if (!noteId) {
-    noteId = store.addBlock('affine:note', {}, store.root.id);
+    noteId = doc.addBlock('affine:note', {}, doc.root.id);
   }
-  const id = store.addBlock(
+  const id = doc.addBlock(
     'affine:paragraph',
-    { text: new Text(text) },
+    { text: new doc.Text(text) },
     noteId
   );
 

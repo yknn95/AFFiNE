@@ -7,6 +7,7 @@ import { splitElements } from './root-block/edgeless/utils/clipboard-utils.js';
 import { isCanvasElement } from './root-block/edgeless/utils/query.js';
 
 export * from './_common/adapters/index.js';
+export * from './_common/adapters/markdown';
 export { type NavigatorMode } from './_common/edgeless/frame/consts.js';
 export {
   ExportManager,
@@ -32,6 +33,11 @@ export { EditPropsMiddlewareBuilder } from './root-block/edgeless/middlewares/ba
 export { EdgelessSnapManager } from './root-block/edgeless/utils/snap-manager.js';
 export * from './root-block/index.js';
 export * from './schemas.js';
+export {
+  markdownToMindmap,
+  MindmapSurfaceBlock,
+  MiniMindmapPreview,
+} from './surface-block/mini-mindmap/index.js';
 export * from '@blocksuite/affine-block-attachment';
 export * from '@blocksuite/affine-block-bookmark';
 export * from '@blocksuite/affine-block-code';
@@ -48,7 +54,6 @@ export * from '@blocksuite/affine-block-note';
 export * from '@blocksuite/affine-block-paragraph';
 export * from '@blocksuite/affine-block-surface';
 export * from '@blocksuite/affine-block-surface-ref';
-export * from '@blocksuite/affine-block-table';
 export {
   type AIError,
   type AIItemConfig,
@@ -59,11 +64,7 @@ export {
   PaymentRequiredError,
   UnauthorizedError,
 } from '@blocksuite/affine-components/ai-item';
-export {
-  menu,
-  type MenuOptions,
-  onMenuOpen,
-} from '@blocksuite/affine-components/context-menu';
+export { type MenuOptions } from '@blocksuite/affine-components/context-menu';
 export {
   HoverController,
   whenHover,
@@ -102,7 +103,6 @@ export {
   AttachmentAdapter,
   AttachmentAdapterFactoryExtension,
   AttachmentAdapterFactoryIdentifier,
-  FetchUtils,
   HtmlAdapter,
   HtmlAdapterFactoryExtension,
   HtmlAdapterFactoryIdentifier,
@@ -112,9 +112,6 @@ export {
   MarkdownAdapter,
   MarkdownAdapterFactoryExtension,
   MarkdownAdapterFactoryIdentifier,
-  MixTextAdapter,
-  MixTextAdapterFactoryExtension,
-  MixTextAdapterFactoryIdentifier,
   NotionTextAdapter,
   NotionTextAdapterFactoryExtension,
   NotionTextAdapterFactoryIdentifier,
@@ -122,8 +119,6 @@ export {
   PlainTextAdapterFactoryExtension,
   PlainTextAdapterFactoryIdentifier,
 } from '@blocksuite/affine-shared/adapters';
-export * from '@blocksuite/affine-shared/commands';
-export { HighlightSelection } from '@blocksuite/affine-shared/selection';
 export * from '@blocksuite/affine-shared/services';
 export { scrollbarStyle } from '@blocksuite/affine-shared/styles';
 export {
@@ -131,15 +126,11 @@ export {
   FontFamilyVariables,
   SizeVariables,
   StyleVariables,
-  unsafeCSSVarV2,
 } from '@blocksuite/affine-shared/theme';
-export { type AffineTextAttributes } from '@blocksuite/affine-shared/types';
 export {
   createButtonPopper,
   createDefaultDoc,
-  createSignalFromObservable,
   findNoteBlockModel,
-  getLastNoteBlock,
   isInsideEdgelessEditor,
   isInsidePageEditor,
   matchFlavours,
@@ -147,11 +138,7 @@ export {
   once,
   openFileOrFiles,
   printToPdf,
-  referenceToNode,
-  type Signal,
-  SpecProvider,
 } from '@blocksuite/affine-shared/utils';
-export type { DragBlockPayload } from '@blocksuite/affine-widget-drag-handle';
 
 export const BlocksUtils = {
   splitElements,

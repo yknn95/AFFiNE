@@ -152,26 +152,9 @@ export class MemoryTableAdapter implements TableAdapter {
   }
 
   private match(record: any, where: WhereCondition) {
-    if (Array.isArray(where)) {
-      return where.every(c => {
-        const value = record[c.field] || null;
-        const condition = c.value;
-
-        if (typeof condition === 'object') {
-          if (condition === null) {
-            return value === null;
-          }
-
-          if ('not' in condition) {
-            return value !== condition.not;
-          }
-        }
-
-        return value === condition;
-      });
-    }
-
-    return where.byKey === record[this.keyField];
+    return Array.isArray(where)
+      ? where.every(c => record[c.field] === c.value)
+      : where.byKey === record[this.keyField];
   }
 
   private dispatch(key: string, data: any) {

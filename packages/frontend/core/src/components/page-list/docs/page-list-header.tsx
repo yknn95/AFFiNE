@@ -13,7 +13,7 @@ import type { Tag } from '@affine/core/modules/tag';
 import { TagService } from '@affine/core/modules/tag';
 import { WorkbenchService } from '@affine/core/modules/workbench';
 import { WorkspaceService } from '@affine/core/modules/workspace';
-import { inferOpenMode } from '@affine/core/utils';
+import { isNewTabTrigger } from '@affine/core/utils';
 import type { Collection } from '@affine/env/filter';
 import { useI18n } from '@affine/i18n';
 import { track } from '@affine/track';
@@ -92,11 +92,15 @@ export const PageListHeader = () => {
       <PageListNewPageButton
         size="small"
         testId="new-page-button-trigger"
-        onCreateEdgeless={e => createEdgeless({ at: inferOpenMode(e) })}
-        onCreatePage={e =>
-          createPage('page' as DocMode, { at: inferOpenMode(e) })
+        onCreateEdgeless={e =>
+          createEdgeless(isNewTabTrigger(e) ? 'new-tab' : true)
         }
-        onCreateDoc={e => createPage(undefined, { at: inferOpenMode(e) })}
+        onCreatePage={e =>
+          createPage('page' as DocMode, isNewTabTrigger(e) ? 'new-tab' : true)
+        }
+        onCreateDoc={e =>
+          createPage(undefined, isNewTabTrigger(e) ? 'new-tab' : true)
+        }
         onImportFile={onImportFile}
       >
         <div className={styles.buttonText}>{t['New Page']()}</div>

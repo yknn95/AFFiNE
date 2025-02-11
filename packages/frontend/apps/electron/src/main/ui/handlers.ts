@@ -71,10 +71,6 @@ export const uiHandlers = {
   handleCloseApp: async () => {
     app.quit();
   },
-  handleHideApp: async () => {
-    const window = await getMainWindow();
-    window?.hide();
-  },
   handleNetworkChange: async (_, _isOnline: boolean) => {
     isOnline = _isOnline;
   },
@@ -110,7 +106,7 @@ export const uiHandlers = {
       link =
         'https://api.fxtwitter.com/status/' + /\/status\/(.*)/.exec(link)?.[1];
       try {
-        const { tweet } = (await fetch(link).then(res => res.json())) as any;
+        const { tweet } = await fetch(link).then(res => res.json());
         return {
           title: tweet.author.name,
           icon: tweet.author.avatar_url,
@@ -195,7 +191,6 @@ export const uiHandlers = {
   closeTab: async (_, ...args: Parameters<typeof closeTab>) => {
     await closeTab(...args);
   },
-
   activateView: async (_, ...args: Parameters<typeof activateView>) => {
     await activateView(...args);
   },

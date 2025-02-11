@@ -1,10 +1,10 @@
 import type { AffineTextAttributes } from '@blocksuite/affine-shared/types';
+import type { ExtensionType } from '@blocksuite/block-std';
 import {
   createIdentifier,
   type ServiceIdentifier,
   type ServiceProvider,
 } from '@blocksuite/global/di';
-import type { ExtensionType } from '@blocksuite/store';
 
 import type { InlineSpecs } from './type.js';
 

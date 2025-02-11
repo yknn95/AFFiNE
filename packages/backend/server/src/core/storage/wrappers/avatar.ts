@@ -2,6 +2,7 @@ import { Injectable } from '@nestjs/common';
 
 import type {
   BlobInputType,
+  EventPayload,
   PutObjectMetadata,
   StorageProvider,
 } from '../../../base';
@@ -46,7 +47,7 @@ export class AvatarStorage {
   }
 
   @OnEvent('user.deleted')
-  async onUserDeleted(user: Events['user.deleted']) {
+  async onUserDeleted(user: EventPayload<'user.deleted'>) {
     if (user.avatarUrl) {
       await this.delete(user.avatarUrl);
     }

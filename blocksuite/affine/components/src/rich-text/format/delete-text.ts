@@ -1,12 +1,14 @@
-import { RootBlockModel } from '@blocksuite/affine-model';
 import { matchFlavours } from '@blocksuite/affine-shared/utils';
-import { type Command, TextSelection } from '@blocksuite/block-std';
+import type { Command, TextSelection } from '@blocksuite/block-std';
 import type { Text } from '@blocksuite/store';
 
-export const deleteTextCommand: Command<{
-  currentTextSelection?: TextSelection;
-  textSelection?: TextSelection;
-}> = (ctx, next) => {
+export const deleteTextCommand: Command<
+  'currentTextSelection',
+  never,
+  {
+    textSelection?: TextSelection;
+  }
+> = (ctx, next) => {
   const textSelection = ctx.textSelection ?? ctx.currentTextSelection;
   if (!textSelection) return;
 
@@ -25,7 +27,7 @@ export const deleteTextCommand: Command<{
   if (!fromElement) return;
 
   let fromText: Text | undefined;
-  if (matchFlavours(fromElement.model, [RootBlockModel])) {
+  if (matchFlavours(fromElement.model, ['affine:page'])) {
     fromText = fromElement.model.title;
   } else {
     fromText = fromElement.model.text;
@@ -34,7 +36,7 @@ export const deleteTextCommand: Command<{
   if (!to) {
     fromText.delete(from.index, from.length);
     ctx.std.selection.setGroup('note', [
-      ctx.std.selection.create(TextSelection, {
+      ctx.std.selection.create('text', {
         from: {
           blockId: from.blockId,
           index: from.index,
@@ -60,14 +62,14 @@ export const deleteTextCommand: Command<{
   selectedElements
     .filter(el => el.model.id !== fromElement.model.id)
     .forEach(el => {
-      ctx.std.store.deleteBlock(el.model, {
+      ctx.std.doc.deleteBlock(el.model, {
         bringChildrenTo:
           el.model.id === toElement.model.id ? fromElement.model : undefined,
       });
     });
 
   ctx.std.selection.setGroup('note', [
-    ctx.std.selection.create(TextSelection, {
+    ctx.std.selection.create('text', {
       from: {
         blockId: from.blockId,
         index: from.index,

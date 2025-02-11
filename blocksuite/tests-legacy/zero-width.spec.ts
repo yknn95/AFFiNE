@@ -44,7 +44,7 @@ test(
     await page.evaluate(() => {
       const { doc } = window;
       const rootId = doc.addBlock('affine:page', {
-        title: new window.$blocksuite.store.Text(),
+        title: new doc.Text(),
       });
       const note = doc.addBlock('affine:note', {}, rootId);
       doc.addBlock('affine:code', {}, note);
@@ -71,7 +71,7 @@ test(
       async ({ bookMarkUrl, embedUrl }) => {
         const { doc } = window;
         const rootId = doc.addBlock('affine:page', {
-          title: new window.$blocksuite.store.Text(),
+          title: new doc.Text(),
         });
         const note = doc.addBlock('affine:note', {}, rootId);
         doc.addBlock('affine:code', {}, note);

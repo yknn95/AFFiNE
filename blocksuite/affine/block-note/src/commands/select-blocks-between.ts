@@ -1,14 +1,10 @@
-import {
-  type BlockComponent,
-  BlockSelection,
-  type Command,
-} from '@blocksuite/block-std';
+import type { Command } from '@blocksuite/block-std';
 
-export const selectBlocksBetween: Command<{
-  focusBlock?: BlockComponent;
-  anchorBlock?: BlockComponent;
-  tail: boolean;
-}> = (ctx, next) => {
+export const selectBlocksBetween: Command<
+  'focusBlock' | 'anchorBlock',
+  never,
+  { tail: boolean }
+> = (ctx, next) => {
   const { focusBlock, anchorBlock, tail } = ctx;
   if (!focusBlock || !anchorBlock) {
     return;
@@ -18,7 +14,7 @@ export const selectBlocksBetween: Command<{
   // In same block
   if (anchorBlock.blockId === focusBlock.blockId) {
     const blockId = focusBlock.blockId;
-    selection.setGroup('note', [selection.create(BlockSelection, { blockId })]);
+    selection.setGroup('note', [selection.create('block', { blockId })]);
     return next();
   }
 
@@ -27,11 +23,11 @@ export const selectBlocksBetween: Command<{
   if (selections.every(sel => sel.blockId !== focusBlock.blockId)) {
     if (tail) {
       selections.push(
-        selection.create(BlockSelection, { blockId: focusBlock.blockId })
+        selection.create('block', { blockId: focusBlock.blockId })
       );
     } else {
       selections.unshift(
-        selection.create(BlockSelection, { blockId: focusBlock.blockId })
+        selection.create('block', { blockId: focusBlock.blockId })
       );
     }
   }

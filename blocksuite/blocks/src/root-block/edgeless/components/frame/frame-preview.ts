@@ -12,7 +12,7 @@ import {
   DisposableGroup,
   WithDisposable,
 } from '@blocksuite/global/utils';
-import { type Query, type Store } from '@blocksuite/store';
+import { BlockViewType, type Doc, type Query } from '@blocksuite/store';
 import { css, html, nothing, type PropertyValues } from 'lit';
 import { property, query, state } from 'lit/decorators.js';
 import { styleMap } from 'lit/directives/style-map.js';
@@ -71,14 +71,14 @@ export class FramePreview extends WithDisposable(ShadowlessElement) {
     match: [
       {
         flavour: 'affine:frame',
-        viewType: 'hidden',
+        viewType: BlockViewType.Hidden,
       },
     ],
   };
 
   private _frameDisposables: DisposableGroup | null = null;
 
-  private _previewDoc: Store | null = null;
+  private _previewDoc: Doc | null = null;
 
   private readonly _previewSpec =
     SpecProvider.getInstance().getSpec('edgeless:preview');
@@ -104,7 +104,7 @@ export class FramePreview extends WithDisposable(ShadowlessElement) {
   }
 
   private _initPreviewDoc() {
-    this._previewDoc = this._originalDoc.workspace.getDoc(
+    this._previewDoc = this._originalDoc.collection.getDoc(
       this._originalDoc.id,
       {
         query: this._docFilter,
@@ -112,7 +112,7 @@ export class FramePreview extends WithDisposable(ShadowlessElement) {
       }
     );
     this.disposables.add(() => {
-      this._originalDoc.doc.clearQuery(this._docFilter);
+      this._originalDoc.blockCollection.clearQuery(this._docFilter);
     });
   }
 
@@ -172,7 +172,7 @@ export class FramePreview extends WithDisposable(ShadowlessElement) {
         })}
       >
         ${new BlockStdScope({
-          store: this._previewDoc,
+          doc: this._previewDoc,
           extensions: _previewSpec,
         }).render()}
       </div>

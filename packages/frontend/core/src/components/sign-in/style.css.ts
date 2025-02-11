@@ -15,7 +15,6 @@ export const authMessage = style({
 globalStyle(`${authMessage} a`, {
   color: cssVar('linkColor'),
 });
-
 globalStyle(`${authMessage} .link`, {
   cursor: 'pointer',
   color: cssVar('linkColor'),
@@ -42,8 +41,31 @@ export const linkButton = style({
   userSelect: 'none',
 });
 
-export const resendButtonWrapper = style({
-  marginTop: 20,
+export const resendWrapper = style({
+  height: 77,
+  display: 'flex',
+  flexDirection: 'column',
+  justifyContent: 'center',
+  alignItems: 'center',
+  marginTop: 30,
+});
+
+export const sentRow = style({
+  display: 'flex',
+  justifyContent: 'center',
+  gap: '8px',
+  lineHeight: '22px',
+  fontSize: cssVar('fontSm'),
+});
+
+export const sentMessage = style({
+  color: cssVar('textPrimaryColor'),
+  fontWeight: 600,
+});
+
+export const resendCountdown = style({
+  width: 45,
+  textAlign: 'center',
 });
 
 export const addSelfhostedButton = style({

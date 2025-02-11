@@ -1,17 +1,16 @@
-import { WorkspaceImpl } from '@affine/core/modules/workspace/impls/workspace';
 import { AffineSchemas } from '@blocksuite/affine/blocks';
-import type { DocSnapshot, Store } from '@blocksuite/affine/store';
-import { Schema, Transformer } from '@blocksuite/affine/store';
+import type { Doc, DocSnapshot } from '@blocksuite/affine/store';
+import { DocCollection, Job, Schema } from '@blocksuite/affine/store';
 
 const getCollection = (() => {
-  let collection: WorkspaceImpl | null = null;
+  let collection: DocCollection | null = null;
   return async function () {
     if (collection) {
       return collection;
     }
     const schema = new Schema();
     schema.register(AffineSchemas);
-    collection = new WorkspaceImpl({ schema });
+    collection = new DocCollection({ schema });
     collection.meta.initialize();
     return collection;
   };
@@ -24,10 +23,9 @@ export type DocName =
   | 'flow'
   | 'text'
   | 'connector'
-  | 'mindmap'
-  | 'frame';
+  | 'mindmap';
 
-const docMap = new Map<DocName, Promise<Store | undefined>>();
+const docMap = new Map<DocName, Promise<Doc | undefined>>();
 
 async function loadNote() {
   return (await import('./note.json')).default;
@@ -39,10 +37,6 @@ async function loadPen() {
 
 async function loadShape() {
   return (await import('./shape.json')).default;
-}
-
-async function loadFrame() {
-  return (await import('./frame.json')).default;
 }
 
 async function loadFlow() {
@@ -65,7 +59,6 @@ const loaders = {
   note: loadNote,
   pen: loadPen,
   shape: loadShape,
-  frame: loadFrame,
   flow: loadFlow,
   text: loadText,
   connector: loadConnector,
@@ -85,16 +78,10 @@ export async function getDocByName(name: DocName) {
 async function initDoc(name: DocName) {
   const snapshot = (await loaders[name]()) as DocSnapshot;
   const collection = await getCollection();
-  const transformer = new Transformer({
-    schema: collection.schema,
-    blobCRUD: collection.blobSync,
-    docCRUD: {
-      create: (id: string) => collection.createDoc({ id }),
-      get: (id: string) => collection.getDoc(id),
-      delete: (id: string) => collection.removeDoc(id),
-    },
+  const job = new Job({
+    collection,
     middlewares: [],
   });
 
-  return await transformer.snapshotToDoc(snapshot);
+  return await job.snapshotToDoc(snapshot);
 }

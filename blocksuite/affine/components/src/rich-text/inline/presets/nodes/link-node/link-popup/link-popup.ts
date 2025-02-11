@@ -15,7 +15,6 @@ import {
   BLOCK_ID_ATTR,
   type BlockComponent,
   type BlockStdScope,
-  TextSelection,
 } from '@blocksuite/block-std';
 import { WithDisposable } from '@blocksuite/global/utils';
 import type { InlineRange } from '@blocksuite/inline/types';
@@ -439,7 +438,7 @@ export class LinkPopup extends WithDisposable(LitElement) {
         reference: null,
       });
       this.inlineEditor.setInlineRange(this.targetInlineRange);
-      const textSelection = this.host?.selection.find(TextSelection);
+      const textSelection = this.host?.selection.find('text');
       if (!textSelection) return;
 
       this.std?.range.syncTextSelectionToRange(textSelection);
@@ -453,7 +452,7 @@ export class LinkPopup extends WithDisposable(LitElement) {
         index: this.targetInlineRange.index,
         length: text.length,
       });
-      const textSelection = this.host?.selection.find(TextSelection);
+      const textSelection = this.host?.selection.find('text');
       if (!textSelection) return;
 
       this.std?.range.syncTextSelectionToRange(textSelection);

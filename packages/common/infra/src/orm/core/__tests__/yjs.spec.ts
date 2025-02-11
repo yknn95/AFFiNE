@@ -102,61 +102,6 @@ describe('ORM entity CRUD', () => {
     expect(user2).toEqual(user);
   });
 
-  test('should be able to filter with nullable condition', t => {
-    const { client } = t;
-
-    client.users.create({
-      name: 'u1',
-      email: 'e1@example.com',
-    });
-
-    client.users.create({
-      name: 'u2',
-    });
-
-    const users = client.users.find({
-      email: null,
-    });
-
-    expect(users).toHaveLength(1);
-    expect(users[0].email).toBeFalsy();
-
-    const users2 = client.users.find({
-      email: {
-        not: null,
-      },
-    });
-
-    expect(users2).toHaveLength(1);
-    expect(users2[0].email).toEqual('e1@example.com');
-  });
-
-  test('should be able to filter with `not` condition', t => {
-    const { client } = t;
-
-    client.users.create({
-      name: 'u1',
-      email: 'e1@example.com',
-    });
-
-    const users = client.users.find({
-      email: {
-        not: 'e1@example.com',
-      },
-    });
-
-    expect(users).toHaveLength(0);
-
-    const users2 = client.users.find({
-      name: {
-        not: 'u2',
-      },
-    });
-
-    expect(users2).toHaveLength(1);
-    expect(users2[0].name).toEqual('u1');
-  });
-
   test('should be able to update entity', t => {
     const { client } = t;
 

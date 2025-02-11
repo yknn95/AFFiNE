@@ -27,13 +27,17 @@ export interface DocClock {
 }
 
 export interface NbStorePlugin {
-  connect: (options: {
-    id: string;
-    spaceId: string;
-    spaceType: string;
+  getSpaceDBPath: (options: {
     peer: string;
-  }) => Promise<void>;
-  disconnect: (options: { id: string }) => Promise<void>;
+    spaceType: string;
+    id: string;
+  }) => Promise<{ path: string }>;
+  create: (options: { id: string; path: string }) => Promise<void>;
+  connect: (options: { id: string }) => Promise<void>;
+  close: (options: { id: string }) => Promise<void>;
+  isClosed: (options: { id: string }) => Promise<{ isClosed: boolean }>;
+  checkpoint: (options: { id: string }) => Promise<void>;
+  validate: (options: { id: string }) => Promise<{ isValidate: boolean }>;
 
   setSpaceId: (options: { id: string; spaceId: string }) => Promise<void>;
   pushUpdate: (options: {
@@ -45,7 +49,7 @@ export interface NbStorePlugin {
     | {
         docId: string;
         // base64 encoded data
-        bin: string;
+        data: string;
         timestamp: number;
       }
     | undefined
@@ -53,29 +57,28 @@ export interface NbStorePlugin {
   setDocSnapshot: (options: {
     id: string;
     docId: string;
-    bin: string;
-    timestamp: number;
+    data: string;
   }) => Promise<{ success: boolean }>;
-  getDocUpdates: (options: { id: string; docId: string }) => Promise<{
-    updates: {
+  getDocUpdates: (options: { id: string; docId: string }) => Promise<
+    {
       docId: string;
-      timestamp: number;
+      createdAt: number;
       // base64 encoded data
-      bin: string;
-    }[];
-  }>;
+      data: string;
+    }[]
+  >;
   markUpdatesMerged: (options: {
     id: string;
     docId: string;
     timestamps: number[];
   }) => Promise<{ count: number }>;
   deleteDoc: (options: { id: string; docId: string }) => Promise<void>;
-  getDocClocks: (options: { id: string; after?: number | null }) => Promise<{
-    clocks: {
+  getDocClocks: (options: { id: string; after: number }) => Promise<
+    {
       docId: string;
       timestamp: number;
-    }[];
-  }>;
+    }[]
+  >;
   getDocClock: (options: { id: string; docId: string }) => Promise<
     | {
         docId: string;
@@ -91,51 +94,51 @@ export interface NbStorePlugin {
     permanently: boolean;
   }) => Promise<void>;
   releaseBlobs: (options: { id: string }) => Promise<void>;
-  listBlobs: (options: { id: string }) => Promise<{ blobs: Array<ListedBlob> }>;
+  listBlobs: (options: { id: string }) => Promise<Array<ListedBlob>>;
   getPeerRemoteClocks: (options: {
     id: string;
     peer: string;
-  }) => Promise<{ clocks: Array<DocClock> }>;
+  }) => Promise<Array<DocClock>>;
   getPeerRemoteClock: (options: {
     id: string;
     peer: string;
     docId: string;
-  }) => Promise<DocClock | null>;
+  }) => Promise<DocClock>;
   setPeerRemoteClock: (options: {
     id: string;
     peer: string;
     docId: string;
-    timestamp: number;
+    clock: number;
   }) => Promise<void>;
   getPeerPushedClocks: (options: {
     id: string;
     peer: string;
-  }) => Promise<{ clocks: Array<DocClock> }>;
+  }) => Promise<Array<DocClock>>;
   getPeerPushedClock: (options: {
     id: string;
     peer: string;
     docId: string;
-  }) => Promise<DocClock | null>;
+  }) => Promise<DocClock>;
   setPeerPushedClock: (options: {
     id: string;
     peer: string;
     docId: string;
-    timestamp: number;
+    clock: number;
   }) => Promise<void>;
   getPeerPulledRemoteClocks: (options: {
     id: string;
     peer: string;
-  }) => Promise<{ clocks: Array<DocClock> }>;
+  }) => Promise<Array<DocClock>>;
   getPeerPulledRemoteClock: (options: {
     id: string;
     peer: string;
     docId: string;
-  }) => Promise<DocClock | null>;
+  }) => Promise<DocClock>;
   setPeerPulledRemoteClock: (options: {
     id: string;
     peer: string;
     docId: string;
-    timestamp: number;
+    clock: number;
   }) => Promise<void>;
   clearClocks: (options: { id: string }) => Promise<void>;
 }

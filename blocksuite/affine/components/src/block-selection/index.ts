@@ -1,3 +1,4 @@
+import type { BlockComponent } from '@blocksuite/block-std';
 import { SignalWatcher } from '@blocksuite/global/utils';
 import { css, LitElement, type PropertyValues } from 'lit';
 import { property } from 'lit/decorators.js';
@@ -46,14 +47,18 @@ export class BlockSelection extends SignalWatcher(LitElement) {
     this.style.borderWidth = `${this.borderWidth}px`;
   }
 
-  protected override updated(changed: PropertyValues) {
-    if (changed.has('selected')) {
-      this.style.display = this.selected ? 'block' : 'none';
-    }
+  override disconnectedCallback() {
+    super.disconnectedCallback();
+    this.block = null as unknown as BlockComponent; // force gc
+  }
+
+  protected override updated(_changedProperties: PropertyValues): void {
+    super.updated(_changedProperties);
+    this.style.display = this.block.selected?.is('block') ? 'block' : 'none';
   }
 
   @property({ attribute: false })
-  accessor selected = false;
+  accessor block!: BlockComponent;
 
   @property({ attribute: false })
   accessor borderRadius: number = 5;

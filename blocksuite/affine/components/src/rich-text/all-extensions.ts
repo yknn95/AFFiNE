@@ -1,4 +1,4 @@
-import type { ExtensionType } from '@blocksuite/store';
+import type { ExtensionType } from '@blocksuite/block-std';
 
 import { InlineManagerExtension } from './extension/index.js';
 import {
@@ -6,8 +6,6 @@ import {
   BoldInlineSpecExtension,
   CodeInlineSpecExtension,
   ColorInlineSpecExtension,
-  FootNoteInlineSpecExtension,
-  InlineAdapterExtensions,
   InlineSpecExtensions,
   ItalicInlineSpecExtension,
   LatexInlineSpecExtension,
@@ -32,7 +30,6 @@ export const DefaultInlineManagerExtension = InlineManagerExtension({
     LatexInlineSpecExtension.identifier,
     ReferenceInlineSpecExtension.identifier,
     LinkInlineSpecExtension.identifier,
-    FootNoteInlineSpecExtension.identifier,
   ],
 });
 
@@ -41,5 +38,4 @@ export const RichTextExtensions: ExtensionType[] = [
   MarkdownExtensions,
   LatexEditorInlineManagerExtension,
   DefaultInlineManagerExtension,
-  InlineAdapterExtensions,
 ].flat();

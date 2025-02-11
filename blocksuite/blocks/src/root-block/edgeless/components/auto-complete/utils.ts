@@ -1,4 +1,5 @@
 import {
+  CommonUtils,
   type Options,
   Overlay,
   type RoughCanvas,
@@ -16,8 +17,8 @@ import {
 import type { GfxController, GfxModel } from '@blocksuite/block-std/gfx';
 import { BlockSuiteError, ErrorCode } from '@blocksuite/global/exceptions';
 import type { XYWH } from '@blocksuite/global/utils';
-import { assertType, Bound, normalizeDegAngle } from '@blocksuite/global/utils';
-import * as Y from 'yjs';
+import { assertType, Bound } from '@blocksuite/global/utils';
+import { DocCollection } from '@blocksuite/store';
 
 import type { EdgelessRootBlockComponent } from '../../edgeless-root-block.js';
 import { type Shape, ShapeFactory } from '../../utils/tool-overlay.js';
@@ -192,7 +193,7 @@ export function nextBound(
       angle = 270;
       break;
   }
-  angle = normalizeDegAngle(angle + curShape.rotate);
+  angle = CommonUtils.normalizeDegAngle(angle + curShape.rotate);
 
   if (angle >= 45 && angle <= 135) {
     nextBound = new Bound(x, y + h + MAIN_GAP, w, h);
@@ -283,7 +284,7 @@ export function createEdgelessElement(
   if (isShape(current)) {
     id = crud.addElement(current.type, {
       ...current.serialize(),
-      text: new Y.Text(),
+      text: new DocCollection.Y.Text(),
       xywh: bound.serialize(),
     });
     if (!id) return null;
@@ -339,7 +340,7 @@ export function createShapeElement(
   const id = crud.addElement('shape', {
     shapeType: getShapeType(targetType),
     radius: getShapeRadius(targetType),
-    text: new Y.Text(),
+    text: new DocCollection.Y.Text(),
   });
   if (!id) return null;
   const element = crud.getElementById(id);

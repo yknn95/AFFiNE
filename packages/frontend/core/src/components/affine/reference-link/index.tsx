@@ -6,7 +6,7 @@ import { useInsidePeekView } from '@affine/core/modules/peek-view/view/modal-con
 import { WorkbenchLink } from '@affine/core/modules/workbench';
 import { track } from '@affine/track';
 import type { DocMode } from '@blocksuite/affine/blocks';
-import type { Workspace } from '@blocksuite/affine/store';
+import type { DocCollection } from '@blocksuite/affine/store';
 import { LiveData, useLiveData, useService } from '@toeverything/infra';
 import clsx from 'clsx';
 import { nanoid } from 'nanoid';
@@ -60,7 +60,7 @@ function AffinePageReferenceInner({
           mode: referenceWithMode ?? undefined,
           reference: true,
           referenceToNode,
-          title,
+          hasTitleAlias: Boolean(title),
         })
       );
     })
@@ -167,7 +167,7 @@ export function AffineSharedPageReference({
   Icon,
   onClick: userOnClick,
 }: AffinePageReferenceProps & {
-  docCollection: Workspace;
+  docCollection: DocCollection;
 }) {
   const journalService = useService(JournalService);
   const isJournal = !!useLiveData(journalService.journalDate$(pageId));

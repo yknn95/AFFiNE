@@ -12,7 +12,7 @@ import type {
   DatabaseBlockModel,
   MenuOptions,
 } from '@blocksuite/affine/blocks';
-import { menu } from '@blocksuite/affine/blocks';
+import { menu } from '@blocksuite/affine-components/context-menu';
 import { LinkIcon } from '@blocksuite/icons/lit';
 import type { FrameworkProvider } from '@toeverything/infra';
 

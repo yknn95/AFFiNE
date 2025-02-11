@@ -1,7 +1,6 @@
 import {
   Button,
   createReactComponentFromLit,
-  Divider,
   useLitPortalFactory,
 } from '@affine/component';
 import { TextRenderer } from '@affine/core/blocksuite/presets';
@@ -20,8 +19,8 @@ import {
 } from '@affine/core/modules/workspace';
 import { useI18n } from '@affine/i18n';
 import track from '@affine/track';
-import type { TransformerMiddleware } from '@blocksuite/affine/store';
-import { ToggleDownIcon } from '@blocksuite/icons/rc';
+import type { JobMiddleware } from '@blocksuite/affine/store';
+import { ToggleExpandIcon } from '@blocksuite/icons/rc';
 import * as Collapsible from '@radix-ui/react-collapsible';
 import {
   LiveData,
@@ -110,7 +109,7 @@ const CollapsibleSection = ({
       <Collapsible.Trigger className={styles.link}>
         {title}
         {length ? (
-          <ToggleDownIcon
+          <ToggleExpandIcon
             className={styles.collapsedIcon}
             data-collapsed={!open}
           />
@@ -155,8 +154,7 @@ const usePreviewExtensions = () => {
 
   const extensions = useMemo(() => {
     const specs = createPageModeSpecs(framework);
-    specs.extend([patchReferenceRenderer(reactToLit, referenceRenderer)]);
-    return specs.value;
+    return [patchReferenceRenderer(reactToLit, referenceRenderer), ...specs];
   }, [reactToLit, referenceRenderer, framework]);
 
   return [extensions, portals] as const;
@@ -200,9 +198,7 @@ export const BacklinkGroups = () => {
 
   const backlinkGroups = useBacklinkGroups();
   const textRendererOptions = useMemo(() => {
-    const docLinkBaseURLMiddleware: TransformerMiddleware = ({
-      adapterConfigs,
-    }) => {
+    const docLinkBaseURLMiddleware: JobMiddleware = ({ adapterConfigs }) => {
       adapterConfigs.set(
         'docLinkBaseUrl',
         `/workspace/${workspaceService.workspace.id}`
@@ -340,7 +336,11 @@ export const BiDirectionalLinkPanel = () => {
   }, [show, setShow]);
   return (
     <div className={styles.container}>
-      {!show && <Divider size="thinner" />}
+      {!show && (
+        <div className={styles.dividerContainer}>
+          <div className={styles.divider}></div>
+        </div>
+      )}
 
       <div className={styles.titleLine}>
         <div className={styles.title}>Bi-Directional Links</div>
@@ -353,8 +353,9 @@ export const BiDirectionalLinkPanel = () => {
 
       {show && (
         <>
-          <Divider size="thinner" />
-
+          <div className={styles.dividerContainer}>
+            <div className={styles.divider}></div>
+          </div>
           <div className={styles.linksContainer}>
             <div className={styles.linksTitles}>
               {t['com.affine.page-properties.backlinks']()} · {backlinkCount}

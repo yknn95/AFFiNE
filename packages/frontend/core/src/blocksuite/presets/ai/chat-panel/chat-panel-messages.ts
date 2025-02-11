@@ -1,15 +1,13 @@
-import type { EditorHost } from '@blocksuite/affine/block-std';
+import type { BaseSelection, EditorHost } from '@blocksuite/affine/block-std';
 import { ShadowlessElement } from '@blocksuite/affine/block-std';
 import {
   type AIError,
   DocModeProvider,
-  FeatureFlagService,
   isInsidePageEditor,
   PaymentRequiredError,
   UnauthorizedError,
 } from '@blocksuite/affine/blocks';
 import { WithDisposable } from '@blocksuite/affine/global/utils';
-import type { BaseSelection } from '@blocksuite/affine/store';
 import { css, html, nothing } from 'lit';
 import { property, query, state } from 'lit/decorators.js';
 import { repeat } from 'lit/directives/repeat.js';
@@ -40,6 +38,12 @@ export class ChatPanelMessages extends WithDisposable(ShadowlessElement) {
       height: 100%;
       position: relative;
       overflow-y: auto;
+
+      chat-cards {
+        position: absolute;
+        bottom: 0;
+        width: 100%;
+      }
     }
 
     .chat-panel-messages-placeholder {
@@ -132,9 +136,12 @@ export class ChatPanelMessages extends WithDisposable(ShadowlessElement) {
   @query('.chat-panel-messages')
   accessor messagesContainer: HTMLDivElement | null = null;
 
+  @state()
+  accessor showChatCards = true;
+
   private _renderAIOnboarding() {
     return this.isLoading ||
-      !this.host?.doc.get(FeatureFlagService).getFlag('enable_ai_onboarding')
+      !this.host?.doc.awarenessStore.getFlag('enable_ai_onboarding')
       ? nothing
       : html`<div
           style=${styleMap({
@@ -242,8 +249,14 @@ export class ChatPanelMessages extends WithDisposable(ShadowlessElement) {
                 </div>`;
               }
             )}
+        <chat-cards
+          .updateContext=${this.updateContext}
+          .host=${this.host}
+          .isEmpty=${items.length === 0}
+          ?data-show=${this.showChatCards}
+        ></chat-cards>
       </div>
-      ${this.showDownIndicator && filteredItems.length > 1
+      ${this.showDownIndicator
         ? html`<div class="down-indicator" @click=${this.scrollToEnd}>
             ${DownArrowIcon}
           </div>`
@@ -272,6 +285,11 @@ export class ChatPanelMessages extends WithDisposable(ShadowlessElement) {
         ) {
           this.updateContext({ status: 'idle', error: null });
         }
+      })
+    );
+    disposables.add(
+      AIProvider.slots.toggleChatCards.on(({ visible }) => {
+        this.showChatCards = visible;
       })
     );
     disposables.add(
@@ -408,7 +426,7 @@ export class ChatPanelMessages extends WithDisposable(ShadowlessElement) {
         sessionId: chatSessionId,
         retry: true,
         docId: doc.id,
-        workspaceId: doc.workspace.id,
+        workspaceId: doc.collection.id,
         host: this.host,
         stream: true,
         signal: abortController.signal,

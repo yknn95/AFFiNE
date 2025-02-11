@@ -1,5 +1,4 @@
 import type { RootBlockModel } from '@blocksuite/affine-model';
-import { FeatureFlagService } from '@blocksuite/affine-shared/services';
 import { WidgetComponent } from '@blocksuite/block-std';
 import { IS_MOBILE } from '@blocksuite/global/env';
 import { assertType } from '@blocksuite/global/utils';
@@ -72,9 +71,7 @@ export class AffineKeyboardToolbarWidget extends WidgetComponent<
     if (
       this.doc.readonly ||
       !IS_MOBILE ||
-      !this.doc
-        .get(FeatureFlagService)
-        .getFlag('enable_mobile_keyboard_toolbar')
+      !this.doc.awarenessStore.getFlag('enable_mobile_keyboard_toolbar')
     )
       return nothing;
 

@@ -11,8 +11,8 @@ import {
   renderUniLit,
   type SingleView,
 } from '../../../core/index.js';
-import { TableViewAreaSelection } from '../selection';
 import type { TableColumn } from '../table-view-manager.js';
+import { TableAreaSelection } from '../types.js';
 
 export class MobileTableCell extends SignalWatcher(
   WithDisposable(ShadowlessElement)
@@ -78,7 +78,7 @@ export class MobileTableCell extends SignalWatcher(
       setSelection({
         viewId,
         type: 'table',
-        ...TableViewAreaSelection.create({
+        ...TableAreaSelection.create({
           groupKey: this.groupKey,
           focus: {
             rowIndex: this.rowIndex,

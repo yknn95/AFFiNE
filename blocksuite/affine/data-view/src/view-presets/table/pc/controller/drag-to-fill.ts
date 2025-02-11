@@ -1,13 +1,12 @@
 import { ShadowlessElement } from '@blocksuite/block-std';
 import { assertEquals } from '@blocksuite/global/utils';
-import { type Text } from '@blocksuite/store';
+import { DocCollection, type Text } from '@blocksuite/store';
 import { css, html } from 'lit';
 import { state } from 'lit/decorators.js';
 import { createRef, ref } from 'lit/directives/ref.js';
-import * as Y from 'yjs';
 
 import { t } from '../../../../core/index.js';
-import type { TableViewAreaSelection } from '../../selection';
+import type { TableAreaSelection } from '../../types.js';
 import type { DataViewTable } from '../table-view.js';
 
 export class DragToFillElement extends ShadowlessElement {
@@ -50,7 +49,7 @@ export class DragToFillElement extends ShadowlessElement {
 
 export function fillSelectionWithFocusCellData(
   host: DataViewTable,
-  selection: TableViewAreaSelection
+  selection: TableAreaSelection
 ) {
   const { groupKey, rowsSelection, columnsSelection, focus } = selection;
 
@@ -99,7 +98,7 @@ export function fillSelectionWithFocusCellData(
           curCellText.clear();
           curCellText.applyDelta(delta);
         } else {
-          const newText = new Y.Text();
+          const newText = new DocCollection.Y.Text();
           newText.applyDelta(delta);
           curCell.valueSet(newText);
         }

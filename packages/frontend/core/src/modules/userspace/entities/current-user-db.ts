@@ -1,9 +1,8 @@
 import { Entity, LiveData } from '@toeverything/infra';
-import { Observable, of, switchMap } from 'rxjs';
+import { finalize, of, switchMap } from 'rxjs';
 
 import type { AuthService } from '../../cloud';
 import type { UserspaceService } from '../services/userspace';
-import type { UserDBWithTables } from './user-db';
 
 export class CurrentUserDB extends Entity {
   constructor(
@@ -20,12 +19,11 @@ export class CurrentUserDB extends Entity {
         switchMap(userId => {
           if (userId) {
             const ref = this.userDBService.openDB(userId);
-            return new Observable<UserDBWithTables>(subscriber => {
-              subscriber.next(ref.obj);
-              return () => {
+            return of(ref.obj).pipe(
+              finalize(() => {
                 ref.release();
-              };
-            });
+              })
+            );
           } else {
             return of(null);
           }

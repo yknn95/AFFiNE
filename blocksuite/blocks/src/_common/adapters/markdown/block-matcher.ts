@@ -13,15 +13,11 @@ import {
 import { ImageBlockMarkdownAdapterExtension } from '@blocksuite/affine-block-image';
 import { LatexBlockMarkdownAdapterExtension } from '@blocksuite/affine-block-latex';
 import { ListBlockMarkdownAdapterExtension } from '@blocksuite/affine-block-list';
-import { DocNoteBlockMarkdownAdapterExtension } from '@blocksuite/affine-block-note';
 import { ParagraphBlockMarkdownAdapterExtension } from '@blocksuite/affine-block-paragraph';
-import { TableBlockMarkdownAdapterExtension } from '@blocksuite/affine-block-table';
 
 import { RootBlockMarkdownAdapterExtension } from '../../../root-block/adapters/markdown.js';
 
 export const defaultBlockMarkdownAdapterMatchers = [
-  RootBlockMarkdownAdapterExtension,
-  DocNoteBlockMarkdownAdapterExtension,
   EmbedFigmaMarkdownAdapterExtension,
   EmbedGithubMarkdownAdapterExtension,
   EmbedLinkedDocMarkdownAdapterExtension,
@@ -33,8 +29,8 @@ export const defaultBlockMarkdownAdapterMatchers = [
   BookmarkBlockMarkdownAdapterExtension,
   CodeBlockMarkdownAdapterExtension,
   DatabaseBlockMarkdownAdapterExtension,
-  TableBlockMarkdownAdapterExtension,
   DividerBlockMarkdownAdapterExtension,
   ImageBlockMarkdownAdapterExtension,
   LatexBlockMarkdownAdapterExtension,
+  RootBlockMarkdownAdapterExtension,
 ];

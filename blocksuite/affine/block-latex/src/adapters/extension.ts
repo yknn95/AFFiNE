@@ -1,4 +1,4 @@
-import type { ExtensionType } from '@blocksuite/store';
+import type { ExtensionType } from '@blocksuite/block-std';
 
 import { LatexBlockMarkdownAdapterExtension } from './markdown.js';
 import { LatexBlockNotionHtmlAdapterExtension } from './notion-html.js';

@@ -1,4 +1,5 @@
 import {
+  CommonUtils,
   Overlay,
   type SurfaceBlockComponent,
 } from '@blocksuite/affine-block-surface';
@@ -11,7 +12,6 @@ import {
   Bound,
   getBoundFromPoints,
   getPolygonPathFromPoints,
-  getSvgPathFromStroke,
   linePolygonIntersects,
   pointInPolygon,
   rotatePoints,
@@ -70,7 +70,7 @@ export class LassoTool extends BaseTool<LassoToolOption> {
   private readonly _loop = () => {
     const path =
       this.activatedOption.mode === LassoMode.FreeHand
-        ? getSvgPathFromStroke(this._lassoPoints)
+        ? CommonUtils.getSvgPathFromStroke(this._lassoPoints)
         : getPolygonPathFromPoints(this._lassoPoints);
 
     this._overlay.d = path;

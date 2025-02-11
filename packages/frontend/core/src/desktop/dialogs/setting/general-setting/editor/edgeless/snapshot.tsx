@@ -15,13 +15,13 @@ import type {
 } from '@blocksuite/affine/blocks';
 import {
   ColorScheme,
-  createSignalFromObservable,
   SpecProvider,
   ThemeExtensionIdentifier,
 } from '@blocksuite/affine/blocks';
-import type { Container } from '@blocksuite/affine/global/di';
 import { Bound } from '@blocksuite/affine/global/utils';
-import type { Block, Store } from '@blocksuite/affine/store';
+import type { Block, Doc } from '@blocksuite/affine/store';
+import { createSignalFromObservable } from '@blocksuite/affine-shared/utils';
+import type { Container } from '@blocksuite/global/di';
 import type { Signal } from '@preact/signals-core';
 import type { FrameworkProvider } from '@toeverything/infra';
 import { useFramework } from '@toeverything/infra';
@@ -45,8 +45,8 @@ interface Props {
   docName: DocName;
   keyName: keyof EditorSettingSchema;
   height?: number;
-  getElements: (doc: Store) => Array<Block | GfxPrimitiveElementModel>;
-  firstUpdate?: (doc: Store, editorHost: EditorHost) => void;
+  getElements: (doc: Doc) => Array<Block | GfxPrimitiveElementModel>;
+  firstUpdate?: (doc: Doc, editorHost: EditorHost) => void;
   children?: React.ReactElement;
 }
 
@@ -63,7 +63,7 @@ export const EdgelessSnapshot = (props: Props) => {
     children,
   } = props;
   const wrapperRef = useRef<HTMLDivElement | null>(null);
-  const docRef = useRef<Store | null>(null);
+  const docRef = useRef<Doc | null>(null);
   const editorHostRef = useRef<EditorHost | null>(null);
   const framework = useFramework();
   const { editorSetting } = framework.get(EditorSettingService);
@@ -77,11 +77,11 @@ export const EdgelessSnapshot = (props: Props) => {
     ) as EdgelessRootService;
     const elements = getElements(doc);
     const props = editorSetting.get(keyName) as any;
-    doc.readonly = false;
+    doc.awarenessStore.setReadonly(doc.blockCollection, false);
     elements.forEach(element => {
       edgelessService.crud.updateElement(element.id, props);
     });
-    doc.readonly = true;
+    doc.awarenessStore.setReadonly(doc.blockCollection, true);
   }, [editorSetting, getElements, keyName]);
 
   const renderEditor = useCallback(async () => {
@@ -90,7 +90,7 @@ export const EdgelessSnapshot = (props: Props) => {
     if (!doc) return;
 
     const editorHost = new BlockStdScope({
-      store: doc,
+      doc,
       extensions: [
         ...SpecProvider.getInstance().getSpec('edgeless:preview').value,
         getThemeExtension(framework),
@@ -112,17 +112,16 @@ export const EdgelessSnapshot = (props: Props) => {
     ) as EdgelessRootService;
     edgelessService.specSlots.viewConnected.once(({ component }) => {
       const edgelessBlock = component as any;
-      doc.readonly = false;
+      doc.awarenessStore.setReadonly(doc.blockCollection, false);
       edgelessBlock.editorViewportSelector = 'ref-viewport';
       const frame = getFrameBlock(doc);
-      if (frame && docName !== 'frame') {
-        // docName with value 'frame' shouldn't be deleted, it is a part of frame settings
+      if (frame) {
         boundMap.set(docName, Bound.deserialize(frame.xywh));
         doc.deleteBlock(frame);
       }
       const bound = boundMap.get(docName);
       bound && edgelessService.viewport.setViewportByBound(bound);
-      doc.readonly = true;
+      doc.awarenessStore.setReadonly(doc.blockCollection, true);
     });
 
     // append to dom node

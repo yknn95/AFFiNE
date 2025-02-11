@@ -2,12 +2,7 @@ import type { Chain, InitCommandCtx } from '@blocksuite/affine/block-std';
 import {
   type AIItemGroupConfig,
   type AISubItemConfig,
-  CodeBlockModel,
-  getSelectedModelsCommand,
-  ImageBlockModel,
-  ListBlockModel,
   matchFlavours,
-  ParagraphBlockModel,
 } from '@blocksuite/affine/blocks';
 
 import { actionToHandler } from '../actions/doc-handler';
@@ -30,6 +25,7 @@ import {
   AIPresentationIconWithAnimation,
   AISearchIcon,
   AIStarIconWithAnimation,
+  ChatWithAIIcon,
   CommentIcon,
   ExplainIcon,
   ImproveWritingIcon,
@@ -99,7 +95,7 @@ const blockActionTrackerOptions: BlockSuitePresets.TrackerOptions = {
 
 const textBlockShowWhen = (chain: Chain<InitCommandCtx>) => {
   const [_, ctx] = chain
-    .pipe(getSelectedModelsCommand, {
+    .getSelectedModels({
       types: ['block', 'text'],
     })
     .run();
@@ -107,13 +103,13 @@ const textBlockShowWhen = (chain: Chain<InitCommandCtx>) => {
   if (!selectedModels || selectedModels.length === 0) return false;
 
   return selectedModels.some(model =>
-    matchFlavours(model, [ParagraphBlockModel, ListBlockModel])
+    matchFlavours(model, ['affine:paragraph', 'affine:list'])
   );
 };
 
 const codeBlockShowWhen = (chain: Chain<InitCommandCtx>) => {
   const [_, ctx] = chain
-    .pipe(getSelectedModelsCommand, {
+    .getSelectedModels({
       types: ['block', 'text'],
     })
     .run();
@@ -121,12 +117,12 @@ const codeBlockShowWhen = (chain: Chain<InitCommandCtx>) => {
   if (!selectedModels || selectedModels.length > 1) return false;
 
   const model = selectedModels[0];
-  return matchFlavours(model, [CodeBlockModel]);
+  return matchFlavours(model, ['affine:code']);
 };
 
 const imageBlockShowWhen = (chain: Chain<InitCommandCtx>) => {
   const [_, ctx] = chain
-    .pipe(getSelectedModelsCommand, {
+    .getSelectedModels({
       types: ['block'],
     })
     .run();
@@ -134,7 +130,7 @@ const imageBlockShowWhen = (chain: Chain<InitCommandCtx>) => {
   if (!selectedModels || selectedModels.length > 1) return false;
 
   const model = selectedModels[0];
-  return matchFlavours(model, [ImageBlockModel]);
+  return matchFlavours(model, ['affine:image']);
 };
 
 const EditAIGroup: AIItemGroupConfig = {
@@ -273,7 +269,7 @@ const GenerateWithAIGroup: AIItemGroupConfig = {
       handler: actionToHandler('createHeadings', AIPenIconWithAnimation),
       showWhen: chain => {
         const [_, ctx] = chain
-          .pipe(getSelectedModelsCommand, {
+          .getSelectedModels({
             types: ['block', 'text'],
           })
           .run();
@@ -282,7 +278,7 @@ const GenerateWithAIGroup: AIItemGroupConfig = {
 
         return selectedModels.every(
           model =>
-            matchFlavours(model, [ParagraphBlockModel, ListBlockModel]) &&
+            matchFlavours(model, ['affine:paragraph', 'affine:list']) &&
             !model.type.startsWith('h')
         );
       },
@@ -340,6 +336,19 @@ const OthersAIGroup: AIItemGroupConfig = {
         AIProvider.slots.requestOpenWithChat.emit({
           host,
           autoSelect: true,
+          appendCard: true,
+        });
+        panel.hide();
+      },
+    },
+    {
+      name: 'Open AI Chat',
+      icon: ChatWithAIIcon,
+      handler: host => {
+        const panel = getAIPanelWidget(host);
+        AIProvider.slots.requestOpenWithChat.emit({
+          host,
+          appendCard: true,
         });
         panel.hide();
       },

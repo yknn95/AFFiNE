@@ -1,20 +1,21 @@
-import { ParagraphBlockModel } from '@blocksuite/affine-model';
 import {
   calculateCollapsedSiblings,
   matchFlavours,
 } from '@blocksuite/affine-shared/utils';
-import { type Command, TextSelection } from '@blocksuite/block-std';
+import type { Command } from '@blocksuite/block-std';
 
-import { dedentBlock } from './dedent-block';
-
-export const dedentBlocks: Command<{
-  blockIds?: string[];
-  stopCapture?: boolean;
-}> = (ctx, next) => {
+export const dedentBlocks: Command<
+  never,
+  never,
+  {
+    blockIds?: string[];
+    stopCapture?: boolean;
+  }
+> = (ctx, next) => {
   let { blockIds } = ctx;
   const { std, stopCapture = true } = ctx;
-  const { store, selection, range, host } = std;
-  const { schema } = store;
+  const { doc, selection, range, host } = std;
+  const { schema } = doc;
 
   if (!blockIds || !blockIds.length) {
     const nativeRange = range.value;
@@ -31,16 +32,16 @@ export const dedentBlocks: Command<{
     }
   }
 
-  if (!blockIds || !blockIds.length || store.readonly) return;
+  if (!blockIds || !blockIds.length || doc.readonly) return;
 
   // Find the first model that can be unindented
   let firstDedentIndex = -1;
   for (let i = 0; i < blockIds.length; i++) {
-    const model = store.getBlock(blockIds[i])?.model;
+    const model = doc.getBlock(blockIds[i])?.model;
     if (!model) continue;
-    const parent = store.getParent(blockIds[i]);
+    const parent = doc.getParent(blockIds[i]);
     if (!parent) continue;
-    const grandParent = store.getParent(parent);
+    const grandParent = doc.getParent(parent);
     if (!grandParent) continue;
 
     if (schema.isValid(model.flavour, grandParent.flavour)) {
@@ -51,14 +52,14 @@ export const dedentBlocks: Command<{
 
   if (firstDedentIndex === -1) return;
 
-  if (stopCapture) store.captureSync();
+  if (stopCapture) doc.captureSync();
 
   const collapsedIds: string[] = [];
   blockIds.slice(firstDedentIndex).forEach(id => {
-    const model = store.getBlock(id)?.model;
+    const model = doc.getBlock(id)?.model;
     if (!model) return;
     if (
-      matchFlavours(model, [ParagraphBlockModel]) &&
+      matchFlavours(model, ['affine:paragraph']) &&
       model.type.startsWith('h') &&
       model.collapsed
     ) {
@@ -71,10 +72,10 @@ export const dedentBlocks: Command<{
     .slice(firstDedentIndex)
     .filter(id => !collapsedIds.includes(id));
   dedentIds.reverse().forEach(id => {
-    std.command.exec(dedentBlock, { blockId: id, stopCapture: false });
+    std.command.exec('dedentBlock', { blockId: id, stopCapture: false });
   });
 
-  const textSelection = selection.find(TextSelection);
+  const textSelection = selection.find('text');
   if (textSelection) {
     host.updateComplete
       .then(() => {

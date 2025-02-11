@@ -1,12 +1,12 @@
 import type { useI18n } from '@affine/i18n';
 import { track } from '@affine/track';
-import type { Workspace } from '@blocksuite/affine/store';
+import type { DocCollection } from '@blocksuite/affine/store';
 import { ArrowRightBigIcon } from '@blocksuite/icons/rc';
 import type { createStore } from 'jotai';
 
 import { openWorkspaceListModalAtom } from '../components/atoms';
 import type { useNavigateHelper } from '../components/hooks/use-navigate-helper';
-import type { WorkspaceDialogService } from '../modules/dialogs';
+import type { GlobalDialogService } from '../modules/dialogs';
 import { registerAffineCommand } from './registry';
 
 export function registerAffineNavigationCommands({
@@ -14,13 +14,13 @@ export function registerAffineNavigationCommands({
   store,
   docCollection,
   navigationHelper,
-  workspaceDialogService,
+  globalDialogService,
 }: {
   t: ReturnType<typeof useI18n>;
   store: ReturnType<typeof createStore>;
   navigationHelper: ReturnType<typeof useNavigateHelper>;
-  docCollection: Workspace;
-  workspaceDialogService: WorkspaceDialogService;
+  docCollection: DocCollection;
+  globalDialogService: GlobalDialogService;
 }) {
   const unsubs: Array<() => void> = [];
   unsubs.push(
@@ -96,7 +96,7 @@ export function registerAffineNavigationCommands({
       keyBinding: '$mod+,',
       run() {
         track.$.cmdk.settings.openSettings();
-        workspaceDialogService.open('setting', {
+        globalDialogService.open('setting', {
           activeTab: 'appearance',
         });
       },
@@ -111,7 +111,7 @@ export function registerAffineNavigationCommands({
       label: t['com.affine.cmdk.affine.navigation.open-account-settings'](),
       run() {
         track.$.cmdk.settings.openSettings({ to: 'account' });
-        workspaceDialogService.open('setting', {
+        globalDialogService.open('setting', {
           activeTab: 'account',
         });
       },

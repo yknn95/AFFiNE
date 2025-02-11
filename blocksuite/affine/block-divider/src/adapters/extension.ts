@@ -1,4 +1,4 @@
-import type { ExtensionType } from '@blocksuite/store';
+import type { ExtensionType } from '@blocksuite/block-std';
 
 import { DividerBlockHtmlAdapterExtension } from './html.js';
 import { DividerBlockMarkdownAdapterExtension } from './markdown.js';

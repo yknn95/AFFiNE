@@ -8,7 +8,6 @@ import {
 } from './editors/index.js';
 import { CommentInput } from './fragments/comment/comment-input.js';
 import { BacklinkButton } from './fragments/doc-meta-tags/backlink-popover.js';
-import { effects as docTitleEffects } from './fragments/doc-title/index.js';
 import {
   AFFINE_FRAME_PANEL_BODY,
   FramePanelBody,
@@ -35,12 +34,11 @@ import {
 } from './fragments/frame-panel/header/frames-setting-menu.js';
 import {
   AFFINE_FRAME_PANEL,
-  AFFINE_MOBILE_OUTLINE_MENU,
   AFFINE_OUTLINE_PANEL,
   AFFINE_OUTLINE_VIEWER,
   CommentPanel,
+  DocTitle,
   FramePanel,
-  MobileOutlineMenu,
   OutlinePanel,
   OutlineViewer,
 } from './fragments/index.js';
@@ -70,10 +68,9 @@ import {
 } from './fragments/outline/header/outline-setting-menu.js';
 
 export function effects() {
-  docTitleEffects();
-
   customElements.define('page-editor', PageEditor);
   customElements.define('comment-input', CommentInput);
+  customElements.define('doc-title', DocTitle);
   customElements.define(
     AFFINE_OUTLINE_NOTE_PREVIEW_SETTING_MENU,
     OutlineNotePreviewSettingMenu
@@ -90,7 +87,6 @@ export function effects() {
   customElements.define('edgeless-editor', EdgelessEditor);
   customElements.define(AFFINE_FRAME_CARD, FrameCard);
   customElements.define(AFFINE_OUTLINE_VIEWER, OutlineViewer);
-  customElements.define(AFFINE_MOBILE_OUTLINE_MENU, MobileOutlineMenu);
   customElements.define(AFFINE_FRAME_CARD_TITLE, FrameCardTitle);
   customElements.define(AFFINE_OUTLINE_BLOCK_PREVIEW, OutlineBlockPreview);
   customElements.define(AFFINE_FRAME_PANEL_BODY, FramePanelBody);

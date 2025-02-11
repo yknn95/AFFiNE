@@ -1,3 +1,7 @@
+import {
+  DEFAULT_NOTE_HEIGHT,
+  DEFAULT_NOTE_WIDTH,
+} from '@blocksuite/affine-model';
 import { assertExists } from '@blocksuite/global/utils';
 import { expect } from '@playwright/test';
 
@@ -15,6 +19,7 @@ import {
   Shape,
   shiftClickView,
   switchEditorMode,
+  toggleEditorReadonly,
   ZOOM_BAR_RESPONSIVE_SCREEN_WIDTH,
   zoomByMouseWheel,
   zoomResetByKeyboard,
@@ -28,7 +33,6 @@ import {
   focusRichText,
   initEmptyEdgelessState,
   redoByClick,
-  switchReadonly,
   type,
   undoByClick,
   waitNextFrame,
@@ -43,10 +47,6 @@ import {
   assertSelectedBound,
   assertZoomLevel,
 } from '../utils/asserts.js';
-import {
-  DEFAULT_NOTE_HEIGHT,
-  DEFAULT_NOTE_WIDTH,
-} from '../utils/bs-alternative.js';
 import { test } from '../utils/playwright.js';
 
 const CENTER_X = 450;
@@ -120,54 +120,6 @@ test('zoom by mouse', async ({ page }) => {
   await assertEdgelessSelectedModelRect(page, zoomed);
 });
 
-test('zoom by mouse without ctrl pressed when edgelessScrollZoom is enabled', async ({
-  page,
-}) => {
-  await enterPlaygroundRoom(page);
-  await initEmptyEdgelessState(page);
-
-  await switchEditorMode(page);
-  await zoomResetByKeyboard(page);
-  await assertZoomLevel(page, 100);
-
-  await assertNoteXYWH(page, [0, 0, DEFAULT_NOTE_WIDTH, DEFAULT_NOTE_HEIGHT]);
-
-  await page.mouse.click(CENTER_X, CENTER_Y);
-  const original = [0, 0, DEFAULT_NOTE_WIDTH, DEFAULT_NOTE_HEIGHT];
-  await assertEdgelessSelectedModelRect(page, original);
-
-  // enable edgelessScrollZoom
-  await page.evaluate(() => {
-    // @ts-expect-error set a setting
-    window.editorSetting$.value = {
-      // @ts-expect-error set a setting
-      ...window.editorSetting$.value,
-      edgelessScrollZoom: true,
-    };
-  });
-
-  // can zoom without ctrl pressed
-  await zoomByMouseWheel(page, 0, 125, false);
-  await assertZoomLevel(page, 90);
-
-  const zoomed = [0, 0, original[2] * 0.9, original[3] * 0.9];
-  await assertEdgelessSelectedModelRect(page, zoomed);
-
-  // disable edgelessScrollZoom
-  await page.evaluate(() => {
-    // @ts-expect-error set a setting
-    window.editorSetting$.value = {
-      // @ts-expect-error set a setting
-      ...window.editorSetting$.value,
-      edgelessScrollZoom: false,
-    };
-  });
-
-  // can't zoom without ctrl pressed
-  await zoomByMouseWheel(page, 0, 125, false);
-  await assertZoomLevel(page, 90);
-});
-
 test('zoom by pinch', async ({ page }) => {
   await enterPlaygroundRoom(page);
   await initEmptyEdgelessState(page);
@@ -207,7 +159,7 @@ test('zoom by pinch when edgeless is readonly', async ({ page }) => {
   await zoomResetByKeyboard(page);
   await assertZoomLevel(page, 100);
 
-  await switchReadonly(page);
+  await toggleEditorReadonly(page);
 
   const from = [
     { x: CENTER_X - 100, y: CENTER_Y },
@@ -221,8 +173,7 @@ test('zoom by pinch when edgeless is readonly', async ({ page }) => {
   await multiTouchMove(page, from, to);
   await multiTouchUp(page, to);
 
-  await switchReadonly(page, false);
-  await waitNextFrame(page);
+  await toggleEditorReadonly(page);
   await assertZoomLevel(page, 50);
 });
 

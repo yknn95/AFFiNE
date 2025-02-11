@@ -368,17 +368,6 @@ class DragController extends PointerControllerBase {
     disposables.addFromEvent(host, 'pointerdown', this._down);
     this._applyScribblePatch();
 
-    disposables.add(
-      host.std.dnd.monitor({
-        onDragStart: () => {
-          this._nativeDragging = true;
-        },
-        onDrop: () => {
-          this._nativeDragging = false;
-        },
-      })
-    );
-
     disposables.addFromEvent(host, 'dragstart', this._nativeDragStart);
     disposables.addFromEvent(host, 'dragend', this._nativeDragEnd);
     disposables.addFromEvent(host, 'drag', this._nativeDragMove);

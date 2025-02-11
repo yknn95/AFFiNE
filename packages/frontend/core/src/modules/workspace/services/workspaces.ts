@@ -55,10 +55,4 @@ export class WorkspacesService extends Service {
       .find(x => x.flavour === meta.flavour)
       ?.getWorkspaceBlob(meta.id, blob);
   }
-
-  getWorkspaceFlavourProvider(meta: WorkspaceMetadata) {
-    return this.flavoursService.flavours$.value.find(
-      x => x.flavour === meta.flavour
-    );
-  }
 }

@@ -2,8 +2,7 @@ import type {
   Table as OrmTable,
   TableSchemaBuilder,
 } from '@toeverything/infra';
-import { Entity, LiveData } from '@toeverything/infra';
-import { map } from 'rxjs';
+import { Entity } from '@toeverything/infra';
 
 import type { WorkspaceService } from '../../workspace';
 
@@ -19,19 +18,13 @@ export class WorkspaceDBTable<
     super();
   }
 
-  isSyncing$ = LiveData.from(
-    this.workspaceService.workspace.engine.doc
-      .docState$(this.props.storageDocId)
-      .pipe(map(docState => docState.syncing)),
-    false
-  );
+  isSyncing$ = this.workspaceService.workspace.engine.doc
+    .docState$(this.props.storageDocId)
+    .map(docState => docState.syncing);
 
-  isLoading$ = LiveData.from(
-    this.workspaceService.workspace.engine.doc
-      .docState$(this.props.storageDocId)
-      .pipe(map(docState => !docState.loaded)),
-    false
-  );
+  isLoading$ = this.workspaceService.workspace.engine.doc
+    .docState$(this.props.storageDocId)
+    .map(docState => docState.loading);
 
   create = this.table.create.bind(this.table) as typeof this.table.create;
   update = this.table.update.bind(this.table) as typeof this.table.update;

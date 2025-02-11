@@ -1,24 +1,26 @@
 import { focusTextModel } from '@blocksuite/affine-components/rich-text';
-import { ListBlockModel } from '@blocksuite/affine-model';
 import {
   getNextContinuousNumberedLists,
   matchFlavours,
 } from '@blocksuite/affine-shared/utils';
 import type { Command, EditorHost } from '@blocksuite/block-std';
 
-import { canDedentListCommand, dedentListCommand } from './dedent-list.js';
 import { correctNumberedListsOrderToPrev } from './utils.js';
 
-export const splitListCommand: Command<{
-  blockId: string;
-  inlineIndex: number;
-}> = (ctx, next) => {
+export const splitListCommand: Command<
+  never,
+  never,
+  {
+    blockId: string;
+    inlineIndex: number;
+  }
+> = (ctx, next) => {
   const { blockId, inlineIndex, std } = ctx;
   const host = std.host as EditorHost;
   const doc = host.doc;
 
   const model = doc.getBlock(blockId)?.model;
-  if (!model || !matchFlavours(model, [ListBlockModel])) {
+  if (!model || !matchFlavours(model, ['affine:list'])) {
     console.error(`block ${blockId} is not a list block`);
     return;
   }
@@ -98,11 +100,11 @@ export const splitListCommand: Command<{
     if (parent.role === 'content') {
       host.command
         .chain()
-        .pipe(canDedentListCommand, {
+        .canDedentList({
           blockId,
           inlineIndex: 0,
         })
-        .pipe(dedentListCommand)
+        .dedentList()
         .run();
 
       next();

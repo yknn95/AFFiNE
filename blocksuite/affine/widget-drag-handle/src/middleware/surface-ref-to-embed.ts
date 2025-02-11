@@ -1,9 +1,9 @@
 import type { BlockStdScope } from '@blocksuite/block-std';
-import type { TransformerMiddleware } from '@blocksuite/store';
+import type { JobMiddleware } from '@blocksuite/store';
 
 export const surfaceRefToEmbed =
-  (std: BlockStdScope): TransformerMiddleware =>
-  ({ slots }) => {
+  (std: BlockStdScope): JobMiddleware =>
+  ({ slots, collection }) => {
     let pageId: string | null = null;
     slots.beforeImport.on(payload => {
       if (payload.type === 'slice') {
@@ -15,10 +15,10 @@ export const surfaceRefToEmbed =
         pageId &&
         payload.type === 'block' &&
         payload.snapshot.flavour === 'affine:surface-ref' &&
-        !std.store.hasBlock(payload.snapshot.id)
+        !std.doc.hasBlock(payload.snapshot.id)
       ) {
         const id = payload.snapshot.id;
-        payload.snapshot.id = std.workspace.idGenerator();
+        payload.snapshot.id = collection.idGenerator();
         payload.snapshot.flavour = 'affine:embed-linked-doc';
         payload.snapshot.props = {
           blockId: id,

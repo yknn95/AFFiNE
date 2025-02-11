@@ -1,7 +1,4 @@
-import { insertLinkByQuickSearchCommand } from '@blocksuite/affine-block-bookmark';
 import { EdgelessTextBlockComponent } from '@blocksuite/affine-block-edgeless-text';
-import { isNoteBlock } from '@blocksuite/affine-block-surface';
-import { toast } from '@blocksuite/affine-components/toast';
 import {
   ConnectorElementModel,
   ConnectorMode,
@@ -9,18 +6,15 @@ import {
   GroupElementModel,
   LayoutType,
   MindmapElementModel,
-  NoteBlockModel,
   NoteDisplayMode,
   type ShapeElementModel,
 } from '@blocksuite/affine-model';
 import {
   EditPropsStore,
-  FeatureFlagService,
   TelemetryProvider,
 } from '@blocksuite/affine-shared/services';
 import { LassoMode } from '@blocksuite/affine-shared/types';
 import { matchFlavours } from '@blocksuite/affine-shared/utils';
-import { SurfaceSelection, TextSelection } from '@blocksuite/block-std';
 import {
   GfxBlockElementModel,
   type GfxToolsMap,
@@ -28,7 +22,7 @@ import {
   isGfxGroupCompatibleModel,
 } from '@blocksuite/block-std/gfx';
 import { IS_MAC } from '@blocksuite/global/env';
-import { Bound, getCommonBound } from '@blocksuite/global/utils';
+import { Bound } from '@blocksuite/global/utils';
 
 import {
   getNearestTranslation,
@@ -47,17 +41,13 @@ import {
 } from './utils/consts.js';
 import { deleteElements } from './utils/crud.js';
 import { getNextShapeType } from './utils/hotkey-utils.js';
-import { isCanvasElement } from './utils/query.js';
+import { isCanvasElement, isNoteBlock } from './utils/query.js';
 import {
   mountConnectorLabelEditor,
   mountShapeTextEditor,
 } from './utils/text.js';
 
 export class EdgelessPageKeyboardManager extends PageKeyboardManager {
-  get gfx() {
-    return this.rootComponent.gfx;
-  }
-
   constructor(override rootComponent: EdgelessRootBlockComponent) {
     super(rootComponent);
     this.rootComponent.bindHotKey(
@@ -76,11 +66,7 @@ export class EdgelessPageKeyboardManager extends PageKeyboardManager {
           this._setEdgelessTool('connector', { mode });
         },
         l: () => {
-          if (
-            !rootComponent.doc
-              .get(FeatureFlagService)
-              .getFlag('enable_lasso_tool')
-          ) {
+          if (!rootComponent.doc.awarenessStore.getFlag('enable_lasso_tool')) {
             return;
           }
 
@@ -89,11 +75,7 @@ export class EdgelessPageKeyboardManager extends PageKeyboardManager {
           });
         },
         'Shift-l': () => {
-          if (
-            !rootComponent.doc
-              .get(FeatureFlagService)
-              .getFlag('enable_lasso_tool')
-          ) {
+          if (!rootComponent.doc.awarenessStore.getFlag('enable_lasso_tool')) {
             return;
           }
           // toggle between lasso modes
@@ -135,7 +117,7 @@ export class EdgelessPageKeyboardManager extends PageKeyboardManager {
             selection.selectedElements.length === 1 &&
             selection.firstElement instanceof GfxBlockElementModel &&
             matchFlavours(selection.firstElement as GfxBlockElementModel, [
-              NoteBlockModel,
+              'affine:note',
             ])
           ) {
             rootComponent.slots.toggleNoteSlicer.emit();
@@ -180,13 +162,13 @@ export class EdgelessPageKeyboardManager extends PageKeyboardManager {
           const std = this.rootComponent.std;
           if (
             std.selection.getGroup('note').length > 0 ||
-            std.selection.find(TextSelection) ||
-            Boolean(std.selection.find(SurfaceSelection)?.editing)
+            std.selection.find('text') ||
+            Boolean(std.selection.find('surface')?.editing)
           ) {
             return;
           }
-          const [_, { insertedLinkType }] = std.command.exec(
-            insertLinkByQuickSearchCommand
+          const { insertedLinkType } = std.command.exec(
+            'insertLinkByQuickSearch'
           );
 
           insertedLinkType
@@ -260,7 +242,7 @@ export class EdgelessPageKeyboardManager extends PageKeyboardManager {
                   block =>
                     block.group === null &&
                     !(
-                      matchFlavours(block, [NoteBlockModel]) &&
+                      matchFlavours(block, ['affine:note']) &&
                       block.displayMode === NoteDisplayMode.DocOnly
                     )
                 )
@@ -272,39 +254,17 @@ export class EdgelessPageKeyboardManager extends PageKeyboardManager {
             editing: false,
           });
         },
+        'Mod-1': ctx => {
+          ctx.get('defaultState').event.preventDefault();
+          this.rootComponent.service.setZoomByAction('fit');
+        },
         'Mod--': ctx => {
           ctx.get('defaultState').event.preventDefault();
           this.rootComponent.service.setZoomByAction('out');
         },
-        'Alt-0': ctx => {
+        'Mod-0': ctx => {
           ctx.get('defaultState').event.preventDefault();
           this.rootComponent.service.setZoomByAction('reset');
-        },
-        'Alt-1': ctx => {
-          ctx.get('defaultState').event.preventDefault();
-          this.rootComponent.service.setZoomByAction('fit');
-        },
-        'Alt-2': ctx => {
-          ctx.get('defaultState').event.preventDefault();
-
-          const selectedElements = this.gfx.selection.selectedElements;
-
-          if (selectedElements.length === 0) {
-            return;
-          }
-
-          const bound = getCommonBound(selectedElements);
-          if (bound === null) {
-            return;
-          }
-
-          toast(this.rootComponent.host, 'Zoom to selection');
-
-          this.gfx.viewport.setViewportByBound(
-            bound,
-            [0.12, 0.12, 0.12, 0.12],
-            true
-          );
         },
         'Mod-=': ctx => {
           ctx.get('defaultState').event.preventDefault();

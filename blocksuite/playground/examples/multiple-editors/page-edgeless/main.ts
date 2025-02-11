@@ -1,13 +1,10 @@
 import '../../../style.css';
 
-import { effects as blocksEffects } from '@blocksuite/blocks/effects';
-import { EdgelessEditor, PageEditor } from '@blocksuite/presets';
-import { effects as presetsEffects } from '@blocksuite/presets/effects';
-
-import { createEmptyDoc } from '../../../apps/_common/helper';
-
-blocksEffects();
-presetsEffects();
+import {
+  createEmptyDoc,
+  EdgelessEditor,
+  PageEditor,
+} from '@blocksuite/presets';
 
 const container = document.createElement('div');
 container.style.display = 'flex';

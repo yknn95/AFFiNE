@@ -1,9 +1,9 @@
 import type { BlockStdScope, EditorHost } from '@blocksuite/block-std';
 import type { GfxModel } from '@blocksuite/block-std/gfx';
-import type { BlockModel, Store } from '@blocksuite/store';
+import type { BlockModel, Doc } from '@blocksuite/store';
 
 export abstract class MenuContext {
-  abstract get doc(): Store;
+  abstract get doc(): Doc;
 
   get firstElement(): GfxModel | null {
     return null;

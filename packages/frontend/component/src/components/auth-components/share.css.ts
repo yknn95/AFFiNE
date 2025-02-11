@@ -208,7 +208,6 @@ export const signInPageContainer = style({
 });
 export const input = style({
   width: '330px',
-  position: 'relative',
   '@media': {
     'screen and (max-width: 520px)': {
       width: '100%',

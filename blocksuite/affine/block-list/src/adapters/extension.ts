@@ -1,4 +1,4 @@
-import type { ExtensionType } from '@blocksuite/store';
+import type { ExtensionType } from '@blocksuite/block-std';
 
 import { ListBlockHtmlAdapterExtension } from './html.js';
 import { ListBlockMarkdownAdapterExtension } from './markdown.js';

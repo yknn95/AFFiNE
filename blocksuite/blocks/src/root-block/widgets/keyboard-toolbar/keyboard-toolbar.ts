@@ -2,7 +2,6 @@ import {
   VirtualKeyboardController,
   type VirtualKeyboardControllerConfig,
 } from '@blocksuite/affine-components/virtual-keyboard';
-import { getSelectedModelsCommand } from '@blocksuite/affine-shared/commands';
 import {
   PropTypes,
   requiredProperties,
@@ -95,8 +94,8 @@ export class AffineKeyboardToolbar extends SignalWatcher(
     const { std } = this.rootComponent;
     std.command
       .chain()
-      .pipe(getSelectedModelsCommand)
-      .pipe(({ selectedModels }) => {
+      .getSelectedModels()
+      .inline(({ selectedModels }) => {
         if (!selectedModels?.length) return;
 
         const block = std.view.getBlock(selectedModels[0].id);

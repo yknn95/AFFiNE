@@ -1,4 +1,3 @@
-import { getSelectedBlocksCommand } from '@blocksuite/affine-shared/commands';
 import type { AffineTextAttributes } from '@blocksuite/affine-shared/types';
 import type { Command, TextSelection } from '@blocksuite/block-std';
 import { INLINE_ROOT_ATTR, type InlineRootElement } from '@blocksuite/inline';
@@ -7,12 +6,15 @@ import { FORMAT_TEXT_SUPPORT_FLAVOURS } from './consts.js';
 import { clearMarksOnDiscontinuousInput } from './utils.js';
 
 // for text selection
-export const formatTextCommand: Command<{
-  currentTextSelection?: TextSelection;
-  textSelection?: TextSelection;
-  styles: AffineTextAttributes;
-  mode?: 'replace' | 'merge';
-}> = (ctx, next) => {
+export const formatTextCommand: Command<
+  'currentTextSelection',
+  never,
+  {
+    textSelection?: TextSelection;
+    styles: AffineTextAttributes;
+    mode?: 'replace' | 'merge';
+  }
+> = (ctx, next) => {
   const { styles, mode = 'merge' } = ctx;
 
   const textSelection = ctx.textSelection ?? ctx.currentTextSelection;
@@ -20,7 +22,7 @@ export const formatTextCommand: Command<{
 
   const success = ctx.std.command
     .chain()
-    .pipe(getSelectedBlocksCommand, {
+    .getSelectedBlocks({
       textSelection,
       filter: el =>
         FORMAT_TEXT_SUPPORT_FLAVOURS.includes(
@@ -28,7 +30,7 @@ export const formatTextCommand: Command<{
         ),
       types: ['text'],
     })
-    .pipe((ctx, next) => {
+    .inline((ctx, next) => {
       const { selectedBlocks } = ctx;
       if (!selectedBlocks) return;
 

@@ -1,21 +1,17 @@
-import {
-  BlockSelection,
-  type BlockStdScope,
-  TextSelection,
-} from '@blocksuite/block-std';
+import type { BlockSelection, BlockStdScope } from '@blocksuite/block-std';
 
 const getSelection = (std: BlockStdScope) => std.selection;
 
 function getBlockSelectionBySide(std: BlockStdScope, tail: boolean) {
   const selection = getSelection(std);
-  const selections = selection.filter(BlockSelection);
+  const selections = selection.filter('block');
   const sel = selections.at(tail ? -1 : 0) as BlockSelection | undefined;
   return sel ?? null;
 }
 
 function getTextSelection(std: BlockStdScope) {
   const selection = getSelection(std);
-  return selection.find(TextSelection);
+  return selection.find('text');
 }
 
 const pathToBlock = (std: BlockStdScope, blockId: string) =>
@@ -32,7 +28,7 @@ export const moveBlockConfigs: MoveBlockConfig[] = [
     name: 'Move Up',
     hotkey: ['Mod-Alt-ArrowUp', 'Mod-Shift-ArrowUp'],
     action: std => {
-      const doc = std.store;
+      const doc = std.doc;
       const textSelection = getTextSelection(std);
       if (textSelection) {
         const currentModel = pathToBlock(
@@ -44,10 +40,10 @@ export const moveBlockConfigs: MoveBlockConfig[] = [
         const previousSiblingModel = doc.getPrev(currentModel);
         if (!previousSiblingModel) return;
 
-        const parentModel = std.store.getParent(previousSiblingModel);
+        const parentModel = std.doc.getParent(previousSiblingModel);
         if (!parentModel) return;
 
-        std.store.moveBlocks(
+        std.doc.moveBlocks(
           [currentModel],
           parentModel,
           previousSiblingModel,
@@ -86,7 +82,7 @@ export const moveBlockConfigs: MoveBlockConfig[] = [
     name: 'Move Down',
     hotkey: ['Mod-Alt-ArrowDown', 'Mod-Shift-ArrowDown'],
     action: std => {
-      const doc = std.store;
+      const doc = std.doc;
       const textSelection = getTextSelection(std);
       if (textSelection) {
         const currentModel = pathToBlock(

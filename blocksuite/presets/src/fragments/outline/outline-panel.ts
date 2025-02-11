@@ -1,100 +1,162 @@
-import {
-  PropTypes,
-  requiredProperties,
-  ShadowlessElement,
-} from '@blocksuite/block-std';
 import { SignalWatcher, WithDisposable } from '@blocksuite/global/utils';
-import { provide } from '@lit/context';
-import { effect, signal } from '@preact/signals-core';
-import { html, type PropertyValues } from 'lit';
-import { property } from 'lit/decorators.js';
+import { baseTheme } from '@toeverything/theme';
+import { css, html, LitElement, unsafeCSS } from 'lit';
+import { property, state } from 'lit/decorators.js';
 
 import type { AffineEditorContainer } from '../../editors/editor-container.js';
-import { outlineSettingsKey, type TocContext, tocContext } from './config.js';
-import * as styles from './outline-panel.css';
+import { type OutlineSettingsDataType, outlineSettingsKey } from './config.js';
+
+const styles = css`
+  :host {
+    display: block;
+    width: 100%;
+    height: 100%;
+  }
+
+  .outline-panel-container {
+    background-color: var(--affine-background-primary-color);
+    box-sizing: border-box;
+
+    display: flex;
+    flex-direction: column;
+    align-items: stretch;
+
+    height: 100%;
+    font-family: ${unsafeCSS(baseTheme.fontSansFamily)};
+    padding-top: 8px;
+    position: relative;
+  }
+
+  .outline-panel-body {
+    flex-grow: 1;
+    width: 100%;
+
+    overflow-y: scroll;
+  }
+  .outline-panel-body::-webkit-scrollbar {
+    width: 4px;
+  }
+  .outline-panel-body::-webkit-scrollbar-thumb {
+    border-radius: 2px;
+  }
+  .outline-panel-body:hover::-webkit-scrollbar-thumb {
+    background-color: var(--affine-black-30);
+  }
+  .outline-panel-body::-webkit-scrollbar-track {
+    background-color: transparent;
+  }
+  .outline-panel-body::-webkit-scrollbar-corner {
+    display: none;
+  }
+`;
 
 export const AFFINE_OUTLINE_PANEL = 'affine-outline-panel';
 
-@requiredProperties({
-  editor: PropTypes.object,
-})
-export class OutlinePanel extends SignalWatcher(
-  WithDisposable(ShadowlessElement)
-) {
-  private _setContext() {
-    this._context = {
-      editor$: signal(this.editor),
-      showIcons$: signal<boolean>(false),
-      enableSorting$: signal<boolean>(false),
-      fitPadding$: signal<number[]>(this.fitPadding),
-    };
+export class OutlinePanel extends SignalWatcher(WithDisposable(LitElement)) {
+  static override styles = styles;
 
-    this.disposables.add(
-      effect(() => {
-        const settingsString = localStorage.getItem(outlineSettingsKey);
-        const settings = settingsString ? JSON.parse(settingsString) : null;
+  private readonly _setNoticeVisibility = (visibility: boolean) => {
+    this._noticeVisible = visibility;
+  };
 
-        if (settings) {
-          this._context.showIcons$.value = settings.showIcons;
-        }
+  private _settings: OutlineSettingsDataType = {
+    showIcons: false,
+    enableSorting: false,
+  };
 
-        const editor = this._context.editor$.value;
-        if (editor.mode === 'edgeless') {
-          this._context.enableSorting$.value = true;
-        } else if (settings) {
-          this._context.enableSorting$.value = settings.enableSorting;
-        }
-      })
-    );
+  private readonly _toggleNotesSorting = () => {
+    this._enableNotesSorting = !this._enableNotesSorting;
+    this._updateAndSaveSettings({ enableSorting: this._enableNotesSorting });
+  };
+
+  private readonly _toggleShowPreviewIcon = (on: boolean) => {
+    this._showPreviewIcon = on;
+    this._updateAndSaveSettings({ showIcons: on });
+  };
+
+  get doc() {
+    return this.editor.doc;
   }
 
-  private _watchSettingsChange() {
-    this.disposables.add(
-      effect(() => {
-        if (this._context.editor$.value.mode === 'edgeless') return;
+  get edgeless() {
+    return this.editor.querySelector('affine-edgeless-root');
+  }
 
-        const showPreviewIcon = this._context.showIcons$.value;
-        const enableNotesSorting = this._context.enableSorting$.value;
-        localStorage.setItem(
-          outlineSettingsKey,
-          JSON.stringify({
-            showIcons: showPreviewIcon,
-            enableSorting: enableNotesSorting,
-          })
-        );
-      })
-    );
+  get host() {
+    return this.editor.host;
+  }
+
+  get mode() {
+    return this.editor.mode;
+  }
+
+  private _loadSettingsFromLocalStorage() {
+    const settings = localStorage.getItem(outlineSettingsKey);
+    if (settings) {
+      this._settings = JSON.parse(settings);
+      this._showPreviewIcon = this._settings.showIcons;
+      this._enableNotesSorting = this._settings.enableSorting;
+    }
+  }
+
+  private _saveSettingsToLocalStorage() {
+    localStorage.setItem(outlineSettingsKey, JSON.stringify(this._settings));
+  }
+
+  private _updateAndSaveSettings(
+    newSettings: Partial<OutlineSettingsDataType>
+  ) {
+    this._settings = { ...this._settings, ...newSettings };
+    this._saveSettingsToLocalStorage();
   }
 
   override connectedCallback() {
     super.connectedCallback();
-    this.classList.add(styles.outlinePanel);
-
-    this._setContext();
-    this._watchSettingsChange();
-  }
-
-  override willUpdate(changedProperties: PropertyValues<this>): void {
-    if (changedProperties.has('editor')) {
-      this._context.editor$.value = this.editor;
-    }
-    if (changedProperties.has('fitPadding')) {
-      this._context.fitPadding$.value = this.fitPadding;
-    }
+    this._loadSettingsFromLocalStorage();
   }
 
   override render() {
-    if (!this.editor.host) return;
+    if (!this.host) return;
 
     return html`
-      <affine-outline-panel-header></affine-outline-panel-header>
-      <affine-outline-panel-body> </affine-outline-panel-body>
-      <affine-outline-notice></affine-outline-notice>
+      <div class="outline-panel-container">
+        <affine-outline-panel-header
+          .showPreviewIcon=${this._showPreviewIcon}
+          .enableNotesSorting=${this._enableNotesSorting}
+          .toggleShowPreviewIcon=${this._toggleShowPreviewIcon}
+          .toggleNotesSorting=${this._toggleNotesSorting}
+        ></affine-outline-panel-header>
+        <affine-outline-panel-body
+          class="outline-panel-body"
+          .doc=${this.doc}
+          .fitPadding=${this.fitPadding}
+          .edgeless=${this.edgeless}
+          .editor=${this.editor}
+          .mode=${this.mode}
+          .showPreviewIcon=${this._showPreviewIcon}
+          .enableNotesSorting=${this._enableNotesSorting}
+          .toggleNotesSorting=${this._toggleNotesSorting}
+          .noticeVisible=${this._noticeVisible}
+          .setNoticeVisibility=${this._setNoticeVisibility}
+        >
+        </affine-outline-panel-body>
+        <affine-outline-notice
+          .noticeVisible=${this._noticeVisible}
+          .toggleNotesSorting=${this._toggleNotesSorting}
+          .setNoticeVisibility=${this._setNoticeVisibility}
+        ></affine-outline-notice>
+      </div>
     `;
   }
 
-  @provide({ context: tocContext })
-  private accessor _context!: TocContext;
+  @state()
+  private accessor _enableNotesSorting = false;
+
+  @state()
+  private accessor _noticeVisible = false;
+
+  @state()
+  private accessor _showPreviewIcon = false;
 
   @property({ attribute: false })
   accessor editor!: AffineEditorContainer;

@@ -40,5 +40,11 @@ export const edgelessToBlob = async (
 };
 
 export const writeImageBlobToClipboard = async (blob: Blob) => {
-  await navigator.clipboard.write([new ClipboardItem({ [blob.type]: blob })]);
+  // @ts-expect-error FIXME: BS-2239
+  if (window.apis?.clipboard?.copyAsImageFromString) {
+    // @ts-expect-error FIXME: BS-2239
+    await window.apis.clipboard?.copyAsImageFromString(blob);
+  } else {
+    await navigator.clipboard.write([new ClipboardItem({ [blob.type]: blob })]);
+  }
 };

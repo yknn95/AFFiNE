@@ -3,7 +3,7 @@ import { useBlockSuiteDocMeta } from '@affine/core/components/hooks/use-block-su
 import { CompatibleFavoriteItemsAdapter } from '@affine/core/modules/favorite';
 import { ShareDocsListService } from '@affine/core/modules/share-doc';
 import { WorkspaceService } from '@affine/core/modules/workspace';
-import { PublicDocMode } from '@affine/graphql';
+import { PublicPageMode } from '@affine/graphql';
 import { Trans, useI18n } from '@affine/i18n';
 import type { DocMeta } from '@blocksuite/affine/store';
 import { FilterIcon } from '@blocksuite/icons/rc';
@@ -76,9 +76,9 @@ export const SelectPage = ({
   const getPublicMode = useCallback(
     (id: string) => {
       const mode = shareDocs?.find(shareDoc => shareDoc.id === id)?.mode;
-      if (mode === PublicDocMode.Edgeless) {
+      if (mode === PublicPageMode.Edgeless) {
         return 'edgeless';
-      } else if (mode === PublicDocMode.Page) {
+      } else if (mode === PublicPageMode.Page) {
         return 'page';
       } else {
         return undefined;

@@ -71,11 +71,11 @@ export class Bound implements IBound {
 
   y: number;
 
-  get bl(): IVec {
+  get bl() {
     return [this.x, this.y + this.h];
   }
 
-  get br(): IVec {
+  get br() {
     return [this.x + this.w, this.y + this.h];
   }
 
@@ -155,7 +155,7 @@ export class Bound implements IBound {
     return [this.x, this.y];
   }
 
-  get tr(): IVec {
+  get tr() {
     return [this.x + this.w, this.y];
   }
 

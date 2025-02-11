@@ -18,6 +18,7 @@ import {
   AIPresentationIcon,
   AIPresentationIconWithAnimation,
   AISearchIcon,
+  ChatWithAIIcon,
   CommentIcon,
   ExplainIcon,
   ImproveWritingIcon,
@@ -109,6 +110,21 @@ const othersGroup: AIItemGroupConfig = {
           host,
           mode: 'edgeless',
           autoSelect: true,
+          appendCard: true,
+        });
+        panel.hide();
+      },
+    },
+    {
+      name: 'Open AI Chat',
+      icon: ChatWithAIIcon,
+      showWhen: () => true,
+      handler: host => {
+        const panel = getAIPanelWidget(host);
+        AIProvider.slots.requestOpenWithChat.emit({
+          host,
+          mode: 'edgeless',
+          appendCard: true,
         });
         panel.hide();
       },

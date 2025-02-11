@@ -4,17 +4,9 @@ export interface TableAdapterOptions extends TableOptions {
   keyField: string;
 }
 
-type OrmPrimitiveValues = string | number | boolean | null;
-
-type SimpleCondition =
-  | OrmPrimitiveValues
-  | {
-      not: OrmPrimitiveValues;
-    };
-
-type WhereSimpleCondition = {
+type WhereEqCondition = {
   field: string;
-  value: SimpleCondition;
+  value: any;
 };
 
 type WhereByKeyCondition = {
@@ -22,8 +14,8 @@ type WhereByKeyCondition = {
 };
 
 // currently only support eq condition
-// TODO(@forehalo): on the way [gt, gte, lt, lte, in, notIn, like, notLike, Or]
-export type WhereCondition = Array<WhereSimpleCondition> | WhereByKeyCondition;
+// TODO(@forehalo): on the way [gt, gte, lt, lte, in, notIn, like, notLike, isNull, isNotNull, And, Or]
+export type WhereCondition = WhereEqCondition[] | WhereByKeyCondition;
 export type Select = '*' | 'key' | string[];
 
 export type InsertQuery = {

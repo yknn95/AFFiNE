@@ -1,10 +1,7 @@
 import type { ReferenceInfo } from '@blocksuite/affine-model';
 import {
-  FeatureFlagService,
   GenerateDocUrlProvider,
   type LinkEventType,
-  OpenDocExtensionIdentifier,
-  type OpenDocMode,
   type TelemetryEvent,
   TelemetryProvider,
 } from '@blocksuite/affine-shared/services';
@@ -28,9 +25,11 @@ import { join } from 'lit/directives/join.js';
 import { repeat } from 'lit/directives/repeat.js';
 
 import {
+  CenterPeekIcon,
   CopyIcon,
   DeleteIcon,
   EditIcon,
+  ExpandFullSmallIcon,
   MoreVerticalIcon,
   OpenIcon,
   SmallArrowDownIcon,
@@ -47,7 +46,6 @@ import { RefNodeSlotsProvider } from '../../../../extension/index.js';
 import type { AffineInlineEditor } from '../../affine-inline-specs.js';
 import { ReferenceAliasPopup } from './reference-alias-popup.js';
 import { styles } from './styles.js';
-import type { DocLinkClickedEvent } from './types.js';
 
 export class ReferencePopup extends WithDisposable(LitElement) {
   static override styles = styles;
@@ -67,12 +65,10 @@ export class ReferencePopup extends WithDisposable(LitElement) {
     track(this.std, 'CopiedLink', { control: 'copy link' });
   };
 
-  private readonly _openDoc = (event?: Partial<DocLinkClickedEvent>) => {
-    this.std.getOptional(RefNodeSlotsProvider)?.docLinkClicked.emit({
-      ...this.referenceInfo,
-      ...event,
-      host: this.std.host,
-    });
+  private readonly _openDoc = () => {
+    this.std
+      .getOptional(RefNodeSlotsProvider)
+      ?.docLinkClicked.emit(this.referenceInfo);
   };
 
   private readonly _openEditPopup = (e: MouseEvent) => {
@@ -137,11 +133,8 @@ export class ReferencePopup extends WithDisposable(LitElement) {
     );
   }
 
-  _openButtonDisabled(openMode?: OpenDocMode) {
-    if (openMode === 'open-in-active-view') {
-      return this.referenceDocId === this.doc.id;
-    }
-    return false;
+  get _openButtonDisabled() {
+    return this.referenceDocId === this.doc.id;
   }
 
   get block() {
@@ -252,37 +245,28 @@ export class ReferencePopup extends WithDisposable(LitElement) {
   }
 
   private _openMenuButton() {
-    const openDocConfig = this.std.get(OpenDocExtensionIdentifier);
+    const buttons: MenuItem[] = [
+      {
+        label: 'Open this doc',
+        type: 'open-this-doc',
+        icon: ExpandFullSmallIcon,
+        action: this._openDoc,
+        disabled: this._openButtonDisabled,
+      },
+    ];
 
-    const buttons: MenuItem[] = openDocConfig.items
-      .map(item => {
-        if (
-          (item.type === 'open-in-center-peek' && !isPeekable(this.target)) ||
-          !openDocConfig?.isAllowed(item.type)
-        ) {
-          return null;
-        }
-        return {
-          label: item.label,
-          type: item.type,
-          icon: item.icon,
-          action: () => {
-            if (item.type === 'open-in-center-peek') {
-              peek(this.target);
-            } else {
-              this._openDoc({ openMode: item.type });
-            }
-          },
-          disabled: this._openButtonDisabled(item.type),
-          when: () => {
-            if (item.type === 'open-in-center-peek') {
-              return isPeekable(this.target);
-            }
-            return openDocConfig?.isAllowed(item.type) ?? true;
-          },
-        };
-      })
-      .filter(item => item !== null);
+    // open in new tab
+
+    if (isPeekable(this.target)) {
+      buttons.push({
+        label: 'Open in center peek',
+        type: 'open-in-center-peek',
+        icon: CenterPeekIcon,
+        action: () => peek(this.target),
+      });
+    }
+
+    // open in split view
 
     if (buttons.length === 0) {
       return nothing;
@@ -321,10 +305,10 @@ export class ReferencePopup extends WithDisposable(LitElement) {
   }
 
   private _viewSelector() {
-    // synced doc entry controlled by flag
-    const isSyncedDocEnabled = this.doc
-      .get(FeatureFlagService)
-      .getFlag('enable_synced_doc_block');
+    // synced doc entry controlled by awareness flag
+    const isSyncedDocEnabled = this.doc.awarenessStore.getFlag(
+      'enable_synced_doc_block'
+    );
     const buttons = [];
 
     buttons.push({

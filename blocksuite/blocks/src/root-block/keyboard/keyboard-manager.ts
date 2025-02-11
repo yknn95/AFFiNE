@@ -5,24 +5,15 @@ import {
   promptDocTitle,
 } from '@blocksuite/affine-block-embed';
 import { ParagraphBlockComponent } from '@blocksuite/affine-block-paragraph';
-import { NoteBlockModel, ParagraphBlockModel } from '@blocksuite/affine-model';
-import {
-  draftSelectedModelsCommand,
-  getSelectedModelsCommand,
-} from '@blocksuite/affine-shared/commands';
 import { matchFlavours } from '@blocksuite/affine-shared/utils';
-import {
-  type BlockComponent,
-  BlockSelection,
-  type UIEventHandler,
-} from '@blocksuite/block-std';
+import type { BlockComponent, UIEventHandler } from '@blocksuite/block-std';
 import { IS_MAC, IS_WINDOWS } from '@blocksuite/global/env';
 
 export class PageKeyboardManager {
   private readonly _handleDelete: UIEventHandler = ctx => {
     const event = ctx.get('keyboardState').raw;
     const blockSelections = this._currentSelection.filter(sel =>
-      sel.is(BlockSelection)
+      sel.is('block')
     );
     if (blockSelections.length === 0) {
       return;
@@ -38,7 +29,7 @@ export class PageKeyboardManager {
       const model = block.model;
 
       if (
-        matchFlavours(model, [ParagraphBlockModel]) &&
+        matchFlavours(model, ['affine:paragraph']) &&
         model.type.startsWith('h') &&
         model.collapsed
       ) {
@@ -125,16 +116,16 @@ export class PageKeyboardManager {
     const rootComponent = this.rootComponent;
     const [_, ctx] = this.rootComponent.std.command
       .chain()
-      .pipe(getSelectedModelsCommand, {
+      .getSelectedModels({
         types: ['block'],
         mode: 'highest',
       })
-      .pipe(draftSelectedModelsCommand)
+      .draftSelectedModels()
       .run();
     const selectedModels = ctx.selectedModels?.filter(
       block =>
         !block.flavour.startsWith('affine:embed-') &&
-        matchFlavours(doc.getParent(block), [NoteBlockModel])
+        matchFlavours(doc.getParent(block), ['affine:note'])
     );
 
     const draftedModels = ctx.draftedModels;

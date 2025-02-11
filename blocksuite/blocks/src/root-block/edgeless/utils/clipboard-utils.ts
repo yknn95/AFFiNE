@@ -1,4 +1,3 @@
-import { isNoteBlock } from '@blocksuite/affine-block-surface';
 import type {
   EdgelessTextBlockModel,
   EmbedSyncedDocModel,
@@ -23,6 +22,7 @@ import {
   isEmbedSyncedDocBlock,
   isFrameBlock,
   isImageBlock,
+  isNoteBlock,
 } from './query.js';
 
 const offset = 10;

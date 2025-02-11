@@ -1,4 +1,4 @@
-import { BlockModel, defineBlockSchema } from '@blocksuite/store';
+import { defineBlockSchema, type SchemaToModel } from '@blocksuite/store';
 
 export const RootBlockSchema = defineBlockSchema({
   flavour: 'test:page',
@@ -15,9 +15,7 @@ export const RootBlockSchema = defineBlockSchema({
   },
 });
 
-export class RootBlockModel extends BlockModel<
-  ReturnType<(typeof RootBlockSchema)['model']['props']>
-> {}
+export type RootBlockModel = SchemaToModel<typeof RootBlockSchema>;
 
 export const NoteBlockSchema = defineBlockSchema({
   flavour: 'test:note',
@@ -30,9 +28,7 @@ export const NoteBlockSchema = defineBlockSchema({
   },
 });
 
-export class NoteBlockModel extends BlockModel<
-  ReturnType<(typeof NoteBlockSchema)['model']['props']>
-> {}
+export type NoteBlockModel = SchemaToModel<typeof NoteBlockSchema>;
 
 export const HeadingBlockSchema = defineBlockSchema({
   flavour: 'test:heading',
@@ -47,9 +43,7 @@ export const HeadingBlockSchema = defineBlockSchema({
   },
 });
 
-export class HeadingBlockModel extends BlockModel<
-  ReturnType<(typeof HeadingBlockSchema)['model']['props']>
-> {}
+export type HeadingBlockModel = SchemaToModel<typeof HeadingBlockSchema>;
 
 declare global {
   namespace BlockSuite {

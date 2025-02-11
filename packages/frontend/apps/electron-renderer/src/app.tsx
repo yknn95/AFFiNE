@@ -4,13 +4,12 @@ import { AppContainer } from '@affine/core/desktop/components/app-container';
 import { router } from '@affine/core/desktop/router';
 import { configureCommonModules } from '@affine/core/modules';
 import { configureAppTabsHeaderModule } from '@affine/core/modules/app-tabs-header';
-import { configureDesktopBackupModule } from '@affine/core/modules/backup';
 import { ValidatorProvider } from '@affine/core/modules/cloud';
 import {
   configureDesktopApiModule,
   DesktopApiService,
 } from '@affine/core/modules/desktop-api';
-import { WorkspaceDialogService } from '@affine/core/modules/dialogs';
+import { GlobalDialogService } from '@affine/core/modules/dialogs';
 import { DocsService } from '@affine/core/modules/doc';
 import {
   configureSpellCheckSettingModule,
@@ -20,35 +19,29 @@ import { configureFindInPageModule } from '@affine/core/modules/find-in-page';
 import { GlobalContextService } from '@affine/core/modules/global-context';
 import { I18nProvider } from '@affine/core/modules/i18n';
 import { LifecycleService } from '@affine/core/modules/lifecycle';
-import {
-  configureElectronStateStorageImpls,
-  NbstoreProvider,
-} from '@affine/core/modules/storage';
+import { configureElectronStateStorageImpls } from '@affine/core/modules/storage';
 import {
   ClientSchemeProvider,
   PopupWindowProvider,
 } from '@affine/core/modules/url';
+import { configureSqliteUserspaceStorageProvider } from '@affine/core/modules/userspace';
 import {
   configureDesktopWorkbenchModule,
   WorkbenchService,
 } from '@affine/core/modules/workbench';
 import { WorkspacesService } from '@affine/core/modules/workspace';
-import { configureBrowserWorkspaceFlavours } from '@affine/core/modules/workspace-engine';
+import {
+  configureBrowserWorkspaceFlavours,
+  configureSqliteWorkspaceEngineStorageProvider,
+} from '@affine/core/modules/workspace-engine';
 import createEmotionCache from '@affine/core/utils/create-emotion-cache';
 import { apis, events } from '@affine/electron-api';
-import { StoreManagerClient } from '@affine/nbstore/worker/client';
 import { CacheProvider } from '@emotion/react';
 import { Framework, FrameworkRoot, getCurrentStore } from '@toeverything/infra';
-import { OpClient } from '@toeverything/infra/op';
 import { Suspense } from 'react';
 import { RouterProvider } from 'react-router-dom';
 
 import { DesktopThemeSync } from './theme-sync';
-
-const storeManagerClient = createStoreManagerClient();
-window.addEventListener('beforeunload', () => {
-  storeManagerClient.dispose();
-});
 
 const desktopWhiteList = [
   '/open-app/signin-redirect',
@@ -78,24 +71,14 @@ const framework = new Framework();
 configureCommonModules(framework);
 configureElectronStateStorageImpls(framework);
 configureBrowserWorkspaceFlavours(framework);
+configureSqliteWorkspaceEngineStorageProvider(framework);
+configureSqliteUserspaceStorageProvider(framework);
 configureDesktopWorkbenchModule(framework);
 configureAppTabsHeaderModule(framework);
 configureFindInPageModule(framework);
 configureDesktopApiModule(framework);
 configureSpellCheckSettingModule(framework);
-configureDesktopBackupModule(framework);
-framework.impl(NbstoreProvider, {
-  openStore(key, options) {
-    const { store, dispose } = storeManagerClient.open(key, options);
 
-    return {
-      store,
-      dispose: () => {
-        dispose();
-      },
-    };
-  },
-});
 framework.impl(PopupWindowProvider, p => {
   const apis = p.get(DesktopApiService).api;
   return {
@@ -141,7 +124,7 @@ window.addEventListener('unload', () => {
 });
 
 events?.applicationMenu.openAboutPageInSettingModal(() =>
-  frameworkProvider.get(WorkspaceDialogService).open('setting', {
+  frameworkProvider.get(GlobalDialogService).open('setting', {
     activeTab: 'about',
   })
 );
@@ -204,40 +187,4 @@ export function App() {
       </FrameworkRoot>
     </Suspense>
   );
-}
-
-function createStoreManagerClient() {
-  const { port1: portForOpClient, port2: portForWorker } = new MessageChannel();
-  let portFromWorker: MessagePort | null = null;
-  let portId = crypto.randomUUID();
-
-  const handleMessage = (ev: MessageEvent) => {
-    if (
-      ev.data.type === 'electron:worker-connect' &&
-      ev.data.portId === portId
-    ) {
-      portFromWorker = ev.ports[0];
-      // connect portForWorker and portFromWorker
-      portFromWorker.addEventListener('message', ev => {
-        portForWorker.postMessage(ev.data, [...ev.ports]);
-      });
-      portForWorker.addEventListener('message', ev => {
-        // oxlint-disable-next-line no-non-null-assertion
-        portFromWorker!.postMessage(ev.data, [...ev.ports]);
-      });
-      portForWorker.start();
-      portFromWorker.start();
-    }
-  };
-
-  window.addEventListener('message', handleMessage);
-
-  // oxlint-disable-next-line no-non-null-assertion
-  apis!.worker.connectWorker('affine-shared-worker', portId).catch(err => {
-    console.error('failed to connect worker', err);
-  });
-
-  const storeManager = new StoreManagerClient(new OpClient(portForOpClient));
-  portForOpClient.start();
-  return storeManager;
 }

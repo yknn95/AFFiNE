@@ -1,19 +1,13 @@
 import { useDocMetaHelper } from '@affine/core/components/hooks/use-block-suite-page-meta';
 import { useDocCollectionPage } from '@affine/core/components/hooks/use-block-suite-workspace-page';
 import { FetchService, GraphQLService } from '@affine/core/modules/cloud';
-import {
-  getAFFiNEWorkspaceSchema,
-  type WorkspaceFlavourProvider,
-  WorkspaceService,
-  WorkspacesService,
-} from '@affine/core/modules/workspace';
-import { WorkspaceImpl } from '@affine/core/modules/workspace/impls/workspace';
+import { getAFFiNEWorkspaceSchema } from '@affine/core/modules/workspace';
 import { DebugLogger } from '@affine/debug';
 import type { ListHistoryQuery } from '@affine/graphql';
 import { listHistoryQuery, recoverDocMutation } from '@affine/graphql';
 import { i18nTime } from '@affine/i18n';
 import { assertEquals } from '@blocksuite/affine/global/utils';
-import type { Workspace } from '@blocksuite/affine/store';
+import { DocCollection } from '@blocksuite/affine/store';
 import { useService } from '@toeverything/infra';
 import { useEffect, useMemo } from 'react';
 import useSWRImmutable from 'swr/immutable';
@@ -30,6 +24,7 @@ import {
   useMutation,
 } from '../../../components/hooks/use-mutation';
 import { useQueryInfinite } from '../../../components/hooks/use-query';
+import { CloudBlobStorage } from '../../../modules/workspace-engine/impls/engine/blob-cloud';
 
 const logger = new DebugLogger('page-history');
 
@@ -104,32 +99,25 @@ const snapshotFetcher = async (
 // so that we do not need to worry about providers etc
 // TODO(@Peng): fix references to the page (the referenced page will shown as deleted)
 // if we simply clone the current workspace, it maybe time consuming right?
-const docCollectionMap = new Map<string, Workspace>();
+const docCollectionMap = new Map<string, DocCollection>();
 
 // assume the workspace is a cloud workspace since the history feature is only enabled for cloud workspace
 const getOrCreateShellWorkspace = (
   workspaceId: string,
-  flavourProvider?: WorkspaceFlavourProvider
+  fetchService: FetchService,
+  graphQLService: GraphQLService
 ) => {
   let docCollection = docCollectionMap.get(workspaceId);
   if (!docCollection) {
-    docCollection = new WorkspaceImpl({
+    const blobStorage = new CloudBlobStorage(
+      workspaceId,
+      fetchService,
+      graphQLService
+    );
+    docCollection = new DocCollection({
       id: workspaceId,
-      blobSource: {
-        name: 'cloud',
-        readonly: true,
-        async get(key) {
-          return flavourProvider?.getWorkspaceBlob(workspaceId, key) ?? null;
-        },
-        set() {
-          return Promise.resolve('');
-        },
-        delete() {
-          return Promise.resolve();
-        },
-        list() {
-          return Promise.resolve([]);
-        },
+      blobSources: {
+        main: blobStorage,
       },
       schema: getAFFiNEWorkspaceSchema(),
     });
@@ -159,12 +147,10 @@ export const usePageHistory = (
 
 // workspace id + page id + timestamp + snapshot -> Page (to be used for rendering in blocksuite editor)
 export const useSnapshotPage = (
-  docCollection: Workspace,
+  docCollection: DocCollection,
   pageDocId: string,
   ts?: string
 ) => {
-  const affineWorkspace = useService(WorkspaceService).workspace;
-  const workspacesService = useService(WorkspacesService);
   const fetchService = useService(FetchService);
   const graphQLService = useService(GraphQLService);
   const snapshot = usePageHistory(docCollection.id, pageDocId, ts);
@@ -175,45 +161,34 @@ export const useSnapshotPage = (
     const pageId = pageDocId + '-' + ts;
     const historyShellWorkspace = getOrCreateShellWorkspace(
       docCollection.id,
-      workspacesService.getWorkspaceFlavourProvider(affineWorkspace.meta)
+      fetchService,
+      graphQLService
     );
     let page = historyShellWorkspace.getDoc(pageId);
     if (!page && snapshot) {
       page = historyShellWorkspace.createDoc({
         id: pageId,
       });
-      page.readonly = true;
+      page.awarenessStore.setReadonly(page.blockCollection, true);
       const spaceDoc = page.spaceDoc;
       page.load(() => {
         applyUpdate(spaceDoc, new Uint8Array(snapshot));
       }); // must load before applyUpdate
     }
     return page ?? undefined;
-  }, [
-    ts,
-    pageDocId,
-    docCollection.id,
-    workspacesService,
-    affineWorkspace.meta,
-    snapshot,
-  ]);
+  }, [ts, pageDocId, docCollection.id, fetchService, graphQLService, snapshot]);
 
   useEffect(() => {
     const historyShellWorkspace = getOrCreateShellWorkspace(
       docCollection.id,
-      workspacesService.getWorkspaceFlavourProvider(affineWorkspace.meta)
+      fetchService,
+      graphQLService
     );
     // apply the rootdoc's update to the current workspace
     // this makes sure the page reference links are not deleted ones in the preview
     const update = encodeStateAsUpdate(docCollection.doc);
     applyUpdate(historyShellWorkspace.doc, update);
-  }, [
-    affineWorkspace.meta,
-    docCollection,
-    fetchService,
-    graphQLService,
-    workspacesService,
-  ]);
+  }, [docCollection, fetchService, graphQLService]);
 
   return page;
 };
@@ -278,7 +253,10 @@ export function revertUpdate(
   applyUpdate(doc, revertChangesSinceSnapshotUpdate);
 }
 
-export const useRestorePage = (docCollection: Workspace, pageId: string) => {
+export const useRestorePage = (
+  docCollection: DocCollection,
+  pageId: string
+) => {
   const page = useDocCollectionPage(docCollection, pageId);
   const mutateQueryResource = useMutateQueryResource();
   const { trigger: recover, isMutating } = useMutation({

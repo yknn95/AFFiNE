@@ -1,4 +1,3 @@
-import { NotionHtmlInlineToDeltaAdapterExtensions } from '@blocksuite/affine-components/rich-text';
 import { DefaultTheme, NoteDisplayMode } from '@blocksuite/affine-model';
 import { NotionHtmlAdapter } from '@blocksuite/affine-shared/adapters';
 import { Container } from '@blocksuite/global/di';
@@ -10,12 +9,13 @@ import {
 import { describe, expect, test } from 'vitest';
 
 import { defaultBlockNotionHtmlAdapterMatchers } from '../../_common/adapters/notion-html/block-matcher.js';
+import { notionHtmlInlineToDeltaMatchers } from '../../_common/adapters/notion-html/delta-converter/html-inline.js';
 import { nanoidReplacement } from '../../_common/test-utils/test-utils.js';
 import { createJob } from '../utils/create-job.js';
 
 const container = new Container();
 [
-  ...NotionHtmlInlineToDeltaAdapterExtensions,
+  ...notionHtmlInlineToDeltaMatchers,
   ...defaultBlockNotionHtmlAdapterMatchers,
 ].forEach(ext => {
   ext.setup(container);

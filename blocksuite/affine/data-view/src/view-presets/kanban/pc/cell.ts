@@ -14,7 +14,7 @@ import type {
 import { renderUniLit } from '../../../core/utils/uni-component/uni-component.js';
 import type { Property } from '../../../core/view-manager/property.js';
 import type { KanbanSingleView } from '../kanban-view-manager.js';
-import type { KanbanViewSelection } from '../selection';
+import type { KanbanViewSelection } from '../types.js';
 
 const styles = css`
   affine-data-view-kanban-cell {

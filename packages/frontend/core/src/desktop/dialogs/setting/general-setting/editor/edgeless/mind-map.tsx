@@ -8,7 +8,7 @@ import { SettingRow } from '@affine/component/setting-components';
 import { EditorSettingService } from '@affine/core/modules/editor-setting';
 import { useI18n } from '@affine/i18n';
 import { LayoutType, MindmapStyle } from '@blocksuite/affine/blocks';
-import type { Store } from '@blocksuite/affine/store';
+import type { Doc } from '@blocksuite/affine/store';
 import { useFramework, useLiveData } from '@toeverything/infra';
 import { useCallback, useMemo } from 'react';
 
@@ -93,7 +93,7 @@ export const MindMapSettings = () => {
     });
   }, [editorSetting, settings]);
 
-  const getElements = useCallback((doc: Store) => {
+  const getElements = useCallback((doc: Doc) => {
     const surface = getSurfaceBlock(doc);
     return surface?.getElementsByType('mindmap') || [];
   }, []);

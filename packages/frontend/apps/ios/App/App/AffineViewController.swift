@@ -13,19 +13,6 @@ class AFFiNEViewController: CAPBridgeViewController {
     intelligentsButton.delegate = self
     dismissIntelligentsButton()
   }
-  
-  override func webViewConfiguration(for instanceConfiguration: InstanceConfiguration) -> WKWebViewConfiguration {
-    let configuration = super.webViewConfiguration(for: instanceConfiguration)
-    return configuration
-  }
-  
-  override func webView(with frame: CGRect, configuration: WKWebViewConfiguration) -> WKWebView {
-    configuration.setURLSchemeHandler(AffineHttpHandler(), forURLScheme: "affine-http")
-    configuration.setURLSchemeHandler(AffineHttpHandler(), forURLScheme: "affine-https")
-    configuration.setURLSchemeHandler(AffineWsHandler(), forURLScheme: "affine-ws")
-    configuration.setURLSchemeHandler(AffineWsHandler(), forURLScheme: "affine-wss")
-    return super.webView(with: frame, configuration: configuration)
-}
 
   override func capacitorDidLoad() {
     let plugins: [CAPPlugin] = [
@@ -57,29 +44,30 @@ extension AFFiNEViewController: IntelligentsButtonDelegate, IntelligentsFocusApe
 
     button.beginProgress()
 
-    let upstreamReaderScript = "window.getCurrentServerBaseUrl();"
-    webView.evaluateJavaScript(upstreamReaderScript) { result, _ in
-      if let baseUrl = result as? String {
-        Intelligents.setUpstreamEndpoint(baseUrl)
+    let script = "return await window.getCurrentDocContentInMarkdown();"
+    webView.callAsyncJavaScript(
+      script,
+      arguments: [:],
+      in: nil,
+      in: .page
+    ) { result in
+      button.stopProgress()
+      webView.resignFirstResponder()
+
+      if case let .failure(error) = result {
+        print("[?] \(self) script error: \(error.localizedDescription)")
       }
 
-      let script = "return await window.getCurrentDocContentInMarkdown();"
-      webView.callAsyncJavaScript(
-        script,
-        arguments: [:],
-        in: nil,
-        in: .page
-      ) { result in
-        button.stopProgress()
-        webView.resignFirstResponder()
-
-        DispatchQueue.main.asyncAfter(deadline: .now() + 0.1) {
-          if case let .success(content) = result,
-             let res = content as? String
-          {
-            print("[*] \(self) received document with \(res.count) characters")
+      DispatchQueue.main.asyncAfter(deadline: .now() + 0.1) {
+        if case let .success(content) = result,
+           let res = content as? String
+        {
+          print("[*] \(self) received document with \(res.count) characters")
+          DispatchQueue.main.async {
             self.openIntelligentsSheet(withContext: res)
-          } else {
+          }
+        } else {
+          DispatchQueue.main.async {
             self.openSimpleChat()
           }
         }

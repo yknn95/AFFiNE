@@ -1,4 +1,4 @@
-import type { ExtensionType } from '@blocksuite/store';
+import type { ExtensionType } from '@blocksuite/block-std';
 
 import { EmbedFigmaBlockSpec } from './embed-figma-block';
 import { EmbedGithubBlockSpec } from './embed-github-block';
@@ -21,8 +21,13 @@ export const EmbedExtensions: ExtensionType[] = [
 export { createEmbedBlockHtmlAdapterMatcher } from './common/adapters/html';
 export { createEmbedBlockMarkdownAdapterMatcher } from './common/adapters/markdown';
 export { createEmbedBlockPlainTextAdapterMatcher } from './common/adapters/plain-text';
+export { generateDocUrl } from './common/adapters/utils';
 export { EmbedBlockComponent } from './common/embed-block-element';
 export { insertEmbedCard } from './common/insert-embed-card.js';
+export {
+  LinkPreviewer,
+  type LinkPreviewResponseData,
+} from './common/link-previewer.js';
 export * from './common/render-linked-doc';
 export { toEdgelessEmbedBlock } from './common/to-edgeless-embed-block';
 export * from './common/utils';

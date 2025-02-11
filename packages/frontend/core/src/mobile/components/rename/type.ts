@@ -28,7 +28,6 @@ export interface RenameSubMenuProps
   /** MenuItem.text */
   text?: string;
   menuProps?: Partial<MenuSubProps>;
-  disabled?: boolean;
 }
 
 export interface RenameDialogProps

@@ -350,7 +350,7 @@ export class UIEventDispatcher extends LifeCycleWatcher {
       );
 
       const flavourHandlers = blockIds
-        .map(blockId => this.std.store.getBlock(blockId)?.flavour)
+        .map(blockId => this.std.doc.getBlock(blockId)?.flavour)
         .filter((flavour): flavour is string => {
           if (!flavour) return false;
           if (flavourSeen[flavour]) return false;
@@ -364,7 +364,7 @@ export class UIEventDispatcher extends LifeCycleWatcher {
       events.push(...idHandlers, ...flavourHandlers);
       blockIds = blockIds
         .map(blockId => {
-          const parent = this.std.store.getParent(blockId);
+          const parent = this.std.doc.getParent(blockId);
           return parent?.id;
         })
         .filter((id): id is string => !!id);

@@ -1,7 +1,16 @@
 {
   "extends": "./tsconfig.json",
   "compilerOptions": {
-    "types": ["node", "build-config"],
-    "composite": true
-  }
+    "composite": true,
+    "module": "ESNext",
+    "moduleResolution": "Node",
+    "allowSyntheticDefaultImports": true,
+    "outDir": "lib"
+  },
+  "include": ["vite.config.ts", "vitest.config.ts", "scripts"],
+  "references": [
+    {
+      "path": "./packages/common/env"
+    }
+  ]
 }

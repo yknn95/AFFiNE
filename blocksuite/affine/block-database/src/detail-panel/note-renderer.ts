@@ -1,9 +1,6 @@
-import {
-  CodeBlockModel,
-  type DatabaseBlockModel,
-  ListBlockModel,
-  ParagraphBlockModel,
-  type RootBlockModel,
+import type {
+  DatabaseBlockModel,
+  RootBlockModel,
 } from '@blocksuite/affine-model';
 import { REFERENCE_NODE } from '@blocksuite/affine-shared/consts';
 import { TelemetryProvider } from '@blocksuite/affine-shared/services';
@@ -50,7 +47,7 @@ export class NoteRenderer
   }
 
   addNote() {
-    const collection = this.host?.std.workspace;
+    const collection = this.host?.std.collection;
     if (!collection) {
       return;
     }
@@ -69,16 +66,16 @@ export class NoteRenderer
           },
         } satisfies AffineTextAttributes as BaseTextAttributes
       );
-      collection.meta.setDocMeta(note.id, { title: rowContent });
+      collection.setDocMeta(note.id, { title: rowContent });
       if (note.root) {
         (note.root as RootBlockModel).title.insert(rowContent ?? '', 0);
         note.root.children
           .find(child => child.flavour === 'affine:note')
           ?.children.find(block =>
             matchFlavours(block, [
-              ParagraphBlockModel,
-              ListBlockModel,
-              CodeBlockModel,
+              'affine:paragraph',
+              'affine:list',
+              'affine:code',
             ])
           );
       }

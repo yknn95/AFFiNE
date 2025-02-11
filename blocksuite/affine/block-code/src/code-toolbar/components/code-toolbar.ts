@@ -17,19 +17,15 @@ export class AffineCodeToolbar extends WithDisposable(LitElement) {
   static override styles = css`
     :host {
       position: absolute;
-      width: 100%;
       top: 0;
-      left: 0;
+      right: 0;
     }
 
     .code-toolbar-container {
-      width: auto;
       height: 24px;
       gap: 4px;
       padding: 4px;
       margin: 0;
-      display: flex;
-      justify-content: flex-end;
     }
 
     .code-toolbar-button {

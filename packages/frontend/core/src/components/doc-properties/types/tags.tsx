@@ -8,7 +8,7 @@ import { TagsInlineEditor } from '../tags-inline-editor';
 import * as styles from './tags.css';
 import type { PropertyValueProps } from './types';
 
-export const TagsValue = ({ readonly }: PropertyValueProps) => {
+export const TagsValue = ({ onChange }: PropertyValueProps) => {
   const t = useI18n();
 
   const doc = useService(DocService).doc;
@@ -22,7 +22,6 @@ export const TagsValue = ({ readonly }: PropertyValueProps) => {
       className={styles.container}
       isEmpty={empty}
       data-testid="property-tags-value"
-      readonly={readonly}
     >
       <TagsInlineEditor
         className={styles.tagInlineEditor}
@@ -30,8 +29,7 @@ export const TagsValue = ({ readonly }: PropertyValueProps) => {
           'com.affine.page-properties.property-value-placeholder'
         ]()}
         pageId={doc.id}
-        onChange={() => {}}
-        readonly={readonly}
+        onChange={value => onChange(value, true)}
       />
     </PropertyValue>
   );

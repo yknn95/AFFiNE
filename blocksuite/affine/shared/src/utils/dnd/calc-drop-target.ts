@@ -1,4 +1,3 @@
-import { DatabaseBlockModel, ListBlockModel } from '@blocksuite/affine-model';
 import type { BlockComponent } from '@blocksuite/block-std';
 import { type Point, Rect } from '@blocksuite/global/utils';
 import type { BlockModel } from '@blocksuite/store';
@@ -10,13 +9,12 @@ import {
 } from '../dom/index.js';
 import { matchFlavours } from '../model/index.js';
 import { getDropRectByPoint } from './get-drop-rect-by-point.js';
-import { DropFlags, type DropPlacement, type DropTarget } from './types.js';
+import { DropFlags, type DroppingType, type DropResult } from './types.js';
 
 function getVisiblePreviousElementSibling(element: Element | null) {
   if (!element) return null;
   let prev = element.previousElementSibling;
-  // https://stackoverflow.com/questions/19669786/check-if-element-is-visible-in-dom
-  while (prev instanceof HTMLElement && prev.offsetParent === null) {
+  while (prev && !prev.checkVisibility()) {
     prev = prev.previousElementSibling;
   }
   return prev;
@@ -25,7 +23,7 @@ function getVisiblePreviousElementSibling(element: Element | null) {
 function getVisibleNextElementSibling(element: Element | null) {
   if (!element) return null;
   let next = element.nextElementSibling;
-  while (next instanceof HTMLElement && next.offsetParent === null) {
+  while (next && !next.checkVisibility()) {
     next = next.nextElementSibling;
   }
   return next;
@@ -44,7 +42,7 @@ export function calcDropTarget(
    * Allow the dragging block to be dropped as sublist
    */
   allowSublist: boolean = true
-): DropTarget | null {
+): DropResult | null {
   const schema = model.doc.getSchemaByFlavour('affine:database');
   const children = schema?.model.children ?? [];
 
@@ -56,7 +54,7 @@ export function calcDropTarget(
       .every(m => children.includes(m.flavour));
   }
 
-  if (!shouldAppendToDatabase && !matchFlavours(model, [DatabaseBlockModel])) {
+  if (!shouldAppendToDatabase && !matchFlavours(model, ['affine:database'])) {
     const databaseBlockComponent =
       element.closest<BlockComponent>('affine-database');
     if (databaseBlockComponent) {
@@ -65,7 +63,7 @@ export function calcDropTarget(
     }
   }
 
-  let placement: DropPlacement = 'none';
+  let type: DroppingType = 'none';
   const height = 3 * scale;
   const dropResult = getDropRectByPoint(point, model, element);
   if (!dropResult) return null;
@@ -76,10 +74,10 @@ export function calcDropTarget(
     const rect = Rect.fromDOMRect(domRect);
     rect.top -= height / 2;
     rect.height = height;
-    placement = 'database';
+    type = 'database';
 
     return {
-      placement,
+      type,
       rect,
       modelState: {
         model,
@@ -92,10 +90,10 @@ export function calcDropTarget(
     const distanceToTop = Math.abs(domRect.top - point.y);
     const distanceToBottom = Math.abs(domRect.bottom - point.y);
     const before = distanceToTop < distanceToBottom;
-    placement = before ? 'before' : 'after';
+    type = before ? 'before' : 'after';
 
     return {
-      placement,
+      type,
       rect: Rect.fromLWTH(
         domRect.left,
         domRect.width,
@@ -114,10 +112,10 @@ export function calcDropTarget(
   const distanceToBottom = Math.abs(domRect.bottom - point.y);
   const before = distanceToTop < distanceToBottom;
 
-  placement = before ? 'before' : 'after';
+  type = before ? 'before' : 'after';
   let offsetY = 4;
 
-  if (placement === 'before') {
+  if (type === 'before') {
     // before
     let prev;
     let prevRect;
@@ -128,7 +126,7 @@ export function calcDropTarget(
         draggingElements.length &&
         prev === draggingElements[draggingElements.length - 1]
       ) {
-        placement = 'none';
+        type = 'none';
       } else {
         prevRect = getRectByBlockComponent(prev);
       }
@@ -150,11 +148,11 @@ export function calcDropTarget(
     const hasChild = (element as BlockComponent).childBlocks.length;
     if (
       allowSublist &&
-      matchFlavours(model, [ListBlockModel]) &&
+      matchFlavours(model, ['affine:list']) &&
       !hasChild &&
       point.x > domRect.x + BLOCK_CHILDREN_CONTAINER_PADDING_LEFT
     ) {
-      placement = 'in';
+      type = 'in';
     }
     // after
     let next;
@@ -163,11 +161,11 @@ export function calcDropTarget(
     next = getVisibleNextElementSibling(element);
     if (next) {
       if (
-        placement === 'after' &&
+        type === 'after' &&
         draggingElements.length &&
         next === draggingElements[0]
       ) {
-        placement = 'none';
+        type = 'none';
         next = null;
       }
     } else {
@@ -182,22 +180,22 @@ export function calcDropTarget(
     }
   }
 
-  if (placement === 'none') return null;
+  if (type === 'none') return null;
 
   let top = domRect.top;
-  if (placement === 'before') {
+  if (type === 'before') {
     top -= offsetY;
   } else {
     top += domRect.height + offsetY;
   }
 
-  if (placement === 'in') {
+  if (type === 'in') {
     domRect.x += BLOCK_CHILDREN_CONTAINER_PADDING_LEFT;
     domRect.width -= BLOCK_CHILDREN_CONTAINER_PADDING_LEFT;
   }
 
   return {
-    placement,
+    type,
     rect: Rect.fromLWTH(domRect.left, domRect.width, top - height / 2, height),
     modelState: {
       model,

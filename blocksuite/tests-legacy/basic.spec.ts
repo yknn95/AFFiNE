@@ -1,4 +1,4 @@
-import type { DeltaInsert } from '@blocksuite/inline';
+import type { DeltaInsert } from '@inline/types.js';
 import { expect } from '@playwright/test';
 
 import {
@@ -64,11 +64,11 @@ test(scoped`basic init with external text`, async ({ page }) => {
   await page.evaluate(() => {
     const { doc } = window;
     const rootId = doc.addBlock('affine:page', {
-      title: new window.$blocksuite.store.Text('hello'),
+      title: new doc.Text('hello'),
     });
     const note = doc.addBlock('affine:note', {}, rootId);
 
-    const text = new window.$blocksuite.store.Text('world');
+    const text = new doc.Text('world');
     doc.addBlock('affine:paragraph', { text }, note);
 
     const delta = [
@@ -78,7 +78,7 @@ test(scoped`basic init with external text`, async ({ page }) => {
     doc.addBlock(
       'affine:paragraph',
       {
-        text: new window.$blocksuite.store.Text(delta as DeltaInsert[]),
+        text: new doc.Text(delta as DeltaInsert[]),
       },
       note
     );

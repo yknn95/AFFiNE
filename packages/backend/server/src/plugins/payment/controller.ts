@@ -2,10 +2,11 @@ import assert from 'node:assert';
 
 import type { RawBodyRequest } from '@nestjs/common';
 import { Controller, Logger, Post, Req } from '@nestjs/common';
+import { EventEmitter2 } from '@nestjs/event-emitter';
 import type { Request } from 'express';
 import Stripe from 'stripe';
 
-import { Config, EventBus, InternalServerError } from '../../base';
+import { Config, InternalServerError } from '../../base';
 import { Public } from '../../core/auth';
 
 @Controller('/api/stripe')
@@ -16,7 +17,7 @@ export class StripeWebhookController {
   constructor(
     config: Config,
     private readonly stripe: Stripe,
-    private readonly event: EventBus
+    private readonly event: EventEmitter2
   ) {
     assert(config.plugins.payment.stripe);
     this.webhookKey = config.plugins.payment.stripe.keys.webhookKey;
@@ -40,7 +41,7 @@ export class StripeWebhookController {
 
       // Stripe requires responseing webhook immediately and handle event asynchronously.
       setImmediate(() => {
-        this.event.emitAsync(`stripe.${event.type}` as any, event).catch(e => {
+        this.event.emitAsync(`stripe:${event.type}`, event).catch(e => {
           this.logger.error('Failed to handle Stripe Webhook event.', e);
         });
       });

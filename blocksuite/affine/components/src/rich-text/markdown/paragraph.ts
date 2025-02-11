@@ -1,7 +1,4 @@
-import {
-  ParagraphBlockModel,
-  type ParagraphType,
-} from '@blocksuite/affine-model';
+import type { ParagraphType } from '@blocksuite/affine-model';
 import { matchFlavours } from '@blocksuite/affine-shared/utils';
 import type { BlockStdScope } from '@blocksuite/block-std';
 import type { BlockModel } from '@blocksuite/store';
@@ -15,8 +12,8 @@ export function toParagraph(
   type: ParagraphType,
   prefix: string
 ) {
-  const { store: doc } = std;
-  if (!matchFlavours(model, [ParagraphBlockModel])) {
+  const { doc } = std;
+  if (!matchFlavours(model, ['affine:paragraph'])) {
     const parent = doc.getParent(model);
     if (!parent) return;
 
@@ -36,7 +33,7 @@ export function toParagraph(
     return id;
   }
 
-  if (matchFlavours(model, [ParagraphBlockModel]) && model.type !== type) {
+  if (matchFlavours(model, ['affine:paragraph']) && model.type !== type) {
     beforeConvert(std, model, prefix.length);
 
     doc.updateBlock(model, { type });

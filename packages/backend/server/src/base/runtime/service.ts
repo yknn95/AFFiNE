@@ -126,18 +126,13 @@ export class Runtime implements OnModuleInit {
     V = FlattenedAppRuntimeConfig[K],
   >(key: K, value: V) {
     validateConfigType(key, value);
-    const config = await this.db.runtimeConfig.upsert({
+    const config = await this.db.runtimeConfig.update({
       where: {
         id: key,
         deletedAt: null,
       },
-      create: {
-        ...defaultRuntimeConfig[key],
+      data: {
         value: value as any,
-      },
-      update: {
-        value: value as any,
-        deletedAt: null,
       },
     });
 

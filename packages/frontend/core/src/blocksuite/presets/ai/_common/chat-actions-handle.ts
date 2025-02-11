@@ -1,7 +1,7 @@
 import { ChatHistoryOrder } from '@affine/graphql';
-import {
+import type {
   BlockSelection,
-  type EditorHost,
+  EditorHost,
   TextSelection,
 } from '@blocksuite/affine/block-std';
 import type {
@@ -14,10 +14,8 @@ import {
   BlocksUtils,
   DocModeProvider,
   EditPropsStore,
-  getSelectedBlocksCommand,
   NoteDisplayMode,
   NotificationProvider,
-  ParagraphBlockModel,
   RefNodeSlotsProvider,
   TelemetryProvider,
 } from '@blocksuite/affine/blocks';
@@ -26,7 +24,7 @@ import {
   getCommonBoundWithRotation,
   type SerializedXYWH,
 } from '@blocksuite/affine/global/utils';
-import type { Store } from '@blocksuite/affine/store';
+import type { Doc } from '@blocksuite/affine/store';
 import type { TemplateResult } from 'lit';
 
 import type { ChatMessage } from '../../../blocks';
@@ -103,13 +101,13 @@ export function constructUserInfoWithMessages(
 }
 
 export async function constructRootChatBlockMessages(
-  doc: Store,
+  doc: Doc,
   forkSessionId: string
 ) {
   // Convert chat messages to AI chat block messages
   const userInfo = await AIProvider.userInfo;
   const forkMessages = await queryHistoryMessages(
-    doc.workspace.id,
+    doc.collection.id,
     doc.id,
     forkSessionId
   );
@@ -154,7 +152,7 @@ function addAIChatBlock(
 
   const { doc } = host;
   const surfaceBlock = doc
-    .getStore()
+    .getBlocks()
     .find(block => block.flavour === 'affine:surface');
   if (!surfaceBlock) {
     return;
@@ -167,13 +165,13 @@ function addAIChatBlock(
   const y = viewportCenter.y - height / 2;
   const bound = new Bound(x, y, width, height);
   const aiChatBlockId = doc.addBlock(
-    'affine:embed-ai-chat',
+    'affine:embed-ai-chat' as keyof BlockSuite.BlockModels,
     {
       xywh: bound.serialize(),
       messages: JSON.stringify(messages),
       index,
       sessionId,
-      rootWorkspaceId: doc.workspace.id,
+      rootWorkspaceId: doc.collection.id,
       rootDocId: doc.id,
     },
     surfaceBlock.id
@@ -200,11 +198,8 @@ const REPLACE_SELECTION = {
   icon: ReplaceIcon,
   title: 'Replace selection',
   showWhen: (host: EditorHost) => {
-    if (host.std.store.readonly$.value) {
-      return false;
-    }
-    const textSelection = host.selection.find(TextSelection);
-    const blockSelections = host.selection.filter(BlockSelection);
+    const textSelection = host.selection.find('text');
+    const blockSelections = host.selection.filter('block');
     if (
       (!textSelection || textSelection.from.length === 0) &&
       blockSelections?.length === 0
@@ -221,10 +216,13 @@ const REPLACE_SELECTION = {
   ) => {
     const currentTextSelection = currentSelections.text;
     const currentBlockSelections = currentSelections.blocks;
-    const [_, data] = host.command.exec(getSelectedBlocksCommand, {
-      currentTextSelection,
-      currentBlockSelections,
-    });
+    const [_, data] = host.command
+      .chain()
+      .getSelectedBlocks({
+        currentTextSelection,
+        currentBlockSelections,
+      })
+      .run();
     if (!data.selectedBlocks) return false;
 
     reportResponse('result:replace');
@@ -232,7 +230,7 @@ const REPLACE_SELECTION = {
     if (currentTextSelection) {
       const { doc } = host;
       const block = doc.getBlock(currentTextSelection.blockId);
-      if (matchFlavours(block?.model ?? null, [ParagraphBlockModel])) {
+      if (matchFlavours(block?.model ?? null, ['affine:paragraph'])) {
         block?.model.text?.replace(
           currentTextSelection.from.index,
           currentTextSelection.from.length,
@@ -256,12 +254,7 @@ const REPLACE_SELECTION = {
 const INSERT_BELOW = {
   icon: InsertBelowIcon,
   title: 'Insert below',
-  showWhen: (host: EditorHost) => {
-    if (host.std.store.readonly$.value) {
-      return false;
-    }
-    return true;
-  },
+  showWhen: () => true,
   toast: 'Successfully inserted',
   handler: async (
     host: EditorHost,
@@ -271,11 +264,14 @@ const INSERT_BELOW = {
     const currentTextSelection = currentSelections.text;
     const currentBlockSelections = currentSelections.blocks;
     const currentImageSelections = currentSelections.images;
-    const [_, data] = host.command.exec(getSelectedBlocksCommand, {
-      currentTextSelection,
-      currentBlockSelections,
-      currentImageSelections,
-    });
+    const [_, data] = host.command
+      .chain()
+      .getSelectedBlocks({
+        currentTextSelection,
+        currentBlockSelections,
+        currentImageSelections,
+      })
+      .run();
     if (!data.selectedBlocks) return false;
     reportResponse('result:insert');
     await insertBelow(
@@ -291,12 +287,7 @@ const SAVE_CHAT_TO_BLOCK_ACTION: ChatAction = {
   icon: BlockIcon,
   title: 'Save chat to block',
   toast: 'Successfully saved chat to a block',
-  showWhen: (host: EditorHost) => {
-    if (host.std.store.readonly$.value) {
-      return false;
-    }
-    return true;
-  },
+  showWhen: () => true,
   handler: async (
     host: EditorHost,
     _,
@@ -339,7 +330,7 @@ const SAVE_CHAT_TO_BLOCK_ACTION: ChatAction = {
 
     try {
       const newSessionId = await AIProvider.forkChat?.({
-        workspaceId: host.doc.workspace.id,
+        workspaceId: host.doc.collection.id,
         docId: host.doc.id,
         sessionId: parentSessionId,
         latestMessageId: messageId,
@@ -392,12 +383,7 @@ const SAVE_CHAT_TO_BLOCK_ACTION: ChatAction = {
 const ADD_TO_EDGELESS_AS_NOTE = {
   icon: CreateIcon,
   title: 'Add to edgeless as note',
-  showWhen: (host: EditorHost) => {
-    if (host.std.store.readonly$.value) {
-      return false;
-    }
-    return true;
-  },
+  showWhen: () => true,
   toast: 'New note created',
   handler: async (host: EditorHost, content: string) => {
     reportResponse('result:add-note');
@@ -439,7 +425,7 @@ const CREATE_AS_DOC = {
   toast: 'New doc created',
   handler: (host: EditorHost, content: string) => {
     reportResponse('result:add-page');
-    const newDoc = host.doc.workspace.createDoc();
+    const newDoc = host.doc.collection.createDoc();
     newDoc.load();
     const rootId = newDoc.addBlock('affine:page');
     newDoc.addBlock('affine:surface', {}, rootId);
@@ -447,7 +433,6 @@ const CREATE_AS_DOC = {
 
     host.std.getOptional(RefNodeSlotsProvider)?.docLinkClicked.emit({
       pageId: newDoc.id,
-      host,
     });
     let complete = false;
     (function addContent() {
@@ -470,19 +455,14 @@ const CREATE_AS_DOC = {
 const CREATE_AS_LINKED_DOC = {
   icon: CreateIcon,
   title: 'Create as a linked doc',
-  showWhen: (host: EditorHost) => {
-    if (host.std.store.readonly$.value) {
-      return false;
-    }
-    return true;
-  },
+  showWhen: () => true,
   toast: 'New doc created',
   handler: async (host: EditorHost, content: string) => {
     reportResponse('result:add-page');
 
     const { doc } = host;
     const surfaceBlock = doc
-      .getStore()
+      .getBlocks()
       .find(block => block.flavour === 'affine:surface');
     if (!surfaceBlock) {
       return false;
@@ -499,7 +479,7 @@ const CREATE_AS_LINKED_DOC = {
     }
 
     // Create a new doc and add the content to it
-    const newDoc = host.doc.workspace.createDoc();
+    const newDoc = host.doc.collection.createDoc();
     newDoc.load();
     const rootId = newDoc.addBlock('affine:page');
     newDoc.addBlock('affine:surface', {}, rootId);

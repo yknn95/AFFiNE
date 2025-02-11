@@ -11,6 +11,7 @@ import { WorkspaceDialogService } from '@affine/core/modules/dialogs';
 import { DocsService } from '@affine/core/modules/doc';
 import type { NodeOperation } from '@affine/core/modules/explorer';
 import { FavoriteService } from '@affine/core/modules/favorite';
+import { FeatureFlagService } from '@affine/core/modules/feature-flag';
 import { GlobalCacheService } from '@affine/core/modules/storage';
 import { TagService } from '@affine/core/modules/tag';
 import { WorkbenchService } from '@affine/core/modules/workbench';
@@ -23,7 +24,7 @@ import {
   PlusIcon,
   SplitViewIcon,
 } from '@blocksuite/icons/rc';
-import { useLiveData, useServices } from '@toeverything/infra';
+import { useLiveData, useService, useServices } from '@toeverything/infra';
 import { useCallback, useMemo } from 'react';
 
 import { TagRenameSubMenu } from './dialog';
@@ -218,6 +219,10 @@ export const useExplorerTagNodeOperationsMenu = (
   }
 ): NodeOperation[] => {
   const t = useI18n();
+  const featureFlagService = useService(FeatureFlagService);
+  const enableMultiView = useLiveData(
+    featureFlagService.flags.enable_multi_view.$
+  );
   const {
     favorite,
     handleNewDoc,
@@ -261,7 +266,7 @@ export const useExplorerTagNodeOperationsMenu = (
           </MenuItem>
         ),
       },
-      ...(BUILD_CONFIG.isElectron
+      ...(BUILD_CONFIG.isElectron && enableMultiView
         ? [
             {
               index: 100,
@@ -307,6 +312,7 @@ export const useExplorerTagNodeOperationsMenu = (
       },
     ],
     [
+      enableMultiView,
       favorite,
       handleChangeNameOrColor,
       handleMoveToTrash,

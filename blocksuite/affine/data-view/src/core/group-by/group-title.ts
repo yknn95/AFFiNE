@@ -41,13 +41,6 @@ const GroupTitleMobile = (
     readonly: ops.readonly,
   };
 
-  const showColumnName = groupData.property.type$.value === 'checkbox';
-  const columnName = showColumnName
-    ? html`<span class="group-header-title"
-        >${groupData.property.name$.value}</span
-      >`
-    : nothing;
-
   return html`
     <style>
       .group-header-count {
@@ -90,17 +83,11 @@ const GroupTitleMobile = (
         font-size: 16px;
         color: ${unsafeCSSVarV2('icon/primary')};
       }
-
-      .group-header-title {
-        color: ${unsafeCSSVarV2('text/primary')};
-        font-size: var(--data-view-cell-text-size);
-      }
     </style>
     <div
       style="display:flex;align-items:center;gap: 8px;overflow: hidden;height: 22px;"
     >
-      ${icon} ${renderUniLit(data.view, props)} ${columnName}
-      ${GroupHeaderCount(groupData)}
+      ${icon} ${renderUniLit(data.view, props)} ${GroupHeaderCount(groupData)}
     </div>
     ${ops.readonly
       ? nothing
@@ -143,13 +130,6 @@ export const GroupTitle = (
     updateValue: value => groupData.manager.updateValue(groupData.rows, value),
     readonly: ops.readonly,
   };
-
-  const showColumnName = groupData.property.type$.value === 'checkbox';
-  const columnName = showColumnName
-    ? html`<span class="group-header-title"
-        >${groupData.property.name$.value}</span
-      >`
-    : nothing;
 
   return html`
     <style>
@@ -210,18 +190,11 @@ export const GroupTitle = (
         fill: var(--affine-icon-color);
         color: var(--affine-icon-color);
       }
-
-      .group-header-title {
-        color: ${unsafeCSSVarV2('text/primary')};
-        font-size: var(--data-view-cell-text-size);
-        margin-left: 4px;
-      }
     </style>
     <div
       style="display:flex;align-items:center;gap: 8px;overflow: hidden;height: 22px;"
     >
-      ${icon} ${renderUniLit(data.view, props)} ${columnName}
-      ${GroupHeaderCount(groupData)}
+      ${icon} ${renderUniLit(data.view, props)} ${GroupHeaderCount(groupData)}
     </div>
     ${ops.readonly
       ? nothing

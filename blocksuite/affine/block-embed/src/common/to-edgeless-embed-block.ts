@@ -26,6 +26,8 @@ export function toEdgelessEmbedBlock<
 
     _isResizing = false;
 
+    _isSelected = false;
+
     _showOverlay = false;
 
     override [blockComponentSymbol] = true;
@@ -66,7 +68,7 @@ export function toEdgelessEmbedBlock<
         this.edgelessSlots.elementResizeEnd.on(() => {
           this._isResizing = false;
           this._showOverlay =
-            this._isResizing || this._isDragging || !this.selected$.peek();
+            this._isResizing || this._isDragging || !this._isSelected;
         })
       );
     }

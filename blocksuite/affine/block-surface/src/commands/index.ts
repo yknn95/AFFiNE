@@ -1,5 +1,13 @@
-export {
+import type { BlockCommands } from '@blocksuite/block-std';
+
+import {
   autoArrangeElementsCommand,
   autoResizeElementsCommand,
 } from './auto-align.js';
-export { reassociateConnectorsCommand } from './reassociate-connectors.js';
+import { reassociateConnectorsCommand } from './reassociate-connectors.js';
+
+export const commands: BlockCommands = {
+  reassociateConnectors: reassociateConnectorsCommand,
+  autoArrangeElements: autoArrangeElementsCommand,
+  autoResizeElements: autoResizeElementsCommand,
+};

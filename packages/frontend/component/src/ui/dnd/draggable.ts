@@ -71,6 +71,7 @@ export const useDraggable = <D extends DNDData = DNDData>(
 
   const context = useContext(DNDContext);
 
+  // eslint-disable-next-line react-hooks/exhaustive-deps
   const options = useMemo(() => {
     const opts = getOptions();
 
@@ -87,15 +88,9 @@ export const useDraggable = <D extends DNDData = DNDData>(
   }, [...deps, context.toExternalData]);
 
   useEffect(() => {
-    if (
-      !dragRef.current ||
-      (typeof options.canDrag === 'boolean' && !options.canDrag)
-    ) {
+    if (!dragRef.current) {
       return;
     }
-
-    const element = dragRef.current;
-    const dragHandle = dragHandleRef.current;
 
     const windowEvent = {
       dragleave: () => {
@@ -110,11 +105,11 @@ export const useDraggable = <D extends DNDData = DNDData>(
       },
     };
 
-    element.dataset.affineDraggable = 'true';
+    dragRef.current.dataset.affineDraggable = 'true';
 
     const cleanupDraggable = draggable({
-      element,
-      dragHandle: dragHandle ?? undefined,
+      element: dragRef.current,
+      dragHandle: dragHandleRef.current ?? undefined,
       canDrag: draggableGet(options.canDrag),
       getInitialData: draggableGet(options.data),
       getInitialDataForExternal: draggableGet(options.toExternalData),
@@ -136,8 +131,8 @@ export const useDraggable = <D extends DNDData = DNDData>(
         if (enableDropTarget.current) {
           setDropTarget([]);
         }
-        if (element) {
-          element.dataset['dragging'] = 'true';
+        if (dragRef.current) {
+          dragRef.current.dataset['dragging'] = 'true';
         }
         options.onDragStart?.(args);
       },
@@ -159,8 +154,8 @@ export const useDraggable = <D extends DNDData = DNDData>(
         if (enableDropTarget.current) {
           setDropTarget([]);
         }
-        if (element) {
-          delete element.dataset['dragging'];
+        if (dragRef.current) {
+          delete dragRef.current.dataset['dragging'];
         }
         options.onDrop?.(args);
       },

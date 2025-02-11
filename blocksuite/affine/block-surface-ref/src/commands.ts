@@ -1,21 +1,15 @@
 import { getSurfaceBlock } from '@blocksuite/affine-block-surface';
-import {
-  FrameBlockModel,
-  type SurfaceRefProps,
-} from '@blocksuite/affine-model';
+import type { SurfaceRefProps } from '@blocksuite/affine-model';
 import { matchFlavours } from '@blocksuite/affine-shared/utils';
-import type { Command } from '@blocksuite/block-std';
-import type { BlockModel } from '@blocksuite/store';
+import type { BlockCommands, Command } from '@blocksuite/block-std';
 
 export const insertSurfaceRefBlockCommand: Command<
+  'selectedModels',
+  'insertedSurfaceRefBlockId',
   {
     reference: string;
     place: 'after' | 'before';
     removeEmptyLine?: boolean;
-    selectedModels?: BlockModel[];
-  },
-  {
-    insertedSurfaceRefBlockId: string;
   }
 > = (ctx, next) => {
   const { selectedModels, reference, place, removeEmptyLine, std } = ctx;
@@ -33,22 +27,22 @@ export const insertSurfaceRefBlockCommand: Command<
     reference,
   };
 
-  const surface = getSurfaceBlock(std.store);
+  const surface = getSurfaceBlock(std.doc);
   if (!surface) return;
 
   const element = surface.getElementById(reference);
-  const blockModel = std.store.getBlock(reference)?.model ?? null;
+  const blockModel = std.doc.getBlock(reference)?.model ?? null;
 
   if (element?.type === 'group') {
     surfaceRefProps.refFlavour = 'group';
-  } else if (matchFlavours(blockModel, [FrameBlockModel])) {
+  } else if (matchFlavours(blockModel, ['affine:frame'])) {
     surfaceRefProps.refFlavour = 'frame';
   } else {
     console.error(`reference not found ${reference}`);
     return;
   }
 
-  const result = std.store.addSiblingBlocks(
+  const result = std.doc.addSiblingBlocks(
     targetModel,
     [surfaceRefProps],
     place
@@ -56,10 +50,14 @@ export const insertSurfaceRefBlockCommand: Command<
   if (result.length === 0) return;
 
   if (removeEmptyLine && targetModel.text?.length === 0) {
-    std.store.deleteBlock(targetModel);
+    std.doc.deleteBlock(targetModel);
   }
 
   next({
     insertedSurfaceRefBlockId: result[0],
   });
+};
+
+export const commands: BlockCommands = {
+  insertSurfaceRefBlock: insertSurfaceRefBlockCommand,
 };

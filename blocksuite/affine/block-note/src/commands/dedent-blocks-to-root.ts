@@ -1,18 +1,19 @@
-import { NoteBlockModel } from '@blocksuite/affine-model';
 import { matchFlavours } from '@blocksuite/affine-shared/utils';
-import { type Command, TextSelection } from '@blocksuite/block-std';
+import type { Command } from '@blocksuite/block-std';
 
-import { dedentBlockToRoot } from './dedent-block-to-root';
-
-export const dedentBlocksToRoot: Command<{
-  blockIds?: string[];
-  stopCapture?: boolean;
-}> = (ctx, next) => {
+export const dedentBlocksToRoot: Command<
+  never,
+  never,
+  {
+    blockIds?: string[];
+    stopCapture?: boolean;
+  }
+> = (ctx, next) => {
   let { blockIds } = ctx;
   const { std, stopCapture = true } = ctx;
-  const { store } = std;
+  const { doc } = std;
   if (!blockIds || !blockIds.length) {
-    const text = std.selection.find(TextSelection);
+    const text = std.selection.find('text');
     if (text) {
       // If the text selection is not at the beginning of the block, use default behavior
       if (text.from.index !== 0) return;
@@ -25,14 +26,14 @@ export const dedentBlocksToRoot: Command<{
     }
   }
 
-  if (!blockIds || !blockIds.length || store.readonly) return;
+  if (!blockIds || !blockIds.length || doc.readonly) return;
 
-  if (stopCapture) store.captureSync();
+  if (stopCapture) doc.captureSync();
   for (let i = blockIds.length - 1; i >= 0; i--) {
     const model = blockIds[i];
-    const parent = store.getParent(model);
-    if (parent && !matchFlavours(parent, [NoteBlockModel])) {
-      std.command.exec(dedentBlockToRoot, {
+    const parent = doc.getParent(model);
+    if (parent && !matchFlavours(parent, ['affine:note'])) {
+      std.command.exec('dedentBlockToRoot', {
         blockId: model,
         stopCapture: false,
       });

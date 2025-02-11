@@ -1,4 +1,3 @@
-import { SurfaceBlockModel } from '@blocksuite/affine-block-surface';
 import { isPeekable, Peekable } from '@blocksuite/affine-components/peek';
 import { RefNodeSlotsProvider } from '@blocksuite/affine-components/rich-text';
 import type {
@@ -14,29 +13,22 @@ import {
 import {
   DocDisplayMetaProvider,
   DocModeProvider,
-  FeatureFlagService,
-  OpenDocExtensionIdentifier,
-  type OpenDocMode,
   ThemeProvider,
 } from '@blocksuite/affine-shared/services';
 import {
   cloneReferenceInfo,
   cloneReferenceInfoWithoutAliases,
-  isNewTabTrigger,
-  isNewViewTrigger,
   matchFlavours,
   referenceToNode,
 } from '@blocksuite/affine-shared/utils';
-import { BlockSelection } from '@blocksuite/block-std';
 import { Bound, throttle } from '@blocksuite/global/utils';
-import { Text } from '@blocksuite/store';
+import { DocCollection } from '@blocksuite/store';
 import { computed } from '@preact/signals-core';
 import { html, nothing } from 'lit';
 import { property, queryAsync, state } from 'lit/decorators.js';
 import { classMap } from 'lit/directives/class-map.js';
 import { styleMap } from 'lit/directives/style-map.js';
 import { when } from 'lit/directives/when.js';
-import * as Y from 'yjs';
 
 import { EmbedBlockComponent } from '../common/embed-block-element.js';
 import {
@@ -44,6 +36,10 @@ import {
   renderLinkedDocInCard,
 } from '../common/render-linked-doc.js';
 import { SyncedDocErrorIcon } from '../embed-synced-doc-block/styles.js';
+import {
+  type EmbedLinkedDocBlockConfig,
+  EmbedLinkedDocBlockConfigIdentifier,
+} from './embed-linked-doc-config.js';
 import { styles } from './styles.js';
 import { getEmbedLinkedDocIcons } from './utils.js';
 
@@ -110,14 +106,14 @@ export class EmbedLinkedDocBlockComponent extends EmbedBlockComponent<EmbedLinke
 
   private readonly _selectBlock = () => {
     const selectionManager = this.host.selection;
-    const blockSelection = selectionManager.create(BlockSelection, {
+    const blockSelection = selectionManager.create('block', {
       blockId: this.blockId,
     });
     selectionManager.setGroup('note', [blockSelection]);
   };
 
   private readonly _setDocUpdatedAt = () => {
-    const meta = this.doc.workspace.meta.getDocMeta(this.model.pageId);
+    const meta = this.doc.collection.meta.getDocMeta(this.model.pageId);
     if (meta) {
       const date = meta.updatedDate || meta.createDate;
       this._docUpdatedAt = new Date(date);
@@ -131,10 +127,10 @@ export class EmbedLinkedDocBlockComponent extends EmbedBlockComponent<EmbedLinke
 
     const { doc, caption } = this.model;
 
-    // synced doc entry controlled by flag
-    const isSyncedDocEnabled = doc
-      .get(FeatureFlagService)
-      .getFlag('enable_synced_doc_block');
+    // synced doc entry controlled by awareness flag
+    const isSyncedDocEnabled = doc.awarenessStore.getFlag(
+      'enable_synced_doc_block'
+    );
     if (!isSyncedDocEnabled) {
       return;
     }
@@ -167,7 +163,7 @@ export class EmbedLinkedDocBlockComponent extends EmbedBlockComponent<EmbedLinke
     }
     const index = parent.children.indexOf(this.model);
 
-    const yText = new Y.Text();
+    const yText = new DocCollection.Y.Text();
     yText.insert(0, REFERENCE_NODE);
     yText.format(0, REFERENCE_NODE.length, {
       reference: {
@@ -175,7 +171,7 @@ export class EmbedLinkedDocBlockComponent extends EmbedBlockComponent<EmbedLinke
         ...this.referenceInfo$.peek(),
       },
     });
-    const text = new Text(yText);
+    const text = new doc.Text(yText);
 
     doc.addBlock(
       'affine:paragraph',
@@ -206,19 +202,10 @@ export class EmbedLinkedDocBlockComponent extends EmbedBlockComponent<EmbedLinke
       .icon(pageId, { params, title, referenced: true }).value;
   });
 
-  open = ({
-    openMode,
-    event,
-  }: {
-    openMode?: OpenDocMode;
-    event?: MouseEvent;
-  } = {}) => {
-    this.std.getOptional(RefNodeSlotsProvider)?.docLinkClicked.emit({
-      ...this.referenceInfo$.peek(),
-      openMode,
-      event,
-      host: this.host,
-    });
+  open = () => {
+    this.std
+      .getOptional(RefNodeSlotsProvider)
+      ?.docLinkClicked.emit(this.referenceInfo$.peek());
   };
 
   refreshData = () => {
@@ -231,11 +218,18 @@ export class EmbedLinkedDocBlockComponent extends EmbedBlockComponent<EmbedLinke
   title$ = computed(() => {
     const { pageId, params, title } = this.referenceInfo$.value;
     return (
+      title ||
       this.std
         .get(DocDisplayMetaProvider)
-        .title(pageId, { params, title, referenced: true }) || title
+        .title(pageId, { params, title, referenced: true })
     );
   });
+
+  get config(): EmbedLinkedDocBlockConfig {
+    return (
+      this.std.provider.getOptional(EmbedLinkedDocBlockConfigIdentifier) || {}
+    );
+  }
 
   get docTitle() {
     return this.model.title || this.linkedDoc?.meta?.title || 'Untitled';
@@ -246,20 +240,26 @@ export class EmbedLinkedDocBlockComponent extends EmbedBlockComponent<EmbedLinke
   }
 
   get linkedDoc() {
-    return this.std.workspace.getDoc(this.model.pageId);
+    return this.std.collection.getDoc(this.model.pageId);
   }
 
   private _handleDoubleClick(event: MouseEvent) {
+    if (this.config.handleDoubleClick) {
+      this.config.handleDoubleClick(
+        event,
+        this.host,
+        this.referenceInfo$.peek()
+      );
+      if (event.defaultPrevented) {
+        return;
+      }
+    }
+
+    if (isPeekable(this)) {
+      return;
+    }
     event.stopPropagation();
-    const openDocService = this.std.get(OpenDocExtensionIdentifier);
-    const shouldOpenInPeek =
-      openDocService.isAllowed('open-in-center-peek') && isPeekable(this);
-    this.open({
-      openMode: shouldOpenInPeek
-        ? 'open-in-center-peek'
-        : 'open-in-active-view',
-      event,
-    });
+    this.open();
   }
 
   private _isDocEmpty() {
@@ -271,11 +271,13 @@ export class EmbedLinkedDocBlockComponent extends EmbedBlockComponent<EmbedLinke
   }
 
   protected _handleClick(event: MouseEvent) {
-    if (isNewTabTrigger(event)) {
-      this.open({ openMode: 'open-in-new-tab', event });
-    } else if (isNewViewTrigger(event)) {
-      this.open({ openMode: 'open-in-new-view', event });
+    if (this.config.handleClick) {
+      this.config.handleClick(event, this.host, this.referenceInfo$.peek());
+      if (event.defaultPrevented) {
+        return;
+      }
     }
+
     this._selectBlock();
   }
 
@@ -293,7 +295,7 @@ export class EmbedLinkedDocBlockComponent extends EmbedBlockComponent<EmbedLinke
     const linkedDoc = this.linkedDoc;
     if (linkedDoc) {
       this.disposables.add(
-        linkedDoc.workspace.slots.docListUpdated.on(() => {
+        linkedDoc.collection.meta.docMetaUpdated.on(() => {
           this._load().catch(e => {
             console.error(e);
             this.isError = true;
@@ -326,7 +328,7 @@ export class EmbedLinkedDocBlockComponent extends EmbedBlockComponent<EmbedLinke
 
       this._setDocUpdatedAt();
       this.disposables.add(
-        this.doc.workspace.slots.docListUpdated.on(() => {
+        this.doc.collection.meta.docMetaUpdated.on(() => {
           this._setDocUpdatedAt();
         })
       );
@@ -374,7 +376,7 @@ export class EmbedLinkedDocBlockComponent extends EmbedBlockComponent<EmbedLinke
     const isLoading = this._loading;
     const isError = this.isError;
     const isEmpty = this._isDocEmpty() && this.isBannerEmpty;
-    const inCanvas = matchFlavours(this.model.parent, [SurfaceBlockModel]);
+    const inCanvas = matchFlavours(this.model.parent, ['affine:surface']);
 
     const cardClassMap = classMap({
       loading: isLoading,

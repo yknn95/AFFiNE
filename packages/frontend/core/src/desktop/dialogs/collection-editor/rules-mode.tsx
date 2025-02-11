@@ -17,7 +17,7 @@ import {
   CloseIcon,
   EdgelessIcon,
   PageIcon,
-  ToggleRightIcon,
+  ToggleCollapseIcon,
 } from '@blocksuite/icons/rc';
 import { useLiveData, useService } from '@toeverything/infra';
 import { cssVar } from '@toeverything/theme';
@@ -96,6 +96,12 @@ export const RulesMode = ({
 
   return (
     <>
+      {/*prevents modal autofocus to the first input*/}
+      <input
+        type="text"
+        style={{ width: 0, height: 0 }}
+        onFocus={e => requestAnimationFrame(() => e.target.blur())}
+      />
       <Tooltip content={tips}>
         <div className={clsx(styles.rulesTitle, styles.ellipsis)}>{tips}</div>
       </Tooltip>
@@ -129,7 +135,7 @@ export const RulesMode = ({
                       iconStyle={{
                         transform: expandInclude ? 'rotate(90deg)' : undefined,
                       }}
-                      icon={<ToggleRightIcon />}
+                      icon={<ToggleCollapseIcon />}
                     />
                     <div style={{ color: cssVar('textSecondaryColor') }}>
                       {t['com.affine.editCollection.rules.include.title']()}

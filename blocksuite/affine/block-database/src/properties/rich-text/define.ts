@@ -1,15 +1,11 @@
-import type { AffineTextAttributes } from '@blocksuite/affine-shared/types';
 import { propertyType, t } from '@blocksuite/data-view';
-import type { DeltaInsert } from '@blocksuite/inline';
 import { Text } from '@blocksuite/store';
 
-import { HostContextKey } from '../../context/host-context.js';
-import { isLinkedDoc } from '../../utils/title-doc.js';
 import { type RichTextCellType, toYText } from '../utils.js';
 
 export const richTextColumnType = propertyType('rich-text');
 
-export const richTextPropertyModelConfig =
+export const richTextColumnModelConfig =
   richTextColumnType.modelConfig<RichTextCellType>({
     name: 'Text',
     type: () => t.richText.instance(),
@@ -20,26 +16,7 @@ export const richTextPropertyModelConfig =
         value: new Text(value),
       };
     },
-    cellToJson: ({ value, dataSource }) => {
-      if (!value) return null;
-      const host = dataSource.contextGet(HostContextKey);
-      if (host) {
-        const collection = host.std.workspace;
-        const yText = toYText(value);
-        const deltas = yText.toDelta();
-        const text = deltas
-          .map((delta: DeltaInsert<AffineTextAttributes>) => {
-            if (isLinkedDoc(delta)) {
-              const linkedDocId = delta.attributes?.reference?.pageId as string;
-              return collection.getDoc(linkedDocId)?.meta?.title;
-            }
-            return delta.insert;
-          })
-          .join('');
-        return text;
-      }
-      return value?.toString() ?? null;
-    },
+    cellToJson: ({ value }) => value?.toString() ?? null,
     cellFromJson: ({ value }) =>
       typeof value !== 'string' ? undefined : new Text(value),
     onUpdate: ({ value, callback }) => {

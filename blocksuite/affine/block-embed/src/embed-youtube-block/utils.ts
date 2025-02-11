@@ -2,15 +2,15 @@ import type {
   EmbedYoutubeBlockUrlData,
   EmbedYoutubeModel,
 } from '@blocksuite/affine-model';
-import type { LinkPreviewerService } from '@blocksuite/affine-shared/services';
 import { isAbortError } from '@blocksuite/affine-shared/utils';
 import { assertExists } from '@blocksuite/global/utils';
 
+import type { LinkPreviewer } from '../common/link-previewer.js';
 import type { EmbedYoutubeBlockComponent } from './embed-youtube-block.js';
 
 export async function queryEmbedYoutubeData(
   embedYoutubeModel: EmbedYoutubeModel,
-  linkPreviewer: LinkPreviewerService,
+  linkPreviewer: LinkPreviewer,
   signal?: AbortSignal
 ): Promise<Partial<EmbedYoutubeBlockUrlData>> {
   const url = embedYoutubeModel.url;

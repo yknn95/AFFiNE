@@ -1,33 +1,34 @@
-import { NoteBlockModel } from '@blocksuite/affine-model';
 import { matchFlavours } from '@blocksuite/affine-shared/utils';
 import type { Command } from '@blocksuite/block-std';
 
-import { dedentBlock } from './dedent-block';
-
-export const dedentBlockToRoot: Command<{
-  blockId?: string;
-  stopCapture?: boolean;
-}> = (ctx, next) => {
+export const dedentBlockToRoot: Command<
+  never,
+  never,
+  {
+    blockId?: string;
+    stopCapture?: boolean;
+  }
+> = (ctx, next) => {
   let { blockId } = ctx;
   const { std, stopCapture = true } = ctx;
-  const { store } = std;
+  const { doc } = std;
   if (!blockId) {
     const sel = std.selection.getGroup('note').at(0);
     blockId = sel?.blockId;
   }
   if (!blockId) return;
-  const model = std.store.getBlock(blockId)?.model;
+  const model = std.doc.getBlock(blockId)?.model;
   if (!model) return;
 
-  let parent = store.getParent(model);
+  let parent = doc.getParent(model);
   let changed = false;
-  while (parent && !matchFlavours(parent, [NoteBlockModel])) {
+  while (parent && !matchFlavours(parent, ['affine:note'])) {
     if (!changed) {
-      if (stopCapture) store.captureSync();
+      if (stopCapture) doc.captureSync();
       changed = true;
     }
-    std.command.exec(dedentBlock, { blockId: model.id, stopCapture: true });
-    parent = store.getParent(model);
+    std.command.exec('dedentBlock', { blockId: model.id, stopCapture: true });
+    parent = doc.getParent(model);
   }
 
   if (!changed) {

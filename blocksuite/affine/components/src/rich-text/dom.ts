@@ -1,14 +1,9 @@
-import { DatabaseBlockModel } from '@blocksuite/affine-model';
 import {
   asyncGetBlockComponent,
   getCurrentNativeRange,
   matchFlavours,
 } from '@blocksuite/affine-shared/utils';
-import {
-  type BlockStdScope,
-  type EditorHost,
-  TextSelection,
-} from '@blocksuite/block-std';
+import type { BlockStdScope, EditorHost } from '@blocksuite/block-std';
 import type { InlineEditor, InlineRange } from '@blocksuite/inline';
 import { BlockModel } from '@blocksuite/store';
 
@@ -40,9 +35,9 @@ export function getInlineEditorByModel(
 ) {
   const blockModel =
     typeof model === 'string'
-      ? editorHost.std.store.getBlock(model)?.model
+      ? editorHost.std.doc.getBlock(model)?.model
       : model;
-  if (!blockModel || matchFlavours(blockModel, [DatabaseBlockModel])) {
+  if (!blockModel || matchFlavours(blockModel, ['affine:database'])) {
     // Not support database model since it's may be have multiple inline editor instances.
     // Support to enter the editing state through the Enter key in the database.
     return null;
@@ -86,7 +81,7 @@ export function selectTextModel(
 ) {
   const { selection } = std;
   selection.setGroup('note', [
-    selection.create(TextSelection, {
+    selection.create('text', {
       from: { blockId: id, index, length },
       to: null,
     }),

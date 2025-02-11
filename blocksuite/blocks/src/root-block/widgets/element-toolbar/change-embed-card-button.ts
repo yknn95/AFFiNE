@@ -1,17 +1,19 @@
-import {} from '@blocksuite/affine-block-bookmark';
+import type {
+  BuiltInEmbedBlockComponent,
+  BuiltInEmbedModel,
+} from '@blocksuite/affine-block-bookmark';
 import {
-  EmbedLinkedDocBlockComponent,
-  EmbedSyncedDocBlockComponent,
+  isInternalEmbedModel,
+  toggleEmbedCardEditModal,
+} from '@blocksuite/affine-block-bookmark';
+import {
   getDocContentWithMaxLength,
   getEmbedCardIcons,
 } from '@blocksuite/affine-block-embed';
-import {
-  EdgelessCRUDIdentifier,
-  reassociateConnectorsCommand,
-} from '@blocksuite/affine-block-surface';
-import { toggleEmbedCardEditModal } from '@blocksuite/affine-components/embed-card-modal';
+import { EdgelessCRUDIdentifier } from '@blocksuite/affine-block-surface';
 import {
   CaptionIcon,
+  CenterPeekIcon,
   CopyIcon,
   EditIcon,
   ExpandFullSmallIcon,
@@ -19,11 +21,7 @@ import {
   PaletteIcon,
   SmallArrowDownIcon,
 } from '@blocksuite/affine-components/icons';
-import {
-  notifyLinkedDocClearedAliases,
-  notifyLinkedDocSwitchedToCard,
-  notifyLinkedDocSwitchedToEmbed,
-} from '@blocksuite/affine-components/notification';
+import { notifyLinkedDocSwitchedToEmbed } from '@blocksuite/affine-components/notification';
 import { isPeekable, peek } from '@blocksuite/affine-components/peek';
 import { toast } from '@blocksuite/affine-components/toast';
 import {
@@ -33,9 +31,7 @@ import {
 import {
   type AliasInfo,
   BookmarkStyles,
-  type BuiltInEmbedModel,
   type EmbedCardStyle,
-  isInternalEmbedModel,
 } from '@blocksuite/affine-model';
 import {
   EMBED_CARD_HEIGHT,
@@ -44,12 +40,9 @@ import {
 import {
   EmbedOptionProvider,
   type EmbedOptions,
-  FeatureFlagService,
   GenerateDocUrlProvider,
   type GenerateDocUrlService,
   type LinkEventType,
-  OpenDocExtensionIdentifier,
-  type OpenDocMode,
   type TelemetryEvent,
   TelemetryProvider,
   ThemeProvider,
@@ -71,7 +64,6 @@ import {
   isEmbedLinkedDocBlock,
   isEmbedSyncedDocBlock,
 } from '../../edgeless/utils/query.js';
-import type { BuiltInEmbedBlockComponent } from '../../utils/types';
 
 export class EdgelessChangeEmbedCardButton extends WithDisposable(LitElement) {
   static override styles = css`
@@ -170,7 +162,7 @@ export class EdgelessChangeEmbedCardButton extends WithDisposable(LitElement) {
       this.edgeless.surface.model
     );
 
-    this.std.command.exec(reassociateConnectorsCommand, {
+    this.std.command.exec('reassociateConnectors', {
       oldId: id,
       newId,
     });
@@ -226,7 +218,7 @@ export class EdgelessChangeEmbedCardButton extends WithDisposable(LitElement) {
     );
     if (!newId) return;
 
-    this.std.command.exec(reassociateConnectorsCommand, {
+    this.std.command.exec('reassociateConnectors', {
       oldId: id,
       newId,
     });
@@ -273,8 +265,8 @@ export class EdgelessChangeEmbedCardButton extends WithDisposable(LitElement) {
     return bound.h / EMBED_CARD_HEIGHT[this.model.style];
   };
 
-  private readonly _open = ({ openMode }: { openMode?: OpenDocMode } = {}) => {
-    this._blockComponent?.open({ openMode });
+  private readonly _open = () => {
+    this._blockComponent?.open();
   };
 
   private readonly _openEditPopup = (e: MouseEvent) => {
@@ -290,30 +282,7 @@ export class EdgelessChangeEmbedCardButton extends WithDisposable(LitElement) {
       this.std.host,
       this.model,
       this._viewType,
-      originalDocInfo,
-      (std, component) => {
-        if (
-          isEmbedLinkedDocBlock(this.model) &&
-          component instanceof EmbedLinkedDocBlockComponent
-        ) {
-          component.refreshData();
-
-          notifyLinkedDocClearedAliases(std);
-        }
-      },
-      (std, component, props) => {
-        if (
-          isEmbedSyncedDocBlock(this.model) &&
-          component instanceof EmbedSyncedDocBlockComponent
-        ) {
-          component.convertToCard(props);
-
-          notifyLinkedDocSwitchedToCard(std);
-        } else {
-          this.model.doc.updateBlock(this.model, props);
-          component.requestUpdate();
-        }
-      }
+      originalDocInfo
     );
 
     track(this.std, this.model, this._viewType, 'OpenedAliasPopup', {
@@ -421,9 +390,9 @@ export class EdgelessChangeEmbedCardButton extends WithDisposable(LitElement) {
 
     // synced doc entry controlled by awareness flag
     if (!!block && isEmbedLinkedDocBlock(block.model)) {
-      const isSyncedDocEnabled = block.doc
-        .get(FeatureFlagService)
-        .getFlag('enable_synced_doc_block');
+      const isSyncedDocEnabled = block.doc.awarenessStore.getFlag(
+        'enable_synced_doc_block'
+      );
       if (!isSyncedDocEnabled) {
         return false;
       }
@@ -523,10 +492,16 @@ export class EdgelessChangeEmbedCardButton extends WithDisposable(LitElement) {
     );
   }
 
+  get _openButtonDisabled() {
+    return (
+      isEmbedLinkedDocBlock(this.model) && this.model.pageId === this._doc.id
+    );
+  }
+
   get _originalDocInfo(): AliasInfo | undefined {
     const model = this.model;
     const doc = isInternalEmbedModel(model)
-      ? this.std.workspace.getDoc(model.pageId)
+      ? this.std.collection.getDoc(model.pageId)
       : null;
 
     if (doc) {
@@ -543,7 +518,7 @@ export class EdgelessChangeEmbedCardButton extends WithDisposable(LitElement) {
   get _originalDocTitle() {
     const model = this.model;
     const doc = isInternalEmbedModel(model)
-      ? this.std.workspace.getDoc(model.pageId)
+      ? this.std.collection.getDoc(model.pageId)
       : null;
 
     return doc?.meta?.title || 'Untitled';
@@ -567,46 +542,20 @@ export class EdgelessChangeEmbedCardButton extends WithDisposable(LitElement) {
   }
 
   private _openMenuButton() {
-    const openDocConfig = this.std.get(OpenDocExtensionIdentifier);
-    const buttons: MenuItem[] = openDocConfig.items
-      .map(item => {
-        if (
-          item.type === 'open-in-center-peek' &&
-          this._blockComponent &&
-          !isPeekable(this._blockComponent)
-        ) {
-          return null;
-        }
+    const buttons: MenuItem[] = [];
 
-        if (
-          !(
-            isEmbedLinkedDocBlock(this.model) ||
-            isEmbedSyncedDocBlock(this.model)
-          )
-        ) {
-          return null;
-        }
-
-        return {
-          label: item.label,
-          type: item.type,
-          icon: item.icon,
-          disabled:
-            this.model.pageId === this._doc.id &&
-            item.type === 'open-in-active-view',
-          action: () => {
-            if (item.type === 'open-in-center-peek') {
-              this._peek();
-            } else {
-              this._open({ openMode: item.type });
-            }
-          },
-        };
-      })
-      .filter(item => item !== null);
-
-    // todo: abstract this?
-    if (this._canShowFullScreenButton) {
+    if (
+      isEmbedLinkedDocBlock(this.model) ||
+      isEmbedSyncedDocBlock(this.model)
+    ) {
+      buttons.push({
+        type: 'open-this-doc',
+        label: 'Open this doc',
+        icon: ExpandFullSmallIcon,
+        action: this._open,
+        disabled: this._openButtonDisabled,
+      });
+    } else if (this._canShowFullScreenButton) {
       buttons.push({
         type: 'open-this-doc',
         label: 'Open this doc',
@@ -614,6 +563,19 @@ export class EdgelessChangeEmbedCardButton extends WithDisposable(LitElement) {
         action: this._open,
       });
     }
+
+    // open in new tab
+
+    if (this._blockComponent && isPeekable(this._blockComponent)) {
+      buttons.push({
+        type: 'open-in-center-peek',
+        label: 'Open in center peek',
+        icon: CenterPeekIcon,
+        action: () => this._peek(),
+      });
+    }
+
+    // open in split view
 
     if (buttons.length === 0) {
       return nothing;

@@ -1,6 +1,3 @@
-import path from 'node:path';
-import { fileURLToPath } from 'node:url';
-
 import { sleep } from '@blocksuite/global/utils';
 import { expect, type Page } from '@playwright/test';
 import { switchEditorMode } from 'utils/actions/edgeless.js';
@@ -23,7 +20,6 @@ import {
   captureHistory,
   enterPlaygroundRoom,
   focusRichText,
-  getPageSnapshot,
   initEmptyEdgelessState,
   initEmptyParagraphState,
   resetHistory,
@@ -38,12 +34,14 @@ import {
   assertParentBlockFlavour,
   assertRichImage,
   assertRichTextInlineRange,
+  assertStoreMatchJSX,
 } from './utils/asserts.js';
 import { test } from './utils/playwright.js';
 
 const FILE_NAME = 'test-card-1.png';
-const __dirname = path.dirname(fileURLToPath(import.meta.url));
-const FILE_PATH = path.resolve(__dirname, `../playground/public/${FILE_NAME}`);
+const FILE_PATH = `../playground/public/${FILE_NAME}`;
+const FILE_ID = 'ejImogf-Tb7AuKY-v94uz1zuOJbClqK-tWBxVr_ksGA=';
+const FILE_SIZE = 45801;
 
 function getAttachment(page: Page) {
   const attachment = page.locator('affine-attachment');
@@ -126,9 +124,9 @@ function getAttachment(page: Page) {
   };
 }
 
-test('can insert attachment from slash menu', async ({ page }, testInfo) => {
+test('can insert attachment from slash menu', async ({ page }) => {
   await enterPlaygroundRoom(page);
-  await initEmptyParagraphState(page);
+  const { noteId } = await initEmptyParagraphState(page);
 
   const { insertAttachment, waitLoading, getName, getSize } =
     getAttachment(page);
@@ -142,14 +140,50 @@ test('can insert attachment from slash menu', async ({ page }, testInfo) => {
   expect(await getName()).toBe(FILE_NAME);
   expect(await getSize()).toBe('45.8 kB');
 
-  expect(await getPageSnapshot(page, true)).toMatchSnapshot(
-    `${testInfo.title}.json`
+  await assertStoreMatchJSX(
+    page,
+    `
+<affine:note
+  prop:background={
+    Object {
+      "dark": "#000000",
+      "light": "#ffffff",
+    }
+  }
+  prop:displayMode="both"
+  prop:edgeless={
+    Object {
+      "style": Object {
+        "borderRadius": 8,
+        "borderSize": 4,
+        "borderStyle": "none",
+        "shadowType": "--affine-note-shadow-box",
+      },
+    }
+  }
+  prop:hidden={false}
+  prop:index="a0"
+  prop:lockedBySelf={false}
+>
+  <affine:attachment
+    prop:embed={false}
+    prop:index="a0"
+    prop:lockedBySelf={false}
+    prop:name="${FILE_NAME}"
+    prop:rotate={0}
+    prop:size={${FILE_SIZE}}
+    prop:sourceId="${FILE_ID}"
+    prop:style="horizontalThin"
+    prop:type="image/png"
+  />
+</affine:note>`,
+    noteId
   );
 });
 
-test('should undo/redo works for attachment', async ({ page }, testInfo) => {
+test('should undo/redo works for attachment', async ({ page }) => {
   await enterPlaygroundRoom(page);
-  await initEmptyParagraphState(page);
+  const { noteId } = await initEmptyParagraphState(page);
 
   const { insertAttachment, waitLoading } = getAttachment(page);
 
@@ -159,24 +193,122 @@ test('should undo/redo works for attachment', async ({ page }, testInfo) => {
   // Wait for the attachment to be uploaded
   await waitLoading();
 
-  expect(await getPageSnapshot(page, true)).toMatchSnapshot(
-    `${testInfo.title}_1.json`
+  await assertStoreMatchJSX(
+    page,
+    `  <affine:note
+  prop:background={
+    Object {
+      "dark": "#000000",
+      "light": "#ffffff",
+    }
+  }
+  prop:displayMode="both"
+  prop:edgeless={
+    Object {
+      "style": Object {
+        "borderRadius": 8,
+        "borderSize": 4,
+        "borderStyle": "none",
+        "shadowType": "--affine-note-shadow-box",
+      },
+    }
+  }
+  prop:hidden={false}
+  prop:index="a0"
+  prop:lockedBySelf={false}
+>
+  <affine:attachment
+    prop:embed={false}
+    prop:index="a0"
+    prop:lockedBySelf={false}
+    prop:name="${FILE_NAME}"
+    prop:rotate={0}
+    prop:size={${FILE_SIZE}}
+    prop:sourceId="${FILE_ID}"
+    prop:style="horizontalThin"
+    prop:type="image/png"
+  />
+</affine:note>`,
+    noteId
   );
 
   await undoByKeyboard(page);
   await waitNextFrame(page);
-
   // The loading/error state should not be restored after undo
-  expect(await getPageSnapshot(page, true)).toMatchSnapshot(
-    `${testInfo.title}_2.json`
+  await assertStoreMatchJSX(
+    page,
+    `
+<affine:note
+  prop:background={
+    Object {
+      "dark": "#000000",
+      "light": "#ffffff",
+    }
+  }
+  prop:displayMode="both"
+  prop:edgeless={
+    Object {
+      "style": Object {
+        "borderRadius": 8,
+        "borderSize": 4,
+        "borderStyle": "none",
+        "shadowType": "--affine-note-shadow-box",
+      },
+    }
+  }
+  prop:hidden={false}
+  prop:index="a0"
+  prop:lockedBySelf={false}
+>
+  <affine:paragraph
+    prop:collapsed={false}
+    prop:text="/"
+    prop:type="text"
+  />
+</affine:note>`,
+    noteId
   );
 
   await redoByKeyboard(page);
   await waitNextFrame(page);
-
-  // The loading/error state should not be restored after undo
-  expect(await getPageSnapshot(page, true)).toMatchSnapshot(
-    `${testInfo.title}_3.json`
+  await assertStoreMatchJSX(
+    page,
+    `
+<affine:note
+  prop:background={
+    Object {
+      "dark": "#000000",
+      "light": "#ffffff",
+    }
+  }
+  prop:displayMode="both"
+  prop:edgeless={
+    Object {
+      "style": Object {
+        "borderRadius": 8,
+        "borderSize": 4,
+        "borderStyle": "none",
+        "shadowType": "--affine-note-shadow-box",
+      },
+    }
+  }
+  prop:hidden={false}
+  prop:index="a0"
+  prop:lockedBySelf={false}
+>
+  <affine:attachment
+    prop:embed={false}
+    prop:index="a0"
+    prop:lockedBySelf={false}
+    prop:name="${FILE_NAME}"
+    prop:rotate={0}
+    prop:size={${FILE_SIZE}}
+    prop:sourceId="${FILE_ID}"
+    prop:style="horizontalThin"
+    prop:type="image/png"
+  />
+</affine:note>`,
+    noteId
   );
 });
 
@@ -219,9 +351,9 @@ test('should rename attachment works', async ({ page }) => {
   expect(await getName()).toBe('abc');
 });
 
-test('should turn attachment to image works', async ({ page }, testInfo) => {
+test('should turn attachment to image works', async ({ page }) => {
   await enterPlaygroundRoom(page);
-  await initEmptyParagraphState(page);
+  const { noteId } = await initEmptyParagraphState(page);
   const { insertAttachment, waitLoading, turnToEmbed, turnImageToCard } =
     getAttachment(page);
 
@@ -232,18 +364,90 @@ test('should turn attachment to image works', async ({ page }, testInfo) => {
 
   await turnToEmbed();
 
-  expect(await getPageSnapshot(page, true)).toMatchSnapshot(
-    `${testInfo.title}_1.json`
+  await assertStoreMatchJSX(
+    page,
+    `
+<affine:note
+  prop:background={
+    Object {
+      "dark": "#000000",
+      "light": "#ffffff",
+    }
+  }
+  prop:displayMode="both"
+  prop:edgeless={
+    Object {
+      "style": Object {
+        "borderRadius": 8,
+        "borderSize": 4,
+        "borderStyle": "none",
+        "shadowType": "--affine-note-shadow-box",
+      },
+    }
+  }
+  prop:hidden={false}
+  prop:index="a0"
+  prop:lockedBySelf={false}
+>
+  <affine:image
+    prop:caption=""
+    prop:height={0}
+    prop:index="a0"
+    prop:lockedBySelf={false}
+    prop:rotate={0}
+    prop:size={${FILE_SIZE}}
+    prop:sourceId="${FILE_ID}"
+    prop:width={0}
+  />
+</affine:note>`,
+    noteId
   );
   await turnImageToCard();
-  expect(await getPageSnapshot(page, true)).toMatchSnapshot(
-    `${testInfo.title}_2.json`
+  await assertStoreMatchJSX(
+    page,
+    `
+<affine:note
+  prop:background={
+    Object {
+      "dark": "#000000",
+      "light": "#ffffff",
+    }
+  }
+  prop:displayMode="both"
+  prop:edgeless={
+    Object {
+      "style": Object {
+        "borderRadius": 8,
+        "borderSize": 4,
+        "borderStyle": "none",
+        "shadowType": "--affine-note-shadow-box",
+      },
+    }
+  }
+  prop:hidden={false}
+  prop:index="a0"
+  prop:lockedBySelf={false}
+>
+  <affine:attachment
+    prop:caption=""
+    prop:embed={false}
+    prop:index="a0"
+    prop:lockedBySelf={false}
+    prop:name="${FILE_NAME}"
+    prop:rotate={0}
+    prop:size={${FILE_SIZE}}
+    prop:sourceId="${FILE_ID}"
+    prop:style="horizontalThin"
+    prop:type="image/png"
+  />
+</affine:note>`,
+    noteId
   );
 });
 
-test('should attachment can be deleted', async ({ page }, testInfo) => {
+test('should attachment can be deleted', async ({ page }) => {
   await enterPlaygroundRoom(page);
-  await initEmptyParagraphState(page);
+  const { noteId } = await initEmptyParagraphState(page);
   const { attachment, insertAttachment, waitLoading } = getAttachment(page);
 
   await focusRichText(page);
@@ -253,16 +457,38 @@ test('should attachment can be deleted', async ({ page }, testInfo) => {
 
   await attachment.click();
   await pressBackspace(page);
-  expect(await getPageSnapshot(page, true)).toMatchSnapshot(
-    `${testInfo.title}.json`
+  await assertStoreMatchJSX(
+    page,
+    `
+<affine:note
+  prop:background={
+    Object {
+      "dark": "#000000",
+      "light": "#ffffff",
+    }
+  }
+  prop:displayMode="both"
+  prop:edgeless={
+    Object {
+      "style": Object {
+        "borderRadius": 8,
+        "borderSize": 4,
+        "borderStyle": "none",
+        "shadowType": "--affine-note-shadow-box",
+      },
+    }
+  }
+  prop:hidden={false}
+  prop:index="a0"
+  prop:lockedBySelf={false}
+/>`,
+    noteId
   );
 });
 
-test(`support dragging attachment block directly`, async ({
-  page,
-}, testInfo) => {
+test.fixme(`support dragging attachment block directly`, async ({ page }) => {
   await enterPlaygroundRoom(page);
-  await initEmptyParagraphState(page);
+  const { noteId } = await initEmptyParagraphState(page);
 
   const { insertAttachment, waitLoading, getName, getSize } =
     getAttachment(page);
@@ -276,8 +502,43 @@ test(`support dragging attachment block directly`, async ({
   expect(await getName()).toBe(FILE_NAME);
   expect(await getSize()).toBe('45.8 kB');
 
-  expect(await getPageSnapshot(page, true)).toMatchSnapshot(
-    `${testInfo.title}_1.json`
+  await assertStoreMatchJSX(
+    page,
+    `  <affine:note
+  prop:background={
+    Object {
+      "dark": "#000000",
+      "light": "#ffffff",
+    }
+  }
+  prop:displayMode="both"
+  prop:edgeless={
+    Object {
+      "style": Object {
+        "borderRadius": 8,
+        "borderSize": 4,
+        "borderStyle": "none",
+        "shadowType": "--affine-note-shadow-box",
+      },
+    }
+  }
+  prop:hidden={false}
+  prop:index="a0"
+  prop:lockedBySelf={false}
+>
+  <affine:attachment
+    prop:embed={false}
+    prop:index="a0"
+    prop:lockedBySelf={false}
+    prop:name="${FILE_NAME}"
+    prop:rotate={0}
+    prop:size={${FILE_SIZE}}
+    prop:sourceId="${FILE_ID}"
+    prop:style="horizontalThin"
+    prop:type="image/png"
+  />
+</affine:note>`,
+    noteId
   );
 
   const attachmentBlock = page.locator('affine-attachment');
@@ -301,8 +562,58 @@ test(`support dragging attachment block directly`, async ({
   await page.waitForTimeout(200);
 
   await page.waitForTimeout(200);
-  expect(await getPageSnapshot(page, true)).toMatchSnapshot(
-    `${testInfo.title}_2.json`
+  await assertStoreMatchJSX(
+    page,
+    /*xml*/ `<affine:page>
+  <affine:note
+    prop:background={
+      Object {
+        "dark": "#000000",
+        "light": "#ffffff",
+      }
+    }
+    prop:displayMode="both"
+    prop:edgeless={
+      Object {
+        "style": Object {
+          "borderRadius": 8,
+          "borderSize": 4,
+          "borderStyle": "none",
+          "shadowType": "--affine-note-shadow-box",
+        },
+      }
+    }
+    prop:hidden={false}
+    prop:index="a0"
+    prop:lockedBySelf={false}
+  >
+    <affine:attachment
+      prop:embed={false}
+      prop:index="a0"
+      prop:name="${FILE_NAME}"
+      prop:rotate={0}
+      prop:size={${FILE_SIZE}}
+      prop:sourceId="${FILE_ID}"
+      prop:style="horizontalThin"
+      prop:type="image/png"
+    />
+    <affine:paragraph
+      prop:collapsed={false}
+      prop:text="111"
+      prop:type="text"
+    />
+    <affine:paragraph
+      prop:collapsed={false}
+      prop:text="222"
+      prop:type="text"
+    />
+    <affine:paragraph
+      prop:collapsed={false}
+      prop:text="333"
+      prop:type="text"
+    />
+  </affine:note>
+</affine:page>`
   );
 
   // drag bookmark block
@@ -313,8 +624,59 @@ test(`support dragging attachment block directly`, async ({
 
   const rects = page.locator('affine-block-selection').locator('visible=true');
   await expect(rects).toHaveCount(1);
-  expect(await getPageSnapshot(page, true)).toMatchSnapshot(
-    `${testInfo.title}_3.json`
+
+  await assertStoreMatchJSX(
+    page,
+    /*xml*/ `<affine:page>
+  <affine:note
+    prop:background={
+      Object {
+        "dark": "#000000",
+        "light": "#ffffff",
+      }
+    }
+    prop:displayMode="both"
+    prop:edgeless={
+      Object {
+        "style": Object {
+          "borderRadius": 8,
+          "borderSize": 4,
+          "borderStyle": "none",
+          "shadowType": "--affine-note-shadow-box",
+        },
+      }
+    }
+    prop:hidden={false}
+    prop:index="a0"
+    prop:lockedBySelf={false}
+  >
+    <affine:paragraph
+      prop:collapsed={false}
+      prop:text="111"
+      prop:type="text"
+    />
+    <affine:paragraph
+      prop:collapsed={false}
+      prop:text="222"
+      prop:type="text"
+    />
+    <affine:attachment
+      prop:embed={false}
+      prop:index="a0"
+      prop:name="${FILE_NAME}"
+      prop:rotate={0}
+      prop:size={${FILE_SIZE}}
+      prop:sourceId="${FILE_ID}"
+      prop:style="horizontalThin"
+      prop:type="image/png"
+    />
+    <affine:paragraph
+      prop:collapsed={false}
+      prop:text="333"
+      prop:type="text"
+    />
+  </affine:note>
+</affine:page>`
   );
 });
 

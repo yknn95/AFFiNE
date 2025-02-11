@@ -1,17 +1,9 @@
-import {
-  EdgelessCRUDIdentifier,
-  reassociateConnectorsCommand,
-} from '@blocksuite/affine-block-surface';
+import { EdgelessCRUDIdentifier } from '@blocksuite/affine-block-surface';
 import {
   EMBED_CARD_HEIGHT,
   EMBED_CARD_WIDTH,
 } from '@blocksuite/affine-shared/consts';
-import { FeatureFlagService } from '@blocksuite/affine-shared/services';
-import {
-  cloneReferenceInfoWithoutAliases,
-  isNewTabTrigger,
-  isNewViewTrigger,
-} from '@blocksuite/affine-shared/utils';
+import { cloneReferenceInfoWithoutAliases } from '@blocksuite/affine-shared/utils';
 import { Bound } from '@blocksuite/global/utils';
 
 import { toEdgelessEmbedBlock } from '../common/to-edgeless-embed-block.js';
@@ -23,10 +15,10 @@ export class EmbedEdgelessLinkedDocBlockComponent extends toEdgelessEmbedBlock(
   override convertToEmbed = () => {
     const { id, doc, caption, xywh } = this.model;
 
-    // synced doc entry controlled by flag
-    const isSyncedDocEnabled = doc
-      .get(FeatureFlagService)
-      .getFlag('enable_synced_doc_block');
+    // synced doc entry controlled by awareness flag
+    const isSyncedDocEnabled = doc.awarenessStore.getFlag(
+      'enable_synced_doc_block'
+    );
     if (!isSyncedDocEnabled) {
       return;
     }
@@ -54,7 +46,7 @@ export class EmbedEdgelessLinkedDocBlockComponent extends toEdgelessEmbedBlock(
       surface
     );
 
-    this.std.command.exec(reassociateConnectorsCommand, {
+    this.std.command.exec('reassociateConnectors', {
       oldId: id,
       newId,
     });
@@ -72,10 +64,9 @@ export class EmbedEdgelessLinkedDocBlockComponent extends toEdgelessEmbedBlock(
   }
 
   protected override _handleClick(evt: MouseEvent): void {
-    if (isNewTabTrigger(evt)) {
-      this.open({ openMode: 'open-in-new-tab', event: evt });
-    } else if (isNewViewTrigger(evt)) {
-      this.open({ openMode: 'open-in-new-view', event: evt });
+    if (this.config.handleClick) {
+      this.config.handleClick(evt, this.host, this.referenceInfo$.peek());
+      return;
     }
   }
 }

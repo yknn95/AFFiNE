@@ -1,4 +1,4 @@
-import type { Store } from '@blocksuite/store';
+import type { Doc } from '@blocksuite/store';
 
 import {
   type GfxCompatibleInterface,
@@ -124,13 +124,13 @@ export function isLockedImpl(element: GfxCompatibleInterface): boolean {
   return isLockedBySelfImpl(element) || isLockedByAncestorImpl(element);
 }
 
-export function lockElementImpl(doc: Store, element: GfxCompatibleInterface) {
+export function lockElementImpl(doc: Doc, element: GfxCompatibleInterface) {
   doc.transact(() => {
     element.lockedBySelf = true;
   });
 }
 
-export function unlockElementImpl(doc: Store, element: GfxCompatibleInterface) {
+export function unlockElementImpl(doc: Doc, element: GfxCompatibleInterface) {
   doc.transact(() => {
     element.lockedBySelf = false;
   });

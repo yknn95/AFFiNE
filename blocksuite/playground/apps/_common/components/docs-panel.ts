@@ -6,7 +6,7 @@ import {
 } from '@blocksuite/blocks';
 import { WithDisposable } from '@blocksuite/global/utils';
 import type { AffineEditorContainer } from '@blocksuite/presets';
-import type { Doc, Workspace } from '@blocksuite/store';
+import type { BlockCollection, DocCollection } from '@blocksuite/store';
 import { css, html, nothing } from 'lit';
 import { customElement, property } from 'lit/decorators.js';
 import { repeat } from 'lit/directives/repeat.js';
@@ -64,23 +64,23 @@ export class DocsPanel extends WithDisposable(ShadowlessElement) {
   `;
 
   createDoc = () => {
-    createDocBlock(this.editor.doc.workspace);
+    createDocBlock(this.editor.doc.collection);
   };
 
-  gotoDoc = (doc: Doc) => {
+  gotoDoc = (doc: BlockCollection) => {
     const url = this.editor.std
       .getOptional(GenerateDocUrlProvider)
       ?.generateDocUrl(doc.id);
     if (url) history.pushState({}, '', url);
 
-    this.editor.doc = doc.getStore();
+    this.editor.doc = doc.getDoc();
     this.editor.doc.load();
     this.editor.doc.resetHistory();
     this.requestUpdate();
   };
 
   private get collection() {
-    return this.editor.doc.workspace;
+    return this.editor.doc.collection;
   }
 
   private get docs() {
@@ -110,7 +110,7 @@ export class DocsPanel extends WithDisposable(ShadowlessElement) {
     });
 
     this.disposables.add(
-      this.editor.doc.workspace.slots.docListUpdated.on(() => {
+      this.editor.doc.collection.slots.docUpdated.on(() => {
         this.requestUpdate();
       })
     );
@@ -146,7 +146,7 @@ export class DocsPanel extends WithDisposable(ShadowlessElement) {
             removeModeFromStorage(doc.id);
             // When delete the current doc, we need to set the editor doc to the first remaining doc
             if (isDeleteCurrent) {
-              this.editor.doc = this.docs[0].getStore();
+              this.editor.doc = this.docs[0].getDoc();
             }
           };
           return html`<div class="doc-item" @click="${click}" style="${style}">
@@ -169,7 +169,7 @@ export class DocsPanel extends WithDisposable(ShadowlessElement) {
   accessor onClose!: () => void;
 }
 
-function createDocBlock(collection: Workspace) {
+function createDocBlock(collection: DocCollection) {
   const id = collection.idGenerator();
   createDefaultDoc(collection, { id });
 }

@@ -21,7 +21,6 @@ export const AFFiNE_WORKSPACE_DB_SCHEMA = {
     edgelessColorTheme: f.string().optional(),
     journal: f.string().optional(),
     pageWidth: f.string().optional(),
-    isTemplate: f.boolean().optional(),
   }),
   docCustomPropertyInfo: {
     id: f.string().primaryKey().optional().default(nanoid),
@@ -47,10 +46,6 @@ export const AFFiNE_WORKSPACE_USERDATA_DB_SCHEMA = {
   favorite: {
     key: f.string().primaryKey(),
     index: f.string(),
-  },
-  settings: {
-    key: f.string().primaryKey(),
-    value: f.json(),
   },
 } as const satisfies DBSchemaBuilder;
 export type AFFiNEWorkspaceUserdataDbSchema =

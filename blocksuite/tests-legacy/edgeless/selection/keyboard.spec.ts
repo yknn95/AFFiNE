@@ -1,3 +1,4 @@
+import { NoteDisplayMode } from '@blocksuite/affine-model';
 import { expect } from '@playwright/test';
 
 import * as actions from '../../utils/actions/edgeless.js';
@@ -23,7 +24,6 @@ import {
   assertEdgelessSelectedRect,
   assertVisibleBlockCount,
 } from '../../utils/asserts.js';
-import { NoteDisplayMode } from '../../utils/bs-alternative.js';
 import { test } from '../../utils/playwright.js';
 
 test.describe('translation should constrain to cur axis when dragged with shift key', () => {

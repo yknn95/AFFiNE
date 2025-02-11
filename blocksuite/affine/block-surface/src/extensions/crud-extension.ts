@@ -1,8 +1,12 @@
 import { EditPropsStore } from '@blocksuite/affine-shared/services';
-import { type BlockStdScope, StdIdentifier } from '@blocksuite/block-std';
+import {
+  type BlockStdScope,
+  Extension,
+  StdIdentifier,
+} from '@blocksuite/block-std';
 import { GfxControllerIdentifier } from '@blocksuite/block-std/gfx';
 import { type Container, createIdentifier } from '@blocksuite/global/di';
-import { type BlockModel, Extension } from '@blocksuite/store';
+import type { BlockModel } from '@blocksuite/store';
 
 import type { SurfaceBlockModel } from '../surface-model';
 import { getLastPropsKey } from '../utils/get-last-props-key';
@@ -75,7 +79,7 @@ export class EdgelessCRUDExtension extends Extension {
       index: gfx.layer.generateIndex(),
     };
 
-    return this.std.store.addBlock(
+    return this.std.doc.addBlock(
       flavour as never,
       nProps,
       parentId,
@@ -123,14 +127,14 @@ export class EdgelessCRUDExtension extends Extension {
       return;
     }
 
-    const block = this.std.store.getBlockById(id);
+    const block = this.std.doc.getBlockById(id);
     if (block) {
       const key = getLastPropsKey(
         block.flavour as BlockSuite.EdgelessModelKeys,
         { ...block.yBlock.toJSON(), ...props }
       );
       key && this.std.get(EditPropsStore).recordLastProps(key, props);
-      this.std.store.updateBlock(block, props);
+      this.std.doc.updateBlock(block, props);
     }
   };
 
@@ -141,7 +145,7 @@ export class EdgelessCRUDExtension extends Extension {
     }
     const el =
       surface.getElementById(id) ??
-      (this.std.store.getBlockById(
+      (this.std.doc.getBlockById(
         id
       ) as BlockSuite.EdgelessBlockModelType | null);
     return el;

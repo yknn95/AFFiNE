@@ -1,19 +1,12 @@
-import { parse } from 'node:path';
-
-import { DocStorage, ValidationResult } from '@affine/native';
-import { parseUniversalId } from '@affine/nbstore';
+import { ValidationResult } from '@affine/native';
 import fs from 'fs-extra';
 import { nanoid } from 'nanoid';
 
 import { logger } from '../logger';
 import { mainRPC } from '../main-rpc';
-import { getDocStoragePool } from '../nbstore';
+import { ensureSQLiteDB } from '../nbstore/v1';
 import { storeWorkspaceMeta } from '../workspace';
-import {
-  getSpaceDBPath,
-  getWorkspaceDBPath,
-  getWorkspacesBasePath,
-} from '../workspace/meta';
+import { getWorkspaceDBPath, getWorkspacesBasePath } from '../workspace/meta';
 
 export type ErrorMessage =
   | 'DB_FILE_PATH_INVALID'
@@ -76,26 +69,20 @@ function getDefaultDBFileName(name: string, id: string) {
  *
  * It will just copy the file to the given path
  */
-export async function saveDBFileAs(
-  universalId: string,
-  name: string
-): Promise<SaveDBFileResult> {
+export async function saveDBFileAs(id: string): Promise<SaveDBFileResult> {
   try {
-    const { peer, type, id } = parseUniversalId(universalId);
-    const dbPath = await getSpaceDBPath(peer, type, id);
+    // TODO(@forehalo): use `nbstore` when it is ready
+    // const storage = await ensureStorage(id);
 
-    // connect to the pool and make sure all changes (WAL) are written to db
-    const pool = getDocStoragePool();
-    await pool.connect(universalId, dbPath);
-    await pool.checkpoint(universalId); // make sure all changes (WAL) are written to db
-
+    const storage = await ensureSQLiteDB('workspace', id);
+    await storage.checkpoint(); // make sure all changes (WAL) are written to db
     const fakedResult = getFakedResult();
+    const dbPath = storage.path;
     if (!dbPath) {
       return {
         error: 'DB_FILE_PATH_INVALID',
       };
     }
-
     const ret =
       fakedResult ??
       (await mainRPC.showSaveDialog({
@@ -109,10 +96,12 @@ export async function saveDBFileAs(
             name: '',
           },
         ],
-        defaultPath: getDefaultDBFileName(name, id),
+        defaultPath: getDefaultDBFileName(
+          (await storage.getWorkspaceName()) ?? 'db',
+          id
+        ),
         message: 'Save Workspace as a SQLite Database file',
       }));
-
     const filePath = ret.filePath;
     if (ret.canceled || !filePath) {
       return {
@@ -170,27 +159,16 @@ export async function selectDBFileLocation(): Promise<SelectDBFileLocationResult
  * - return the new workspace id
  *
  * eg, it will create a new folder in app-data:
- * <app-data>/<app-name>/<workspaces|userspaces>/<peer>/<workspace-id>/storage.db
+ * <app-data>/<app-name>/workspaces/<workspace-id>/storage.db
  *
  * On the renderer side, after the UI got a new workspace id, it will
  * update the local workspace id list and then connect to it.
  *
  */
-export async function loadDBFile(
-  dbFilePath?: string
-): Promise<LoadDBFileResult> {
+export async function loadDBFile(): Promise<LoadDBFileResult> {
   try {
-    const provided =
-      getFakedResult() ??
-      (dbFilePath
-        ? {
-            filePath: dbFilePath,
-            filePaths: [dbFilePath],
-            canceled: false,
-          }
-        : undefined);
     const ret =
-      provided ??
+      getFakedResult() ??
       (await mainRPC.showOpenDialog({
         properties: ['openFile'],
         title: 'Load Workspace',
@@ -217,29 +195,34 @@ export async function loadDBFile(
     }
 
     const workspaceId = nanoid(10);
-    let storage = new DocStorage(originalPath);
+    return loadV1DBFile(originalPath, workspaceId);
 
-    // if imported db is not a valid v2 db, we will treat it as a v1 db
-    if (!(await storage.validate())) {
-      return await cpV1DBFile(originalPath, workspaceId);
-    }
+    // TODO(forehalo): use `nbstore` when it is ready
+    // let storage = new DocStorage(originalPath);
 
-    // v2 import logic
-    const internalFilePath = await getSpaceDBPath(
-      'local',
-      'workspace',
-      workspaceId
-    );
-    await fs.ensureDir(parse(internalFilePath).dir);
-    await fs.copy(originalPath, internalFilePath);
-    logger.info(`loadDBFile, copy: ${originalPath} -> ${internalFilePath}`);
+    // // if imported db is not a valid v2 db, we will treat it as a v1 db
+    // if (!(await storage.validate())) {
+    //   return loadV1DBFile(originalPath, workspaceId);
+    // }
 
-    storage = new DocStorage(internalFilePath);
-    await storage.setSpaceId(workspaceId);
+    // // v2 import logic
+    // const internalFilePath = await getSpaceDBPath(
+    //   'local',
+    //   'workspace',
+    //   workspaceId
+    // );
+    // await fs.ensureDir(await getWorkspacesBasePath());
+    // await fs.copy(originalPath, internalFilePath);
+    // logger.info(`loadDBFile, copy: ${originalPath} -> ${internalFilePath}`);
 
-    return {
-      workspaceId,
-    };
+    // storage = new DocStorage(internalFilePath);
+    // await storage.connect();
+    // await storage.setSpaceId(workspaceId);
+    // await storage.close();
+
+    // return {
+    //   workspaceId,
+    // };
   } catch (err) {
     logger.error('loadDBFile', err);
     return {
@@ -248,7 +231,7 @@ export async function loadDBFile(
   }
 }
 
-async function cpV1DBFile(
+async function loadV1DBFile(
   originalPath: string,
   workspaceId: string
 ): Promise<LoadDBFileResult> {
@@ -259,12 +242,6 @@ async function cpV1DBFile(
   if (validationResult !== ValidationResult.Valid) {
     return { error: 'DB_FILE_INVALID' }; // invalid db file
   }
-
-  // checkout to make sure wal is flushed
-  const connection = new SqliteConnection(originalPath);
-  await connection.connect();
-  await connection.checkpoint();
-  await connection.close();
 
   const internalFilePath = await getWorkspaceDBPath('workspace', workspaceId);
 

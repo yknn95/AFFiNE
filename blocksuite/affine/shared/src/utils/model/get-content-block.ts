@@ -1,4 +1,3 @@
-import { FrameBlockModel } from '@blocksuite/affine-model';
 import type { EditorHost } from '@blocksuite/block-std';
 import type { BlockModel } from '@blocksuite/store';
 
@@ -74,7 +73,7 @@ export function getPrevContentBlock(
 
     const prev = getPrev(model);
     if (prev) {
-      if (prev.role === 'content' && !matchFlavours(prev, [FrameBlockModel])) {
+      if (prev.role === 'content' && !matchFlavours(prev, ['affine:frame'])) {
         return prev;
       }
 

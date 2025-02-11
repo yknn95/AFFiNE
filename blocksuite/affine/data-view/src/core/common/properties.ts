@@ -136,15 +136,16 @@ export class DataViewPropertiesSettingView extends SignalWatcher(
   });
 
   renderProperty = (property: Property) => {
+    const isTitle = property.type$.value === 'title';
     const icon = property.hide$.value ? InvisibleIcon() : ViewIcon();
     const changeVisible = () => {
-      if (property.hideCanSet) {
+      if (property.type$.value !== 'title') {
         property.hideSet(!property.hide$.value);
       }
     };
     const classList = classMap({
       'property-item-op-icon': true,
-      disabled: !property.hideCanSet,
+      disabled: isTitle,
     });
     return html` <div
       ${dragHandler(property.id)}
@@ -250,7 +251,7 @@ export const popPropertiesSetting = (
           const isAllShowed = items.every(v => !v.hide$.value);
           const clickChangeAll = () => {
             props.view.propertiesWithoutFilter$.value.forEach(id => {
-              if (props.view.propertyCanHide(id)) {
+              if (props.view.propertyTypeGet(id) !== 'title') {
                 props.view.propertyHideSet(id, isAllShowed);
               }
             });

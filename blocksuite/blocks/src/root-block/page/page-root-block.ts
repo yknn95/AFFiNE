@@ -1,28 +1,16 @@
 import { focusTextModel } from '@blocksuite/affine-components/rich-text';
-import {
-  CodeBlockModel,
-  ListBlockModel,
-  NoteBlockModel,
-  NoteDisplayMode,
-  ParagraphBlockModel,
-  type RootBlockModel,
-} from '@blocksuite/affine-model';
+import type { NoteBlockModel, RootBlockModel } from '@blocksuite/affine-model';
+import { NoteDisplayMode } from '@blocksuite/affine-model';
 import { PageViewportService } from '@blocksuite/affine-shared/services';
 import type { Viewport } from '@blocksuite/affine-shared/types';
 import {
   focusTitle,
-  getClosestBlockComponentByPoint,
   getDocTitleInlineEditor,
   getScrollContainer,
   matchFlavours,
 } from '@blocksuite/affine-shared/utils';
 import type { PointerEventState } from '@blocksuite/block-std';
-import {
-  BlockComponent,
-  BlockSelection,
-  TextSelection,
-} from '@blocksuite/block-std';
-import { Point } from '@blocksuite/global/utils';
+import { BlockComponent } from '@blocksuite/block-std';
 import type { BlockModel, Text } from '@blocksuite/store';
 import { css, html } from 'lit';
 import { query } from 'lit/decorators.js';
@@ -120,23 +108,13 @@ export class PageRootBlockComponent extends BlockComponent<
 
   clipboardController = new PageClipboard(this);
 
-  /**
-   * Focus the first paragraph in the default note block.
-   * If there is no paragraph, create one.
-   * @return  { id: string, created: boolean }  id of the focused paragraph and whether it is created or not
-   */
-  focusFirstParagraph = (): { id: string; created: boolean } => {
+  focusFirstParagraph = () => {
     const defaultNote = this._getDefaultNoteBlock();
     const firstText = defaultNote?.children.find(block =>
-      matchFlavours(block, [
-        ParagraphBlockModel,
-        ListBlockModel,
-        CodeBlockModel,
-      ])
+      matchFlavours(block, ['affine:paragraph', 'affine:list', 'affine:code'])
     );
     if (firstText) {
       focusTextModel(this.std, firstText.id);
-      return { id: firstText.id, created: false };
     } else {
       const newFirstParagraphId = this.doc.addBlock(
         'affine:paragraph',
@@ -145,7 +123,6 @@ export class PageRootBlockComponent extends BlockComponent<
         0
       );
       focusTextModel(this.std, newFirstParagraphId);
-      return { id: newFirstParagraphId, created: true };
     }
   };
 
@@ -248,8 +225,9 @@ export class PageRootBlockComponent extends BlockComponent<
       'Mod-a': () => {
         const blocks = this.model.children
           .filter(model => {
-            if (matchFlavours(model, [NoteBlockModel])) {
-              if (model.displayMode === NoteDisplayMode.EdgelessOnly)
+            if (matchFlavours(model, ['affine:note'])) {
+              const note = model as NoteBlockModel;
+              if (note.displayMode === NoteDisplayMode.EdgelessOnly)
                 return false;
 
               return true;
@@ -258,7 +236,7 @@ export class PageRootBlockComponent extends BlockComponent<
           })
           .flatMap(model => {
             return model.children.map(child => {
-              return this.std.selection.create(BlockSelection, {
+              return this.std.selection.create('block', {
                 blockId: child.id,
               });
             });
@@ -269,7 +247,7 @@ export class PageRootBlockComponent extends BlockComponent<
       ArrowUp: () => {
         const selection = this.host.selection;
         const sel = selection.value.find(
-          sel => sel.is(TextSelection) || sel.is(BlockSelection)
+          sel => sel.is('text') || sel.is('block')
         );
         if (!sel) return;
         let model: BlockModel | null = null;
@@ -284,8 +262,8 @@ export class PageRootBlockComponent extends BlockComponent<
         if (!model) return;
         const prevNote = this.doc.getPrev(model);
         if (!prevNote || prevNote.flavour !== 'affine:note') {
-          const isFirstText = sel.is(TextSelection) && sel.start.index === 0;
-          const isBlock = sel.is(BlockSelection);
+          const isFirstText = sel.is('text') && sel.start.index === 0;
+          const isBlock = sel.is('block');
           if (isBlock || isFirstText) {
             focusTitle(this.host);
           }
@@ -317,7 +295,7 @@ export class PageRootBlockComponent extends BlockComponent<
       },
     });
 
-    this.handleEvent('pointerDown', ctx => {
+    this.handleEvent('click', ctx => {
       const event = ctx.get('pointerState');
       if (
         event.raw.target !== this &&
@@ -326,6 +304,7 @@ export class PageRootBlockComponent extends BlockComponent<
       ) {
         return;
       }
+
       const { paddingLeft, paddingRight } = window.getComputedStyle(
         this.rootElementContainer
       );
@@ -338,53 +317,8 @@ export class PageRootBlockComponent extends BlockComponent<
         parseFloat(paddingLeft),
         parseFloat(paddingRight)
       );
-      if (!isClickOnBlankArea) {
-        return;
-      }
-
-      const hostRect = this.host.getBoundingClientRect();
-      const x = hostRect.width / 2 + hostRect.left;
-      const point = new Point(x, event.raw.clientY);
-      const side = event.raw.clientX < x ? 'left' : 'right';
-
-      const nearestBlock = getClosestBlockComponentByPoint(point);
-      event.raw.preventDefault();
-      if (nearestBlock) {
-        const text = nearestBlock.model.text;
-        if (text) {
-          this.host.selection.setGroup('note', [
-            this.host.selection.create(TextSelection, {
-              from: {
-                blockId: nearestBlock.model.id,
-                index: side === 'left' ? 0 : text.length,
-                length: 0,
-              },
-              to: null,
-            }),
-          ]);
-        } else {
-          this.host.selection.setGroup('note', [
-            this.host.selection.create(BlockSelection, {
-              blockId: nearestBlock.model.id,
-            }),
-          ]);
-        }
-      } else {
-        if (this.host.selection.find(BlockSelection)) {
-          this.host.selection.clear(['block']);
-        }
-      }
-
-      return;
-    });
-
-    this.handleEvent('click', ctx => {
-      const event = ctx.get('pointerState');
-      if (
-        event.raw.target !== this &&
-        event.raw.target !== this.viewportElement &&
-        event.raw.target !== this.rootElementContainer
-      ) {
+      if (isClickOnBlankArea) {
+        this.host.selection.clear(['block']);
         return;
       }
 
@@ -394,11 +328,12 @@ export class PageRootBlockComponent extends BlockComponent<
         .slice()
         .reverse()
         .find(child => {
-          const isNote = matchFlavours(child, [NoteBlockModel]);
+          const isNote = matchFlavours(child, ['affine:note']);
           if (!isNote) return false;
+          const note = child as NoteBlockModel;
           const displayOnDoc =
-            !!child.displayMode &&
-            child.displayMode !== NoteDisplayMode.EdgelessOnly;
+            !!note.displayMode &&
+            note.displayMode !== NoteDisplayMode.EdgelessOnly;
           return displayOnDoc;
         });
       if (!lastNote) {
@@ -410,9 +345,7 @@ export class PageRootBlockComponent extends BlockComponent<
         const last = lastNote.children.at(-1);
         if (
           !last ||
-          !(
-            matchFlavours(last, [ParagraphBlockModel]) && last.text.length === 0
-          )
+          !(matchFlavours(last, ['affine:paragraph']) && last.text.length === 0)
         ) {
           if (readonly) return;
           const paragraphId = this.doc.addBlock(
@@ -428,7 +361,7 @@ export class PageRootBlockComponent extends BlockComponent<
         .then(() => {
           if (!newTextSelectionId) return;
           this.host.selection.setGroup('note', [
-            this.host.selection.create(TextSelection, {
+            this.host.selection.create('text', {
               from: {
                 blockId: newTextSelectionId,
                 index: 0,
@@ -452,7 +385,7 @@ export class PageRootBlockComponent extends BlockComponent<
   override firstUpdated() {
     this._initViewportResizeEffect();
     const noteModels = this.model.children.filter(model =>
-      matchFlavours(model, [NoteBlockModel])
+      matchFlavours(model, ['affine:note'])
     );
     noteModels.forEach(note => {
       this.disposables.add(
@@ -473,7 +406,7 @@ export class PageRootBlockComponent extends BlockComponent<
     )}`;
 
     const children = this.renderChildren(this.model, child => {
-      const isNote = matchFlavours(child, [NoteBlockModel]);
+      const isNote = matchFlavours(child, ['affine:note']);
       const note = child as NoteBlockModel;
       const displayOnEdgeless =
         !!note.displayMode && note.displayMode === NoteDisplayMode.EdgelessOnly;

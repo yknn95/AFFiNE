@@ -1,20 +1,20 @@
 import '../declare-test-window.js';
 
-import type { EditorHost } from '@blocksuite/block-std';
-import type {
-  BlockSuiteFlags,
-  DatabaseBlockModel,
-  ListType,
-  RichText,
-} from '@blocksuite/blocks';
-import type { Container } from '@blocksuite/global/di';
+import type { DatabaseBlockModel, ListType, RichText } from '@blocks/index.js';
+import type { EditorHost, ExtensionType } from '@blocksuite/block-std';
+import type { BlockSuiteFlags } from '@blocksuite/global/types';
 import { assertExists } from '@blocksuite/global/utils';
-import type { InlineRange, InlineRootElement } from '@blocksuite/inline';
 import type { AffineEditorContainer } from '@blocksuite/presets';
-import type { BlockModel, ExtensionType } from '@blocksuite/store';
-import { uuidv4 } from '@blocksuite/store';
+import type { InlineRange, InlineRootElement } from '@inline/index.js';
+import type { CustomFramePanel } from '@playground/apps/_common/components/custom-frame-panel.js';
+import type { CustomOutlinePanel } from '@playground/apps/_common/components/custom-outline-panel.js';
+import type { CustomOutlineViewer } from '@playground/apps/_common/components/custom-outline-viewer.js';
+import type { DocsPanel } from '@playground/apps/_common/components/docs-panel.js';
+import type { StarterDebugMenu } from '@playground/apps/_common/components/starter-debug-menu.js';
 import type { ConsoleMessage, Locator, Page } from '@playwright/test';
 import { expect } from '@playwright/test';
+import type { BlockModel } from '@store/schema/index.js';
+import { uuidv4 } from '@store/utils/id-generator.js';
 import lz from 'lz-string';
 
 import { currentEditorIndex, multiEditor } from '../multiple-editor.js';
@@ -36,7 +36,7 @@ declare global {
 }
 
 export const defaultPlaygroundURL = new URL(
-  `http://localhost:${process.env.CI ? 4173 : 5173}/`
+  `http://localhost:${process.env.CI ? 4173 : 5173}/starter/`
 );
 
 const NEXT_FRAME_TIMEOUT = 50;
@@ -79,12 +79,15 @@ async function initEmptyEditor({
       async function waitForMountPageEditor(
         doc: ReturnType<typeof collection.createDoc>
       ) {
-        doc.load();
+        if (!doc.ready) doc.load();
 
         if (!doc.root) {
           await new Promise(resolve => doc.slots.rootAdded.once(resolve));
         }
 
+        for (const [key, value] of Object.entries(flags)) {
+          doc.awarenessStore.setFlag(key as keyof typeof flags, value);
+        }
         // add app root from https://github.com/toeverything/blocksuite/commit/947201981daa64c5ceeca5fd549460c34e2dabfa
         const appRoot = document.querySelector('#app');
         if (!appRoot) {
@@ -92,20 +95,12 @@ async function initEmptyEditor({
         }
         const createEditor = () => {
           const editor = document.createElement('affine-editor-container');
-          for (const [key, value] of Object.entries(flags)) {
-            doc
-              .get(window.$blocksuite.blocks.FeatureFlagService)
-              .setFlag(key as keyof BlockSuiteFlags, value);
-          }
-          doc
-            .get(window.$blocksuite.blocks.FeatureFlagService)
-            .setFlag('enable_advanced_block_visibility', true);
           editor.doc = doc;
           editor.autofocus = true;
           const defaultExtensions: ExtensionType[] = [
             ...window.$blocksuite.defaultExtensions(),
             {
-              setup: (di: Container) => {
+              setup: di => {
                 di.addImpl(window.$blocksuite.identifiers.ParseDocUrlService, {
                   parseDocUrl() {
                     return undefined;
@@ -114,13 +109,12 @@ async function initEmptyEditor({
               },
             },
             {
-              setup: (di: Container) => {
+              setup: di => {
                 di.override(
                   window.$blocksuite.identifiers.DocModeProvider,
-                  // @ts-expect-error set mock service
                   window.$blocksuite.mockServices.mockDocModeService(
                     () => editor.mode,
-                    (mode: 'page' | 'edgeless') => editor.switchEditor(mode)
+                    mode => editor.switchEditor(mode)
                   )
                 );
               },
@@ -150,35 +144,28 @@ async function initEmptyEditor({
 
         editor.updateComplete
           .then(() => {
-            const debugMenu = document.createElement('starter-debug-menu');
-            const docsPanel = document.createElement('docs-panel');
-            const framePanel = document.createElement('custom-frame-panel');
-            const outlinePanel = document.createElement('custom-outline-panel');
-            const outlineViewer = document.createElement(
+            const debugMenu: StarterDebugMenu =
+              document.createElement('starter-debug-menu');
+            const docsPanel: DocsPanel = document.createElement('docs-panel');
+            const framePanel: CustomFramePanel =
+              document.createElement('custom-frame-panel');
+            const outlinePanel: CustomOutlinePanel = document.createElement(
+              'custom-outline-panel'
+            );
+            const outlineViewer: CustomOutlineViewer = document.createElement(
               'custom-outline-viewer'
             );
-            const leftSidePanel = document.createElement('left-side-panel');
-            // @ts-expect-error set test editor
             docsPanel.editor = editor;
-            // @ts-expect-error set test editor
             framePanel.editor = editor;
-            // @ts-expect-error set test editor
             outlinePanel.editor = editor;
-            // @ts-expect-error set test editor
             outlineViewer.editor = editor;
-            // @ts-expect-error set test collection
             debugMenu.collection = collection;
-            // @ts-expect-error set test editor
             debugMenu.editor = editor;
-            // @ts-expect-error set test docsPanel
             debugMenu.docsPanel = docsPanel;
-            // @ts-expect-error set test framePanel
             debugMenu.framePanel = framePanel;
-            // @ts-expect-error set test outlineViewer
             debugMenu.outlineViewer = outlineViewer;
-            // @ts-expect-error set test outlinePanel
             debugMenu.outlinePanel = outlinePanel;
-            // @ts-expect-error set test leftSidePanel
+            const leftSidePanel = document.createElement('left-side-panel');
             debugMenu.leftSidePanel = leftSidePanel;
             document.body.append(debugMenu);
             document.body.append(leftSidePanel);
@@ -207,14 +194,14 @@ async function initEmptyEditor({
       }
 
       if (noInit) {
-        const firstDoc = collection.docs.values().next().value?.getStore() as
+        const firstDoc = collection.docs.values().next().value?.getDoc() as
           | ReturnType<typeof collection.createDoc>
           | undefined;
         if (firstDoc) {
           window.doc = firstDoc;
           waitForMountPageEditor(firstDoc).catch;
         } else {
-          collection.slots.docCreated.on(docId => {
+          collection.slots.docAdded.on(docId => {
             const doc = collection.getDoc(docId);
             if (!doc) {
               throw new Error(`Failed to get doc ${docId}`);
@@ -322,6 +309,7 @@ export async function enterPlaygroundRoom(
   page.on('console', message => {
     if (
       [
+        '',
         // React devtools:
         '%cDownload the React DevTools for a better development experience: https://reactjs.org/link/react-devtools font-weight:bold',
         // Vite:
@@ -333,7 +321,7 @@ export async function enterPlaygroundRoom(
         'Lit is in dev mode. Not recommended for production! See https://lit.dev/msg/dev-mode for more information.',
         // Figma embed:
         'Running frontend commit',
-      ].some(text => message.text().startsWith(text))
+      ].includes(message.text())
     ) {
       return;
     }
@@ -425,7 +413,7 @@ export async function enterPlaygroundWithList(
     ({ contents, type }: { contents: string[]; type: ListType }) => {
       const { doc } = window;
       const rootId = doc.addBlock('affine:page', {
-        title: new window.$blocksuite.store.Text(),
+        title: new doc.Text(),
       });
       const noteId = doc.addBlock('affine:note', {}, rootId);
       // eslint-disable-next-line @typescript-eslint/prefer-for-of
@@ -433,7 +421,7 @@ export async function enterPlaygroundWithList(
         doc.addBlock(
           'affine:list',
           contents.length > 0
-            ? { text: new window.$blocksuite.store.Text(contents[i]), type }
+            ? { text: new doc.Text(contents[i]), type }
             : { type },
           noteId
         );
@@ -451,7 +439,7 @@ export async function initEmptyParagraphState(page: Page, rootId?: string) {
     doc.captureSync();
     if (!rootId) {
       rootId = doc.addBlock('affine:page', {
-        title: new window.$blocksuite.store.Text(),
+        title: new doc.Text(),
       });
     }
 
@@ -476,7 +464,7 @@ export async function initMultipleNoteWithParagraphState(
       doc.captureSync();
       if (!rootId) {
         rootId = doc.addBlock('affine:page', {
-          title: new window.$blocksuite.store.Text(),
+          title: new doc.Text(),
         });
       }
 
@@ -502,7 +490,7 @@ export async function initEmptyEdgelessState(page: Page) {
   const ids = await page.evaluate(() => {
     const { doc } = window;
     const rootId = doc.addBlock('affine:page', {
-      title: new window.$blocksuite.store.Text(),
+      title: new doc.Text(),
     });
     doc.addBlock('affine:surface', {}, rootId);
     const noteId = doc.addBlock('affine:note', {}, rootId);
@@ -521,22 +509,29 @@ export async function initEmptyDatabaseState(page: Page, rootId?: string) {
     doc.captureSync();
     if (!rootId) {
       rootId = doc.addBlock('affine:page', {
-        title: new window.$blocksuite.store.Text(),
+        title: new doc.Text(),
       });
     }
     const noteId = doc.addBlock('affine:note', {}, rootId);
     const databaseId = doc.addBlock(
       'affine:database',
       {
-        title: new window.$blocksuite.store.Text('Database 1'),
+        title: new doc.Text('Database 1'),
       },
       noteId
     );
     const model = doc.getBlockById(databaseId) as DatabaseBlockModel;
-    const datasource = new window.$blocksuite.blocks.DatabaseBlockDataSource(
-      model
-    );
-    datasource.viewManager.viewAdd('table');
+    await new Promise(resolve => setTimeout(resolve, 100));
+    const databaseBlock = document.querySelector('affine-database');
+    const databaseService = databaseBlock?.service;
+    if (databaseService) {
+      databaseService.databaseViewInitEmpty(
+        model,
+        databaseService.viewPresets.tableViewMeta.type
+      );
+      databaseService.applyColumnUpdate(model);
+    }
+
     doc.captureSync();
     return { rootId, noteId, databaseId };
   }, rootId);
@@ -558,46 +553,55 @@ export async function initKanbanViewState(
       doc.captureSync();
       if (!rootId) {
         rootId = doc.addBlock('affine:page', {
-          title: new window.$blocksuite.store.Text(),
+          title: new doc.Text(),
         });
       }
       const noteId = doc.addBlock('affine:note', {}, rootId);
       const databaseId = doc.addBlock(
         'affine:database',
         {
-          title: new window.$blocksuite.store.Text('Database 1'),
+          title: new doc.Text('Database 1'),
         },
         noteId
       );
       const model = doc.getBlockById(databaseId) as DatabaseBlockModel;
-      const datasource = new window.$blocksuite.blocks.DatabaseBlockDataSource(
-        model
-      );
-      const rowIds = config.rows.map(rowText => {
-        const rowId = doc.addBlock(
-          'affine:paragraph',
-          { type: 'text', text: new window.$blocksuite.store.Text(rowText) },
-          databaseId
-        );
-        return rowId;
-      });
-      config.columns.forEach(column => {
-        const columnId = datasource.propertyAdd('end', column.type);
-        datasource.propertyNameSet(columnId, column.type);
-        rowIds.forEach((rowId, index) => {
-          const value = column.value?.[index];
-          if (value !== undefined) {
-            datasource.cellValueChange(
-              rowId,
-              columnId,
-              column.type === 'rich-text'
-                ? new window.$blocksuite.store.Text(value as string)
-                : value
-            );
-          }
+      await new Promise(resolve => setTimeout(resolve, 100));
+      const databaseBlock = document.querySelector('affine-database');
+      const databaseService = databaseBlock?.service;
+      if (databaseService) {
+        const rowIds = config.rows.map(rowText => {
+          const rowId = doc.addBlock(
+            'affine:paragraph',
+            { type: 'text', text: new doc.Text(rowText) },
+            databaseId
+          );
+          return rowId;
         });
-      });
-      datasource.viewManager.viewAdd('kanban');
+        config.columns.forEach(column => {
+          const columnId = databaseService.addColumn(model, 'end', {
+            data: {},
+            name: column.type,
+            type: column.type,
+          });
+          rowIds.forEach((rowId, index) => {
+            const value = column.value?.[index];
+            if (value !== undefined) {
+              databaseService.updateCell(model, rowId, {
+                columnId,
+                value:
+                  column.type === 'rich-text'
+                    ? new doc.Text(value as string)
+                    : value,
+              });
+            }
+          });
+        });
+        databaseService.databaseViewInitEmpty(
+          model,
+          databaseService.viewPresets.kanbanViewMeta.type
+        );
+        databaseService.applyColumnUpdate(model);
+      }
       doc.captureSync();
       return { rootId, noteId, databaseId };
     },
@@ -615,23 +619,30 @@ export async function initEmptyDatabaseWithParagraphState(
     doc.captureSync();
     if (!rootId) {
       rootId = doc.addBlock('affine:page', {
-        title: new window.$blocksuite.store.Text(),
+        title: new doc.Text(),
       });
     }
     const noteId = doc.addBlock('affine:note', {}, rootId);
     const databaseId = doc.addBlock(
       'affine:database',
       {
-        title: new window.$blocksuite.store.Text('Database 1'),
+        title: new doc.Text('Database 1'),
       },
       noteId
     );
     const model = doc.getBlockById(databaseId) as DatabaseBlockModel;
-    const datasource = new window.$blocksuite.blocks.DatabaseBlockDataSource(
-      model
-    );
-    datasource.viewManager.viewAdd('table');
+    await new Promise(resolve => setTimeout(resolve, 100));
+    const databaseBlock = document.querySelector('affine-database');
+    const databaseService = databaseBlock?.service;
+    if (databaseService) {
+      databaseService.databaseViewInitEmpty(
+        model,
+        databaseService.viewPresets.tableViewMeta.type
+      );
+      databaseService.applyColumnUpdate(model);
+    }
     doc.addBlock('affine:paragraph', {}, noteId);
+
     doc.captureSync();
     return { rootId, noteId, databaseId };
   }, rootId);
@@ -1315,7 +1326,7 @@ export async function initImageState(page: Page, prependParagraph = false) {
   await page.evaluate(async prepend => {
     const { doc } = window;
     const rootId = doc.addBlock('affine:page', {
-      title: new window.$blocksuite.store.Text(),
+      title: new doc.Text(),
     });
     const noteId = doc.addBlock('affine:note', {}, rootId);
 

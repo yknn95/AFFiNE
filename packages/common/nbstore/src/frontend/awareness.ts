@@ -3,7 +3,7 @@ import {
   applyAwarenessUpdate,
   type Awareness,
   encodeAwarenessUpdate,
-} from 'y-protocols/awareness';
+} from 'y-protocols/awareness.js';
 
 import type { AwarenessRecord } from '../storage/awareness';
 import type { AwarenessSync } from '../sync/awareness';
@@ -13,7 +13,7 @@ type AwarenessChanges = Record<'added' | 'updated' | 'removed', number[]>;
 export class AwarenessFrontend {
   constructor(private readonly sync: AwarenessSync) {}
 
-  connectAwareness(awareness: Awareness) {
+  connect(awareness: Awareness) {
     const uniqueId = nanoid();
     const handleAwarenessUpdate = (
       changes: AwarenessChanges,
@@ -27,6 +27,7 @@ export class AwarenessFrontend {
       );
 
       const update = encodeAwarenessUpdate(awareness, changedClients);
+
       this.sync
         .update(
           {

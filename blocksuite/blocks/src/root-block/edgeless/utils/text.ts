@@ -14,7 +14,7 @@ import type { PointerEventState } from '@blocksuite/block-std';
 import { BlockSuiteError, ErrorCode } from '@blocksuite/global/exceptions';
 import type { IVec } from '@blocksuite/global/utils';
 import { assertInstanceOf, Bound } from '@blocksuite/global/utils';
-import * as Y from 'yjs';
+import { DocCollection } from '@blocksuite/store';
 
 import { EdgelessConnectorLabelEditor } from '../components/text/edgeless-connector-label-editor.js';
 import { EdgelessFrameTitleEditor } from '../components/text/edgeless-frame-title-editor.js';
@@ -73,7 +73,7 @@ export function mountShapeTextEditor(
   }
 
   if (!shapeElement.text) {
-    const text = new Y.Text();
+    const text = new DocCollection.Y.Text();
     edgeless.std
       .get(EdgelessCRUDIdentifier)
       .updateElement(shapeElement.id, { text });
@@ -167,7 +167,7 @@ export function addText(
       .get(EdgelessCRUDIdentifier)
       .addElement(CanvasElementType.TEXT, {
         xywh: new Bound(modelX, modelY, 32, 32).serialize(),
-        text: new Y.Text(),
+        text: new DocCollection.Y.Text(),
       });
     if (!id) return;
     edgeless.doc.captureSync();
@@ -192,7 +192,7 @@ export function mountConnectorLabelEditor(
   }
 
   if (!connector.text) {
-    const text = new Y.Text();
+    const text = new DocCollection.Y.Text();
     const labelOffset = connector.labelOffset;
     let labelXYWH = connector.labelXYWH ?? [0, 0, 16, 16];
 

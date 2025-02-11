@@ -1,14 +1,7 @@
 import { share } from '../../connection';
-import { type DocClock, type DocClocks, SyncStorageBase } from '../../storage';
-import { IDBConnection, type IDBConnectionOptions } from './db';
-
-export class IndexedDBSyncStorage extends SyncStorageBase {
-  static readonly identifier = 'IndexedDBSyncStorage';
-
-  constructor(private readonly options: IDBConnectionOptions) {
-    super();
-  }
-
+import { BasicSyncStorage, type DocClock, type DocClocks } from '../../storage';
+import { IDBConnection } from './db';
+export class IndexedDBSyncStorage extends BasicSyncStorage {
   readonly connection = share(new IDBConnection(this.options));
 
   get db() {

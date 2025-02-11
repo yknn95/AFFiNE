@@ -1,4 +1,4 @@
-import { BlockModel, defineBlockSchema } from '@blocksuite/store';
+import { defineBlockSchema, type SchemaToModel } from '@blocksuite/store';
 
 export const DividerBlockSchema = defineBlockSchema({
   flavour: 'affine:divider',
@@ -7,14 +7,9 @@ export const DividerBlockSchema = defineBlockSchema({
     role: 'content',
     children: [],
   },
-  toModel: () => new DividerBlockModel(),
 });
 
-type Props = {
-  text: string;
-};
-
-export class DividerBlockModel extends BlockModel<Props> {}
+export type DividerBlockModel = SchemaToModel<typeof DividerBlockSchema>;
 
 declare global {
   namespace BlockSuite {

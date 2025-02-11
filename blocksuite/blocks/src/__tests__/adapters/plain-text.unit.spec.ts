@@ -1,22 +1,22 @@
-import { InlineDeltaToPlainTextAdapterExtensions } from '@blocksuite/affine-components/rich-text';
 import { DefaultTheme, NoteDisplayMode } from '@blocksuite/affine-model';
 import { PlainTextAdapter } from '@blocksuite/affine-shared/adapters';
 import { Container } from '@blocksuite/global/di';
 import type {
   BlockSnapshot,
   DocSnapshot,
-  TransformerMiddleware,
+  JobMiddleware,
 } from '@blocksuite/store';
 import { describe, expect, test } from 'vitest';
 
 import { defaultBlockPlainTextAdapterMatchers } from '../../_common/adapters/plain-text/block-matcher.js';
+import { inlineDeltaToPlainTextAdapterMatchers } from '../../_common/adapters/plain-text/delta-converter/inline-delta.js';
 import { embedSyncedDocMiddleware } from '../../_common/transformers/middlewares.js';
 import { createJob } from '../utils/create-job.js';
 
 const container = new Container();
 [
   ...defaultBlockPlainTextAdapterMatchers,
-  ...InlineDeltaToPlainTextAdapterExtensions,
+  ...inlineDeltaToPlainTextAdapterMatchers,
 ].forEach(ext => {
   ext.setup(container);
 });
@@ -573,7 +573,7 @@ describe('snapshot to plain text', () => {
         },
       ],
     };
-    const middleware: TransformerMiddleware = ({ adapterConfigs }) => {
+    const middleware: JobMiddleware = ({ adapterConfigs }) => {
       adapterConfigs.set('title:deadbeef', 'test');
       adapterConfigs.set('docLinkBaseUrl', 'https://example.com');
     };
@@ -756,7 +756,7 @@ describe('snapshot to plain text', () => {
         ],
       };
 
-      const middleware: TransformerMiddleware = ({ adapterConfigs }) => {
+      const middleware: JobMiddleware = ({ adapterConfigs }) => {
         adapterConfigs.set('title:4T5ObMgEIMII-4Bexyta1', 'test');
         adapterConfigs.set('docLinkBaseUrl', 'https://example.com');
       };
@@ -1417,7 +1417,7 @@ describe('snapshot to plain text', () => {
     const plainText = `\
 | Title  | Status      | Date       | Number | Progress | MultiSelect | RichText                  | Link               | Checkbox |
 | ------ | ----------- | ---------- | ------ | -------- | ----------- | ------------------------- | ------------------ | -------- |
-| Task 1 | TODO        | 2023-12-15 | 1      | 65       | test1,test2 | test2: https://google.com | https://google.com | True     |
+| Task 1 | TODO        | 2023-12-15 | 1      | 65       | test1,test2 | test2: https://google.com | https://google.com | true     |
 | Task 2 | In Progress | 2023-12-20 |        |          |             | test1                     |                    |          |
 `;
     const plainTextAdapter = new PlainTextAdapter(createJob(), provider);

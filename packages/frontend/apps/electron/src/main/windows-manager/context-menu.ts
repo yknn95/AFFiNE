@@ -9,14 +9,11 @@ import {
   WebContentViewsManager,
 } from './tab-views';
 
-export const showTabContextMenu = async (
-  tabId: string,
-  viewIndex: number
-): Promise<TabAction | null> => {
+export const showTabContextMenu = async (tabId: string, viewIndex: number) => {
   const workbenches = WebContentViewsManager.instance.tabViewsMeta.workbenches;
   const tabMeta = workbenches.find(w => w.id === tabId);
   if (!tabMeta) {
-    return null;
+    return;
   }
 
   const { resolve, promise } = Promise.withResolvers<TabAction | null>();
@@ -96,6 +93,7 @@ export const showTabContextMenu = async (
   ];
   const menu = Menu.buildFromTemplate(template);
   menu.popup();
+  // eslint-disable-next-line prefer-const
   let unsub: (() => void) | undefined;
   const subscription = WebContentViewsManager.instance.tabAction$.subscribe(
     action => {

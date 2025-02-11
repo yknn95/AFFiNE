@@ -9,7 +9,6 @@ import {
   LongerIcon,
   NumberIcon,
   TagIcon,
-  TemplateIcon,
   TextIcon,
   TodayIcon,
 } from '@blocksuite/icons/rc';
@@ -23,7 +22,6 @@ import { JournalValue } from './journal';
 import { NumberValue } from './number';
 import { PageWidthValue } from './page-width';
 import { TagsValue } from './tags';
-import { TemplateValue } from './template';
 import { TextValue } from './text';
 import type { PropertyValueProps } from './types';
 
@@ -109,13 +107,6 @@ export const DocPropertyTypes = {
     value: PageWidthValue,
     name: 'com.affine.page-properties.property.pageWidth',
     description: 'com.affine.page-properties.property.pageWidth.tooltips',
-  },
-  template: {
-    icon: TemplateIcon,
-    value: TemplateValue,
-    name: 'com.affine.page-properties.property.template',
-    renameable: true,
-    description: 'com.affine.page-properties.property.template.tooltips',
   },
 } as Record<
   string,

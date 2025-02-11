@@ -11,7 +11,7 @@ import type { EditorHost } from '@blocksuite/block-std';
 import { DataSourceBase, type PropertyMetaConfig } from '@blocksuite/data-view';
 import { propertyPresets } from '@blocksuite/data-view/property-presets';
 import { assertExists, Slot } from '@blocksuite/global/utils';
-import type { Block, Store } from '@blocksuite/store';
+import type { Block, Doc } from '@blocksuite/store';
 
 import type { BlockMeta } from './block-meta/base.js';
 import { blockMetaMap } from './block-meta/index.js';
@@ -59,7 +59,7 @@ export class BlockQueryDataSource extends DataSourceBase {
   }
 
   get workspace() {
-    return this.host.doc.workspace;
+    return this.host.doc.collection;
   }
 
   constructor(
@@ -73,16 +73,16 @@ export class BlockQueryDataSource extends DataSourceBase {
       this.columnMetaMap.set(property.metaConfig.type, property.metaConfig);
     }
     for (const collection of this.workspace.docs.values()) {
-      for (const block of Object.values(collection.getStore().blocks.peek())) {
+      for (const block of Object.values(collection.getDoc().blocks.peek())) {
         if (this.meta.selector(block)) {
           this.blockMap.set(block.id, block);
         }
       }
     }
     this.workspace.docs.forEach(doc => {
-      this.listenToDoc(doc.getStore());
+      this.listenToDoc(doc.getDoc());
     });
-    this.workspace.slots.docCreated.on(id => {
+    this.workspace.slots.docAdded.on(id => {
       const doc = this.workspace.getDoc(id);
       if (doc) {
         this.listenToDoc(doc);
@@ -140,7 +140,7 @@ export class BlockQueryDataSource extends DataSourceBase {
     return this.block.columns.find(v => v.id === id);
   }
 
-  listenToDoc(doc: Store) {
+  listenToDoc(doc: Doc) {
     this.docDisposeMap.set(
       doc.id,
       doc.slots.blockUpdated.on(v => {
@@ -167,7 +167,7 @@ export class BlockQueryDataSource extends DataSourceBase {
       type ?? propertyPresets.multiSelectPropertyConfig.type
     ].create(this.newColumnName());
 
-    const id = doc.workspace.idGenerator();
+    const id = doc.generateBlockId();
     if (this.block.columns.some(v => v.id === id)) {
       return id;
     }
@@ -211,7 +211,7 @@ export class BlockQueryDataSource extends DataSourceBase {
     }
   }
 
-  propertyDuplicate(_columnId: string): string | undefined {
+  propertyDuplicate(_columnId: string): string {
     throw new Error('Method not implemented.');
   }
 

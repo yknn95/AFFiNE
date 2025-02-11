@@ -22,7 +22,7 @@ import {
   ZipTransformer,
 } from '@blocksuite/affine/blocks';
 import type { AffineEditorContainer } from '@blocksuite/affine/presets';
-import { type Store, Transformer } from '@blocksuite/affine/store';
+import { type Doc, Job } from '@blocksuite/affine/store';
 import { useLiveData, useService } from '@toeverything/infra';
 import { useSetAtom } from 'jotai';
 import { nanoid } from 'nanoid';
@@ -32,7 +32,7 @@ import { useAsyncCallback } from '../affine-async-hooks';
 type ExportType = 'pdf' | 'html' | 'png' | 'markdown' | 'snapshot';
 
 interface ExportHandlerOptions {
-  page: Store;
+  page: Doc;
   editorContainer: AffineEditorContainer;
   type: ExportType;
 }
@@ -53,28 +53,18 @@ interface AdapterConfig {
   indexFileName: string;
 }
 
-async function exportDoc(
-  doc: Store,
-  std: BlockStdScope,
-  config: AdapterConfig
-) {
-  const transformer = new Transformer({
-    schema: doc.workspace.schema,
-    blobCRUD: doc.workspace.blobSync,
-    docCRUD: {
-      create: (id: string) => doc.workspace.createDoc({ id }),
-      get: (id: string) => doc.workspace.getDoc(id),
-      delete: (id: string) => doc.workspace.removeDoc(id),
-    },
+async function exportDoc(doc: Doc, std: BlockStdScope, config: AdapterConfig) {
+  const job = new Job({
+    collection: doc.collection,
     middlewares: [
-      docLinkBaseURLMiddleware(doc.workspace.id),
-      titleMiddleware(doc.workspace.meta.docMetas),
+      docLinkBaseURLMiddleware,
+      titleMiddleware,
       embedSyncedDocMiddleware('content'),
     ],
   });
 
   const adapterFactory = std.provider.get(config.identifier);
-  const adapter = adapterFactory.get(transformer);
+  const adapter = adapterFactory.get(job);
   const result = (await adapter.fromDoc(doc)) as AdapterResult;
 
   if (!result || (!result.file && !result.assetsIds.length)) {
@@ -88,10 +78,10 @@ async function exportDoc(
   let name: string;
 
   if (result.assetsIds.length > 0) {
-    if (!transformer.assets) {
+    if (!job.assets) {
       throw new Error('No assets found');
     }
-    const zip = await createAssetsArchive(transformer.assets, result.assetsIds);
+    const zip = await createAssetsArchive(job.assets, result.assetsIds);
     await zip.file(config.indexFileName, contentBlob);
     downloadBlob = await zip.generate();
     name = `${docTitle}.zip`;
@@ -103,7 +93,7 @@ async function exportDoc(
   download(downloadBlob, name);
 }
 
-async function exportToHtml(doc: Store, std?: BlockStdScope) {
+async function exportToHtml(doc: Doc, std?: BlockStdScope) {
   if (!std) {
     // If std is not provided, we use the default export method
     await HtmlTransformer.exportDoc(doc);
@@ -117,7 +107,7 @@ async function exportToHtml(doc: Store, std?: BlockStdScope) {
   }
 }
 
-async function exportToMarkdown(doc: Store, std?: BlockStdScope) {
+async function exportToMarkdown(doc: Doc, std?: BlockStdScope) {
   if (!std) {
     // If std is not provided, we use the default export method
     await MarkdownTransformer.exportDoc(doc);
@@ -148,7 +138,7 @@ async function exportHandler({
       await exportToMarkdown(page, editorRoot?.std);
       return;
     case 'snapshot':
-      await ZipTransformer.exportDocs(page.workspace, [page]);
+      await ZipTransformer.exportDocs(page.collection, [page]);
       return;
     case 'pdf':
       await printToPdf(editorContainer);

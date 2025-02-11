@@ -1,5 +1,5 @@
 import { useConfirmModal } from '@affine/component';
-import { WorkspaceDialogService } from '@affine/core/modules/dialogs';
+import { GlobalDialogService } from '@affine/core/modules/dialogs';
 import { type I18nString, useI18n } from '@affine/i18n';
 import { InformationFillDuotoneIcon } from '@blocksuite/icons/rc';
 import { useLiveData, useService } from '@toeverything/infra';
@@ -36,18 +36,18 @@ export const QuotaCheck = ({
   const profile = useLiveData(workspaceProfile.profile$);
   const isOwner = profile?.isOwner;
   const isTeam = profile?.isTeam;
-  const workspaceDialogService = useService(WorkspaceDialogService);
+  const globalDialogService = useService(GlobalDialogService);
   const t = useI18n();
 
   const onConfirm = useCallback(() => {
     if (!isOwner) {
       return;
     }
-    workspaceDialogService.open('setting', {
+    globalDialogService.open('setting', {
       activeTab: 'plans',
       scrollAnchor: 'cloudPricingPlan',
     });
-  }, [workspaceDialogService, isOwner]);
+  }, [globalDialogService, isOwner]);
 
   useEffect(() => {
     workspaceQuota?.revalidate();

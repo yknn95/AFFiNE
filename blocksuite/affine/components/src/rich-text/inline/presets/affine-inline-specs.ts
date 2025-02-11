@@ -1,4 +1,4 @@
-import { FootNoteSchema, ReferenceInfoSchema } from '@blocksuite/affine-model';
+import { ReferenceInfoSchema } from '@blocksuite/affine-model';
 import type { AffineTextAttributes } from '@blocksuite/affine-shared/types';
 import { StdIdentifier } from '@blocksuite/block-std';
 import type { InlineEditor, InlineRootElement } from '@blocksuite/inline';
@@ -6,7 +6,6 @@ import { html } from 'lit';
 import { z } from 'zod';
 
 import { InlineSpecExtension } from '../../extension/index.js';
-import { FootNoteNodeConfigIdentifier } from './nodes/footnote-node/footnote-config.js';
 import {
   ReferenceNodeConfigIdentifier,
   ReferenceNodeConfigProvider,
@@ -179,30 +178,6 @@ export const LatexEditorUnitSpecExtension = InlineSpecExtension({
   },
 });
 
-export const FootNoteInlineSpecExtension = InlineSpecExtension(
-  'footnote',
-  provider => {
-    const std = provider.get(StdIdentifier);
-    const config =
-      provider.getOptional(FootNoteNodeConfigIdentifier) ?? undefined;
-    return {
-      name: 'footnote',
-      schema: FootNoteSchema.optional().nullable().catch(undefined),
-      match: delta => {
-        return !!delta.attributes?.footnote;
-      },
-      renderer: ({ delta }) => {
-        return html`<affine-footnote-node
-          .delta=${delta}
-          .std=${std}
-          .config=${config}
-        ></affine-footnote-node>`;
-      },
-      embed: true,
-    };
-  }
-);
-
 export const InlineSpecExtensions = [
   BoldInlineSpecExtension,
   ItalicInlineSpecExtension,
@@ -215,5 +190,4 @@ export const InlineSpecExtensions = [
   ReferenceInlineSpecExtension,
   LinkInlineSpecExtension,
   LatexEditorUnitSpecExtension,
-  FootNoteInlineSpecExtension,
 ];

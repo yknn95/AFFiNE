@@ -1,8 +1,9 @@
 {
-  "extends": "../../../tsconfig.node.json",
+  "extends": "../../../tsconfig.json",
   "compilerOptions": {
-    "outDir": "./dist"
+    "noEmit": false,
+    "outDir": "lib",
+    "composite": true
   },
-  "include": ["index.d.ts"],
-  "references": []
+  "include": ["index.d.ts"]
 }

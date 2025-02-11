@@ -1,5 +1,5 @@
-import type { EditorHost } from '@blocksuite/affine/block-std';
-import type { AffineAIPanelState } from '@blocksuite/affine/blocks';
+import type { EditorHost } from '@blocksuite/block-std';
+import type { AffineAIPanelState } from '@blocksuite/blocks';
 import { css, html, LitElement } from 'lit';
 import { property } from 'lit/decorators.js';
 import { classMap } from 'lit/directives/class-map.js';

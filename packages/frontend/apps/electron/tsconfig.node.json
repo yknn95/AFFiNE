@@ -1,9 +1,26 @@
 {
-  "extends": "./tsconfig.json",
+  "extends": "../../../../tsconfig.json",
   "compilerOptions": {
-    "rootDir": ".",
-    "outDir": "./lib",
-    "tsBuildInfoFile": "./lib/tsconfig.tsbuildinfo"
+    "composite": true,
+    "target": "ESNext",
+    "module": "ESNext",
+    "resolveJsonModule": true,
+    "moduleResolution": "bundler",
+    "allowSyntheticDefaultImports": true,
+    "noEmit": false,
+    "outDir": "./lib/scripts",
+    "types": ["node", "affine__env"],
+    "allowJs": true
   },
-  "include": ["./test", "./scripts", "./vitest.config.ts"]
+  "include": ["./scripts"],
+  "exclude": ["./renderer"],
+  "ts-node": {
+    "esm": true,
+    "experimentalSpecifierResolution": "node"
+  },
+  "references": [
+    {
+      "path": "../../../../tools/utils"
+    }
+  ]
 }

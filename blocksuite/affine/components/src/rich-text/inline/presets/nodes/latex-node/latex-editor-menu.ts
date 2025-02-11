@@ -4,11 +4,12 @@ import { unsafeCSSVar } from '@blocksuite/affine-shared/theme';
 import { type BlockStdScope, ShadowlessElement } from '@blocksuite/block-std';
 import { noop, SignalWatcher, WithDisposable } from '@blocksuite/global/utils';
 import { DoneIcon } from '@blocksuite/icons/lit';
+import type { Y } from '@blocksuite/store';
+import { DocCollection } from '@blocksuite/store';
 import { effect, type Signal, signal } from '@preact/signals-core';
 import { css, html } from 'lit';
 import { property } from 'lit/decorators.js';
 import { codeToTokensBase, type ThemedToken } from 'shiki';
-import * as Y from 'yjs';
 
 import { InlineManagerExtension } from '../../../../extension/index.js';
 import { LatexEditorUnitSpecExtension } from '../../affine-inline-specs.js';
@@ -110,7 +111,7 @@ export class LatexEditorMenu extends SignalWatcher(
   override connectedCallback(): void {
     super.connectedCallback();
 
-    const doc = new Y.Doc();
+    const doc = new DocCollection.Y.Doc();
     this.yText = doc.getText('latex');
     this.yText.insert(0, this.latexSignal.value);
 

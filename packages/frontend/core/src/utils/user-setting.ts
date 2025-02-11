@@ -1,11 +1,11 @@
 import type { Collection } from '@affine/env/filter';
-import type { Workspace } from '@blocksuite/affine/store';
+import type { DocCollection } from '@blocksuite/affine/store';
 import { nanoid } from 'nanoid';
 import type { Map as YMap } from 'yjs';
 import { Doc as YDoc } from 'yjs';
 export class UserSetting {
   constructor(
-    private readonly docCollection: Workspace,
+    private readonly docCollection: DocCollection,
     private readonly userId: string
   ) {}
 
@@ -38,6 +38,9 @@ export class UserSetting {
   }
 }
 
-export const getUserSetting = (docCollection: Workspace, userId: string) => {
+export const getUserSetting = (
+  docCollection: DocCollection,
+  userId: string
+) => {
   return new UserSetting(docCollection, userId);
 };

@@ -1,6 +1,5 @@
-import { getSelectedBlocksCommand } from '@blocksuite/affine-shared/commands';
 import type { EditorHost, TextSelection } from '@blocksuite/block-std';
-import * as Y from 'yjs';
+import { DocCollection, type Y } from '@blocksuite/store';
 
 export interface CommentMeta {
   id: string;
@@ -45,7 +44,7 @@ export class CommentManager {
     }
 
     const { quote, range } = parseResult;
-    const id = this.host.doc.workspace.idGenerator();
+    const id = this.host.doc.collection.idGenerator();
     const comment: Comment = {
       id,
       date: Date.now(),
@@ -54,7 +53,10 @@ export class CommentManager {
       quote,
       ...payload,
     };
-    this.commentsMap.set(id, new Y.Map<unknown>(Object.entries(comment)));
+    this.commentsMap.set(
+      id,
+      new DocCollection.Y.Map<unknown>(Object.entries(comment))
+    );
     return comment;
   }
 
@@ -64,15 +66,17 @@ export class CommentManager {
       const start = comment.get('start') as Comment['start'];
       const end = comment.get('end') as Comment['end'];
 
-      const startIndex = Y.createAbsolutePositionFromRelativePosition(
-        start.index,
-        this.host.doc.spaceDoc
-      );
+      const startIndex =
+        DocCollection.Y.createAbsolutePositionFromRelativePosition(
+          start.index,
+          this.host.doc.spaceDoc
+        );
       const startBlock = this.host.view.getBlock(start.id);
-      const endIndex = Y.createAbsolutePositionFromRelativePosition(
-        end.index,
-        this.host.doc.spaceDoc
-      );
+      const endIndex =
+        DocCollection.Y.createAbsolutePositionFromRelativePosition(
+          end.index,
+          this.host.doc.spaceDoc
+        );
       const endBlock = this.host.view.getBlock(end.id);
 
       if (!startIndex || !startBlock || !endIndex || !endBlock) {
@@ -101,7 +105,7 @@ export class CommentManager {
   } | null {
     const [_, ctx] = this._command
       .chain()
-      .pipe(getSelectedBlocksCommand, {
+      .getSelectedBlocks({
         currentTextSelection: selection,
         types: ['text'],
       })
@@ -118,11 +122,11 @@ export class CommentManager {
     const toBlockId = toBlock.model.id;
     if (!fromBlockText || !toBlockText) return null;
 
-    const startIndex = Y.createRelativePositionFromTypeIndex(
+    const startIndex = DocCollection.Y.createRelativePositionFromTypeIndex(
       fromBlockText.yText,
       from.index
     );
-    const endIndex = Y.createRelativePositionFromTypeIndex(
+    const endIndex = DocCollection.Y.createRelativePositionFromTypeIndex(
       toBlockText.yText,
       to ? to.index + to.length : from.index + from.length
     );

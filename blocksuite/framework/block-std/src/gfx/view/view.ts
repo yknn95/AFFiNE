@@ -5,9 +5,9 @@ import {
   DisposableGroup,
   type IVec,
 } from '@blocksuite/global/utils';
-import type { Extension } from '@blocksuite/store';
 
 import type { PointerEventState } from '../../event/index.js';
+import type { Extension } from '../../extension/extension.js';
 import type { EditorHost } from '../../view/index.js';
 import type { GfxController } from '../index.js';
 import type { GfxElementGeometry, PointTestOptions } from '../model/base.js';
@@ -72,6 +72,7 @@ export class GfxElementModelView<
     readonly gfx: GfxController
   ) {
     this.model = model;
+    this.onCreated();
   }
 
   static setup(di: Container): void {

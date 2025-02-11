@@ -8,12 +8,12 @@ import { QuotaModule } from '../quota';
 import { StorageModule } from '../storage';
 import { UserModule } from '../user';
 import { WorkspacesController } from './controller';
+import { WorkspaceManagementResolver } from './management';
 import {
   DocHistoryResolver,
-  DocResolver,
+  PagePermissionResolver,
   TeamWorkspaceResolver,
   WorkspaceBlobResolver,
-  WorkspaceDocResolver,
   WorkspaceResolver,
   WorkspaceService,
 } from './resolvers';
@@ -32,13 +32,12 @@ import {
   providers: [
     WorkspaceResolver,
     TeamWorkspaceResolver,
-    WorkspaceDocResolver,
-    DocResolver,
+    WorkspaceManagementResolver,
+    PagePermissionResolver,
     DocHistoryResolver,
     WorkspaceBlobResolver,
     WorkspaceService,
   ],
-  exports: [WorkspaceService],
 })
 export class WorkspaceModule {}
 

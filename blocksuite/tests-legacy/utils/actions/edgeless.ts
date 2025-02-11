@@ -1,6 +1,6 @@
 import '../declare-test-window.js';
 
-import type { NoteBlockModel, NoteDisplayMode } from '@blocksuite/affine-model';
+import type { NoteBlockModel, NoteDisplayMode } from '@blocks/index.js';
 import type { IPoint, IVec } from '@blocksuite/global/utils';
 import { assertExists, sleep } from '@blocksuite/global/utils';
 import type { Locator, Page } from '@playwright/test';
@@ -825,14 +825,11 @@ export async function clickComponentToolbarMoreMenuButton(
 export async function zoomByMouseWheel(
   page: Page,
   stepX: number,
-  stepY: number,
-  pressedKey = true
+  stepY: number
 ) {
-  if (pressedKey) await page.keyboard.down(SHORT_KEY);
-
+  await page.keyboard.down(SHORT_KEY);
   await page.mouse.wheel(stepX, stepY);
-
-  if (pressedKey) await page.keyboard.up(SHORT_KEY);
+  await page.keyboard.up(SHORT_KEY);
 }
 
 // touch screen is not supported by Playwright now
@@ -931,7 +928,7 @@ export async function multiTouchUp(page: Page, points: Point[]) {
 }
 
 export async function zoomFitByKeyboard(page: Page) {
-  await page.keyboard.press(`Alt+1`, { delay: 100 });
+  await page.keyboard.press(`${SHORT_KEY}+1`, { delay: 100 });
   await waitNextFrame(page, 300);
 }
 
@@ -941,13 +938,7 @@ export async function zoomOutByKeyboard(page: Page) {
 }
 
 export async function zoomResetByKeyboard(page: Page) {
-  await page.keyboard.press(`Alt+0`, { delay: 50 });
-  // Wait for animation
-  await waitNextFrame(page, 300);
-}
-
-export async function zoomToSelection(page: Page) {
-  await page.keyboard.press(`Alt+2`, { delay: 50 });
+  await page.keyboard.press(`${SHORT_KEY}+0`, { delay: 50 });
   // Wait for animation
   await waitNextFrame(page, 300);
 }

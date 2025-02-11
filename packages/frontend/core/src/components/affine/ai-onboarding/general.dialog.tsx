@@ -1,7 +1,7 @@
 import { Button, IconButton, Modal } from '@affine/component';
 import { useBlurRoot } from '@affine/core/components/hooks/use-blur-root';
 import { AuthService, SubscriptionService } from '@affine/core/modules/cloud';
-import { WorkspaceDialogService } from '@affine/core/modules/dialogs';
+import { GlobalDialogService } from '@affine/core/modules/dialogs';
 import { Trans, useI18n } from '@affine/i18n';
 import { track } from '@affine/track';
 import { ArrowLeftSmallIcon } from '@blocksuite/icons/rc';
@@ -95,7 +95,7 @@ export const AIOnboardingGeneral = () => {
   const aiSubscription = useLiveData(subscriptionService.subscription.ai$);
   const [index, setIndex] = useState(0);
   const list = useMemo(() => getPlayList(t), [t]);
-  const workspaceDialogService = useService(WorkspaceDialogService);
+  const globalDialogService = useService(GlobalDialogService);
   const readyToOpen = isLoggedIn;
   useBlurRoot(open && readyToOpen);
 
@@ -110,13 +110,13 @@ export const AIOnboardingGeneral = () => {
     toggleGeneralAIOnboarding(false);
   }, []);
   const goToPricingPlans = useCallback(() => {
-    workspaceDialogService.open('setting', {
+    globalDialogService.open('setting', {
       activeTab: 'plans',
       scrollAnchor: 'aiPricingPlan',
     });
     track.$.aiOnboarding.dialog.viewPlans();
     closeAndDismiss();
-  }, [closeAndDismiss, workspaceDialogService]);
+  }, [closeAndDismiss, globalDialogService]);
   const onPrev = useCallback(() => {
     setIndex(i => Math.max(0, i - 1));
   }, []);

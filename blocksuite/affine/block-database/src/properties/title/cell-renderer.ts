@@ -6,10 +6,10 @@ import {
 } from '@blocksuite/data-view';
 import { TableSingleView } from '@blocksuite/data-view/view-presets';
 
-import { titlePropertyModelConfig } from './define.js';
+import { titlePurePropertyConfig } from './define.js';
 import { HeaderAreaTextCell, HeaderAreaTextCellEditing } from './text.js';
 
-export const titleColumnConfig = titlePropertyModelConfig.createPropertyMeta({
+export const titleColumnConfig = titlePurePropertyConfig.createPropertyMeta({
   icon: createIcon('TitleIcon'),
   cellRenderer: {
     view: uniMap(

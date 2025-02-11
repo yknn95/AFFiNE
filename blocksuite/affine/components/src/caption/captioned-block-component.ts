@@ -58,9 +58,7 @@ export class CaptionedBlockComponent<
           ></block-caption-editor>`
         : nothing}
       ${this.selectedStyle === SelectedStyle.Background
-        ? html`<affine-block-selection
-            .selected=${this.selected$.value}
-          ></affine-block-selection>`
+        ? html`<affine-block-selection .block=${this}></affine-block-selection>`
         : null}
       ${this.useZeroWidth && !this.doc.readonly
         ? html`<block-zero-width .block=${this}></block-zero-width>`

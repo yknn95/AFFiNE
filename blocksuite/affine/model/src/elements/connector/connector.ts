@@ -23,7 +23,7 @@ import {
   polyLineNearestPoint,
   Vec,
 } from '@blocksuite/global/utils';
-import * as Y from 'yjs';
+import { DocCollection, type Y } from '@blocksuite/store';
 
 import {
   CONNECTOR_LABEL_MAX_WIDTH,
@@ -126,8 +126,8 @@ export class ConnectorElementModel extends GfxPrimitiveElementModel<ConnectorEle
   }
 
   static override propsToY(props: ConnectorElementProps) {
-    if (props.text && !(props.text instanceof Y.Text)) {
-      props.text = new Y.Text(props.text);
+    if (props.text && !(props.text instanceof DocCollection.Y.Text)) {
+      props.text = new DocCollection.Y.Text(props.text);
     }
 
     return props;

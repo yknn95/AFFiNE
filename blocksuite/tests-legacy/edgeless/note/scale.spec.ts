@@ -48,7 +48,7 @@ async function checkNoteScale(
   const edgelessNote = page.locator(
     `affine-edgeless-note[data-block-id="${noteId}"]`
   );
-  const noteContainer = edgelessNote.getByTestId('edgeless-note-container');
+  const noteContainer = edgelessNote.locator('.edgeless-note-container');
   const style = await noteContainer.getAttribute('style');
 
   if (!style) {

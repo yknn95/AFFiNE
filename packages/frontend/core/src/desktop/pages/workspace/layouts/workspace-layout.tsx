@@ -25,13 +25,13 @@ export const WorkspaceLayout = function WorkspaceLayout({
       <WorkspaceDialogs />
 
       {/* ---- some side-effect components ---- */}
-      {currentWorkspace?.flavour !== 'local' ? (
+      {currentWorkspace?.flavour === 'local' ? (
+        <LocalQuotaModal />
+      ) : (
         <>
           <CloudQuotaModal />
           <QuotaCheck workspaceMeta={currentWorkspace.meta} />
         </>
-      ) : (
-        <LocalQuotaModal />
       )}
       <AiLoginRequiredModal />
       <WorkspaceSideEffects />

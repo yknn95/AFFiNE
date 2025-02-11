@@ -15,19 +15,16 @@ import {
   type BlockSnapshot,
   type DocSnapshot,
   DocSnapshotSchema,
+  Job,
   type SnapshotNode,
-  Transformer,
+  type Y,
 } from '@blocksuite/store';
-import type * as Y from 'yjs';
+
 /**
  * Those block contains other block's id
  * should defer the loading
  */
-const DEFERED_BLOCK = [
-  'affine:surface',
-  'affine:surface-ref',
-  'affine:frame',
-] as const;
+const DEFERED_BLOCK = ['affine:surface', 'affine:surface-ref'] as const;
 
 /**
  * Those block should not be inserted directly
@@ -72,7 +69,7 @@ export class TemplateJob {
 
   private _template: DocSnapshot | null = null;
 
-  job: Transformer;
+  job: Job;
 
   model: SurfaceBlockModel;
 
@@ -90,16 +87,7 @@ export class TemplateJob {
   type: TemplateType;
 
   constructor({ model, type, middlewares }: TemplateJobConfig) {
-    this.job = new Transformer({
-      schema: model.doc.workspace.schema,
-      blobCRUD: model.doc.workspace.blobSync,
-      docCRUD: {
-        create: (id: string) => model.doc.workspace.createDoc({ id }),
-        get: (id: string) => model.doc.workspace.getDoc(id),
-        delete: (id: string) => model.doc.workspace.removeDoc(id),
-      },
-      middlewares: [],
-    });
+    this.job = new Job({ collection: model.doc.collection, middlewares: [] });
     this.model = model;
     this.type = TEMPLATE_TYPES.includes(type as TemplateType)
       ? (type as TemplateType)
@@ -321,7 +309,7 @@ export class TemplateJob {
     to: Y.Map<Y.Map<unknown>>
   ) {
     const schema =
-      this.model.doc.workspace.schema.flavourSchemaMap.get('affine:surface');
+      this.model.doc.collection.schema.flavourSchemaMap.get('affine:surface');
     const surfaceTransformer =
       schema?.transformer?.() as SurfaceBlockTransformer;
 

@@ -1,8 +1,5 @@
 import { Peekable } from '@blocksuite/affine-components/peek';
-import {
-  type DocLinkClickedEvent,
-  RefNodeSlotsProvider,
-} from '@blocksuite/affine-components/rich-text';
+import { RefNodeSlotsProvider } from '@blocksuite/affine-components/rich-text';
 import {
   type AliasInfo,
   type DocMode,
@@ -14,9 +11,6 @@ import { REFERENCE_NODE } from '@blocksuite/affine-shared/consts';
 import {
   DocDisplayMetaProvider,
   DocModeProvider,
-  EditorSettingExtension,
-  EditorSettingProvider,
-  GeneralSettingSchema,
   ThemeExtensionIdentifier,
   ThemeProvider,
 } from '@blocksuite/affine-shared/services';
@@ -25,25 +19,25 @@ import {
   SpecProvider,
 } from '@blocksuite/affine-shared/utils';
 import {
-  BlockSelection,
   BlockServiceWatcher,
   BlockStdScope,
   type EditorHost,
 } from '@blocksuite/block-std';
-import {
-  GfxControllerIdentifier,
-  GfxExtension,
-} from '@blocksuite/block-std/gfx';
+import { GfxControllerIdentifier } from '@blocksuite/block-std/gfx';
 import { assertExists, Bound, getCommonBound } from '@blocksuite/global/utils';
-import { type GetBlocksOptions, type Query, Text } from '@blocksuite/store';
-import { computed, signal } from '@preact/signals-core';
-import { html, nothing, type PropertyValues } from 'lit';
+import {
+  BlockViewType,
+  DocCollection,
+  type GetDocOptions,
+  type Query,
+} from '@blocksuite/store';
+import { computed } from '@preact/signals-core';
+import { html, type PropertyValues } from 'lit';
 import { query, state } from 'lit/decorators.js';
 import { choose } from 'lit/directives/choose.js';
 import { classMap } from 'lit/directives/class-map.js';
 import { guard } from 'lit/directives/guard.js';
 import { type StyleInfo, styleMap } from 'lit/directives/style-map.js';
-import * as Y from 'yjs';
 
 import { EmbedBlockComponent } from '../common/embed-block-element.js';
 import { isEmptyDoc } from '../common/render-linked-doc.js';
@@ -111,7 +105,7 @@ export class EmbedSyncedDocBlockComponent extends EmbedBlockComponent<EmbedSynce
         props: {
           displayMode: NoteDisplayMode.EdgelessOnly,
         },
-        viewType: 'hidden',
+        viewType: BlockViewType.Hidden,
       },
     ],
   };
@@ -120,9 +114,6 @@ export class EmbedSyncedDocBlockComponent extends EmbedBlockComponent<EmbedSynce
     const nextDepth = this.depth + 1;
     const previewSpecBuilder = SpecProvider.getInstance().getSpec(name);
     const currentDisposables = this.disposables;
-    const editorSetting =
-      this.std.getOptional(EditorSettingProvider) ??
-      signal(GeneralSettingSchema.parse({}));
 
     class EmbedSyncedDocWatcher extends BlockServiceWatcher {
       static override readonly flavour = 'affine:embed-synced-doc';
@@ -148,19 +139,7 @@ export class EmbedSyncedDocBlockComponent extends EmbedBlockComponent<EmbedSynce
       }
     }
 
-    class GfxViewportInitializer extends GfxExtension {
-      static override key = 'gfx-viewport-initializer';
-
-      override mounted(): void {
-        this.gfx.fitToScreen();
-      }
-    }
-
-    previewSpecBuilder.extend([
-      EmbedSyncedDocWatcher,
-      GfxViewportInitializer,
-      EditorSettingExtension(editorSetting),
-    ]);
+    previewSpecBuilder.extend([EmbedSyncedDocWatcher]);
 
     return previewSpecBuilder.value;
   };
@@ -170,10 +149,7 @@ export class EmbedSyncedDocBlockComponent extends EmbedBlockComponent<EmbedSynce
     const editorMode = this.editorMode;
     const isPageMode = this.isPageMode;
 
-    if (!syncedDoc) {
-      console.error('Synced doc is not found');
-      return html`${nothing}`;
-    }
+    assertExists(syncedDoc);
 
     if (isPageMode) {
       this.dataset.pageMode = '';
@@ -192,6 +168,7 @@ export class EmbedSyncedDocBlockComponent extends EmbedBlockComponent<EmbedSynce
       edgelessTheme = themeExtension.getEdgelessTheme(this.syncedDoc.id).value;
     }
     const theme = isPageMode ? appTheme : edgelessTheme;
+    const isSelected = !!this.selected?.is('block');
 
     this.dataset.nestedEditor = '';
 
@@ -202,7 +179,7 @@ export class EmbedSyncedDocBlockComponent extends EmbedBlockComponent<EmbedSynce
           () => html`
             <div class="affine-page-viewport" data-theme=${appTheme}>
               ${new BlockStdScope({
-                store: syncedDoc,
+                doc: syncedDoc,
                 extensions: this._buildPreviewSpec('page:preview'),
               }).render()}
             </div>
@@ -213,7 +190,7 @@ export class EmbedSyncedDocBlockComponent extends EmbedBlockComponent<EmbedSynce
           () => html`
             <div class="affine-edgeless-viewport" data-theme=${edgelessTheme}>
               ${new BlockStdScope({
-                store: syncedDoc,
+                doc: syncedDoc,
                 extensions: this._buildPreviewSpec('edgeless:preview'),
               }).render()}
             </div>
@@ -229,8 +206,8 @@ export class EmbedSyncedDocBlockComponent extends EmbedBlockComponent<EmbedSynce
             'affine-embed-synced-doc-container': true,
             [editorMode]: true,
             [theme]: true,
+            selected: isSelected,
             surface: false,
-            selected: this.selected$.value,
           })}
           @click=${this._handleClick}
           style=${containerStyleMap}
@@ -250,7 +227,7 @@ export class EmbedSyncedDocBlockComponent extends EmbedBlockComponent<EmbedSynce
           <div
             class=${classMap({
               'affine-embed-synced-doc-header-wrapper': true,
-              selected: this.selected$.value,
+              selected: isSelected,
             })}
           >
             <div class="affine-embed-synced-doc-header">
@@ -295,7 +272,7 @@ export class EmbedSyncedDocBlockComponent extends EmbedBlockComponent<EmbedSynce
     assertExists(parent);
     const index = parent.children.indexOf(this.model);
 
-    const yText = new Y.Text();
+    const yText = new DocCollection.Y.Text();
     yText.insert(0, REFERENCE_NODE);
     yText.format(0, REFERENCE_NODE.length, {
       reference: {
@@ -303,7 +280,7 @@ export class EmbedSyncedDocBlockComponent extends EmbedBlockComponent<EmbedSynce
         ...this.referenceInfo,
       },
     });
-    const text = new Text(yText);
+    const text = new doc.Text(yText);
 
     doc.addBlock(
       'affine:paragraph',
@@ -328,13 +305,11 @@ export class EmbedSyncedDocBlockComponent extends EmbedBlockComponent<EmbedSynce
       .icon(pageId, { params, referenced: true }).value;
   });
 
-  open = (event?: Partial<DocLinkClickedEvent>) => {
+  open = () => {
     const pageId = this.model.pageId;
     if (pageId === this.doc.id) return;
 
-    this.std
-      .getOptional(RefNodeSlotsProvider)
-      ?.docLinkClicked.emit({ ...event, pageId, host: this.host });
+    this.std.getOptional(RefNodeSlotsProvider)?.docLinkClicked.emit({ pageId });
   };
 
   refreshData = () => {
@@ -389,16 +364,17 @@ export class EmbedSyncedDocBlockComponent extends EmbedBlockComponent<EmbedSynce
   }
 
   get syncedDoc() {
-    const options: GetBlocksOptions = { readonly: true };
+    const options: GetDocOptions = { readonly: true };
     if (this.isPageMode) options.query = this._pageFilter;
-    return this.std.workspace.getDoc(this.model.pageId, options);
+    return this.std.collection.getDoc(this.model.pageId, options);
   }
 
   private _checkCycle() {
     let editorHost: EditorHost | null = this.host;
     while (editorHost && !this._cycle) {
       this._cycle = !!editorHost && editorHost.doc.id === this.model.pageId;
-      editorHost = editorHost.parentElement?.closest('editor-host') ?? null;
+      editorHost =
+        editorHost.parentElement?.closest<EditorHost>('editor-host') ?? null;
     }
   }
 
@@ -456,14 +432,14 @@ export class EmbedSyncedDocBlockComponent extends EmbedBlockComponent<EmbedSynce
 
   private _selectBlock() {
     const selectionManager = this.host.selection;
-    const blockSelection = selectionManager.create(BlockSelection, {
+    const blockSelection = selectionManager.create('block', {
       blockId: this.blockId,
     });
     selectionManager.setGroup('note', [blockSelection]);
   }
 
   private _setDocUpdatedAt() {
-    const meta = this.doc.workspace.meta.getDocMeta(this.model.pageId);
+    const meta = this.doc.collection.meta.getDocMeta(this.model.pageId);
     if (meta) {
       const date = meta.updatedDate || meta.createDate;
       this._docUpdatedAt = new Date(date);
@@ -499,7 +475,7 @@ export class EmbedSyncedDocBlockComponent extends EmbedBlockComponent<EmbedSynce
 
     this._setDocUpdatedAt();
     this.disposables.add(
-      this.doc.workspace.slots.docListUpdated.on(() => {
+      this.doc.collection.meta.docMetaUpdated.on(() => {
         this._setDocUpdatedAt();
       })
     );

@@ -6,8 +6,8 @@ import {
   NoteDisplayMode,
 } from '@blocksuite/blocks';
 import { assertExists } from '@blocksuite/global/utils';
+import { DocCollection } from '@blocksuite/store';
 import { beforeEach, describe, expect, test } from 'vitest';
-import * as Y from 'yjs';
 
 import { wait } from '../utils/common.js';
 import { addNote, getDocRootBlock } from '../utils/edgeless.js';
@@ -24,7 +24,7 @@ describe('group', () => {
   });
 
   test('group with no children will be removed automatically', () => {
-    const map = new Y.Map<boolean>();
+    const map = new DocCollection.Y.Map<boolean>();
     const ids = Array.from({ length: 2 })
       .map(() => {
         const id = service.crud.addElement('shape', {
@@ -62,7 +62,7 @@ describe('group', () => {
   });
 
   test('remove group should remove its children at the same time', () => {
-    const map = new Y.Map<boolean>();
+    const map = new DocCollection.Y.Map<boolean>();
     const doc = service.doc;
     const noteId = addNote(doc);
     const shapeId = service.crud.addElement('shape', {
@@ -112,7 +112,7 @@ describe('group', () => {
         collapsedHeight: 100,
       },
     });
-    const children = new Y.Map<boolean>();
+    const children = new DocCollection.Y.Map<boolean>();
 
     children.set(shape1, true);
     children.set(shape2, true);
@@ -187,7 +187,7 @@ describe('group', () => {
   });
 
   test('empty group should have all zero xywh', () => {
-    const map = new Y.Map<boolean>();
+    const map = new DocCollection.Y.Map<boolean>();
     const groupId = service.crud.addElement('group', { children: map });
     assertExists(groupId);
     const group = service.crud.getElementById(groupId) as GroupElementModel;
@@ -201,7 +201,7 @@ describe('group', () => {
   test('descendant of group should not contain itself', () => {
     const groupIds = [1, 2, 3].map(_ => {
       return service.crud.addElement('group', {
-        children: new Y.Map<boolean>(),
+        children: new DocCollection.Y.Map<boolean>(),
       }) as string;
     });
     const groups = groupIds.map(

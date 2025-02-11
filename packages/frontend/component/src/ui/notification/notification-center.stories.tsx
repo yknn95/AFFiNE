@@ -1,4 +1,4 @@
-import { SingleSelectCheckSolidIcon } from '@blocksuite/icons/rc';
+import { SingleSelectSelectSolidIcon } from '@blocksuite/icons/rc';
 import type { StoryFn } from '@storybook/react';
 import { cssVar } from '@toeverything/theme';
 import { type HTMLAttributes, useState } from 'react';
@@ -90,11 +90,11 @@ export const CustomIcon: StoryFn = () => {
     { label: 'No icon', icon: null },
     {
       label: 'SingleSelectIcon',
-      icon: <SingleSelectCheckSolidIcon />,
+      icon: <SingleSelectSelectSolidIcon />,
     },
     {
       label: 'Icon Color',
-      icon: <SingleSelectCheckSolidIcon color={cssVar('successColor')} />,
+      icon: <SingleSelectSelectSolidIcon color={cssVar('successColor')} />,
     },
   ];
 

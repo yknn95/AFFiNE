@@ -2,13 +2,16 @@ export { UserspaceService as UserDBService } from './services/userspace';
 
 import type { Framework } from '@toeverything/infra';
 
-import { AuthService, ServerService } from '../cloud';
+import { AuthService, WebSocketService } from '../cloud';
 import { ServerScope } from '../cloud/scopes/server';
-import { NbstoreService } from '../storage';
+import { DesktopApiService } from '../desktop-api/service/desktop-api';
 import { CurrentUserDB } from './entities/current-user-db';
 import { UserDB } from './entities/user-db';
 import { UserDBEngine } from './entities/user-db-engine';
 import { UserDBTable } from './entities/user-db-table';
+import { IndexedDBUserspaceDocStorage } from './impls/indexeddb-storage';
+import { SqliteUserspaceDocStorage } from './impls/sqlite-storage';
+import { UserspaceStorageProvider } from './provider/storage';
 import { UserspaceService } from './services/userspace';
 
 export function configureUserspaceModule(framework: Framework) {
@@ -18,5 +21,23 @@ export function configureUserspaceModule(framework: Framework) {
     .entity(CurrentUserDB, [UserspaceService, AuthService])
     .entity(UserDB)
     .entity(UserDBTable)
-    .entity(UserDBEngine, [NbstoreService, ServerService]);
+    .entity(UserDBEngine, [UserspaceStorageProvider, WebSocketService]);
+}
+
+export function configureIndexedDBUserspaceStorageProvider(
+  framework: Framework
+) {
+  framework.impl(UserspaceStorageProvider, {
+    getDocStorage(userId: string) {
+      return new IndexedDBUserspaceDocStorage(userId);
+    },
+  });
+}
+
+export function configureSqliteUserspaceStorageProvider(framework: Framework) {
+  framework.impl(UserspaceStorageProvider, p => ({
+    getDocStorage(userId: string) {
+      return new SqliteUserspaceDocStorage(userId, p.get(DesktopApiService));
+    },
+  }));
 }

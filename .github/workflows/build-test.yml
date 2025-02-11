@@ -118,26 +118,6 @@ jobs:
       - name: Run Type Check
         run: yarn typecheck
 
-  lint-rust:
-    name: Lint Rust
-    runs-on: ubuntu-latest
-    needs: optimize_ci
-    if: needs.optimize_ci.outputs.skip == 'false'
-    steps:
-      - uses: actions/checkout@v4
-      - uses: ./.github/actions/build-rust
-        with:
-          no-build: 'true'
-      - name: fmt check
-        run: |
-          rustup toolchain add nightly
-          rustup component add --toolchain nightly-x86_64-unknown-linux-gnu rustfmt
-          cargo +nightly fmt --all -- --check
-      - name: Clippy
-        run: |
-          rustup component add clippy
-          cargo clippy --all-targets --all-features -- -D warnings
-
   check-yarn-binary:
     name: Check yarn binary
     runs-on: ubuntu-latest
@@ -175,7 +155,7 @@ jobs:
         run: yarn workspace @blocksuite/legacy-e2e test --forbid-only --shard=${{ matrix.shard }}/${{ strategy.job-total }}
 
       - name: Upload test results
-        if: always()
+        if: ${{ failure() }}
         uses: actions/upload-artifact@v4
         with:
           name: test-results-e2e-legacy-bs-${{ matrix.shard }}
@@ -207,7 +187,7 @@ jobs:
         run: yarn affine @affine-test/affine-local e2e --forbid-only --shard=${{ matrix.shard }}/${{ strategy.job-total }}
 
       - name: Upload test results
-        if: always()
+        if: ${{ failure() }}
         uses: actions/upload-artifact@v4
         with:
           name: test-results-e2e-${{ matrix.shard }}
@@ -239,7 +219,7 @@ jobs:
         run: yarn affine @affine-test/affine-mobile e2e --forbid-only --shard=${{ matrix.shard }}/${{ strategy.job-total }}
 
       - name: Upload test results
-        if: always()
+        if: ${{ failure() }}
         uses: actions/upload-artifact@v4
         with:
           name: test-results-e2e-mobile-${{ matrix.shard }}
@@ -328,7 +308,6 @@ jobs:
           package: '@affine/native'
       - name: Upload ${{ steps.filename.outputs.filename }}
         uses: actions/upload-artifact@v4
-        if: always()
         with:
           name: ${{ steps.filename.outputs.filename }}
           path: ${{ env.DEV_DRIVE_WORKSPACE || github.workspace }}/packages/frontend/native/${{ steps.filename.outputs.filename }}
@@ -355,7 +334,6 @@ jobs:
           package: '@affine/server-native'
       - name: Upload server-native.node
         uses: actions/upload-artifact@v4
-        if: always()
         with:
           name: server-native.node
           path: ./packages/backend/native/server-native.node
@@ -381,7 +359,6 @@ jobs:
         run: tar -czf dist.tar.gz --directory=packages/frontend/apps/electron-renderer/dist .
       - name: Upload web artifact
         uses: actions/upload-artifact@v4
-        if: always()
         with:
           name: web
           path: dist.tar.gz
@@ -554,7 +531,6 @@ jobs:
           CARGO_TARGET_DIR: '${{ github.workspace }}/target'
           COPILOT_OPENAI_API_KEY: ${{ secrets.COPILOT_OPENAI_API_KEY }}
           COPILOT_FAL_API_KEY: ${{ secrets.COPILOT_FAL_API_KEY }}
-          COPILOT_PERPLEXITY_API_KEY: ${{ secrets.COPILOT_PERPLEXITY_API_KEY }}
 
       - name: Upload server test coverage results
         if: ${{ steps.check-blocksuite-update.outputs.skip != 'true' || steps.apifilter.outputs.changed == 'true' }}
@@ -643,7 +619,6 @@ jobs:
           script: yarn affine @affine-test/affine-cloud-copilot e2e --forbid-only --shard=${{ matrix.shardIndex }}/${{ matrix.shardTotal }}
           openai-key: ${{ secrets.COPILOT_OPENAI_API_KEY }}
           fal-key: ${{ secrets.COPILOT_FAL_API_KEY }}
-          perplexity-key: ${{ secrets.COPILOT_PERPLEXITY_API_KEY }}
 
   server-e2e-test:
     name: ${{ matrix.tests.name }}
@@ -663,16 +638,12 @@ jobs:
       matrix:
         tests:
           - name: 'Server E2E Test 1/3'
-            shard: 1
             script: yarn affine @affine-test/affine-cloud e2e --forbid-only --shard=1/3
           - name: 'Server E2E Test 2/3'
-            shard: 2
             script: yarn affine @affine-test/affine-cloud e2e --forbid-only --shard=2/3
           - name: 'Server E2E Test 3/3'
-            shard: 3
             script: yarn affine @affine-test/affine-cloud e2e --forbid-only --shard=3/3
           - name: 'Server Desktop E2E Test'
-            shard: desktop
             script: |
               yarn affine @affine/electron build:dev
               # Workaround for Electron apps failing to initialize on Ubuntu 24.04 due to AppArmor restrictions
@@ -732,13 +703,12 @@ jobs:
           DEV_SERVER_URL: http://localhost:8080
           COPILOT_OPENAI_API_KEY: 1
           COPILOT_FAL_API_KEY: 1
-          COPILOT_PERPLEXITY_API_KEY: 1
 
       - name: Upload test results
-        if: always()
+        if: ${{ failure() }}
         uses: actions/upload-artifact@v4
         with:
-          name: test-results-e2e-server-${{ matrix.tests.shard }}
+          name: test-results-e2e-server
           path: ./test-results
           if-no-files-found: ignore
 
@@ -860,7 +830,7 @@ jobs:
           yarn affine @affine/electron node ./scripts/macos-arm64-output-check.ts
 
       - name: Upload test results
-        if: always()
+        if: ${{ failure() }}
         uses: actions/upload-artifact@v4
         with:
           name: test-results-e2e-${{ matrix.spec.os }}-${{ matrix.spec.arch }}
@@ -882,7 +852,6 @@ jobs:
     needs:
       - analyze
       - lint
-      - lint-rust
       - check-yarn-binary
       - e2e-test
       - e2e-legacy-blocksuite-test

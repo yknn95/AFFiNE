@@ -13,7 +13,7 @@ import { ImageBlockNotionHtmlAdapterExtension } from '@blocksuite/affine-block-i
 import { LatexBlockNotionHtmlAdapterExtension } from '@blocksuite/affine-block-latex';
 import { ListBlockNotionHtmlAdapterExtension } from '@blocksuite/affine-block-list';
 import { ParagraphBlockNotionHtmlAdapterExtension } from '@blocksuite/affine-block-paragraph';
-import type { ExtensionType } from '@blocksuite/store';
+import type { ExtensionType } from '@blocksuite/block-std';
 
 import { RootBlockNotionHtmlAdapterExtension } from '../../../root-block/adapters/notion-html.js';
 

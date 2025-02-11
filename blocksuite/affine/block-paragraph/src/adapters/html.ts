@@ -3,10 +3,9 @@ import {
   BlockHtmlAdapterExtension,
   type BlockHtmlAdapterMatcher,
   HastUtils,
-  type HtmlAST,
 } from '@blocksuite/affine-shared/adapters';
 import type { DeltaInsert } from '@blocksuite/inline';
-import { nanoid, type NodeProps } from '@blocksuite/store';
+import { nanoid } from '@blocksuite/store';
 
 const paragraphBlockMatchTags = new Set([
   'p',
@@ -22,20 +21,6 @@ const paragraphBlockMatchTags = new Set([
   'span',
   'footer',
 ]);
-
-const tagsInAncestor = (o: NodeProps<HtmlAST>, tagNames: Array<string>) => {
-  let parent = o.parent;
-  while (parent) {
-    if (
-      HastUtils.isElement(parent.node) &&
-      tagNames.includes(parent.node.tagName)
-    ) {
-      return true;
-    }
-    parent = parent.parent;
-  }
-  return false;
-};
 
 export const paragraphBlockHtmlAdapterMatcher: BlockHtmlAdapterMatcher = {
   flavour: ParagraphBlockSchema.model.flavour,
@@ -85,7 +70,7 @@ export const paragraphBlockHtmlAdapterMatcher: BlockHtmlAdapterMatcher = {
         case 'footer': {
           if (
             o.parent?.node.type === 'element' &&
-            !tagsInAncestor(o, ['p', 'li']) &&
+            !['li', 'p'].includes(o.parent.node.tagName) &&
             HastUtils.isParagraphLike(o.node)
           ) {
             walkerContext

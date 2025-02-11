@@ -1,7 +1,5 @@
-import { insertEdgelessTextCommand } from '@blocksuite/affine-block-edgeless-text';
 import {
   ConnectorUtils,
-  isNoteBlock,
   OverlayIdentifier,
 } from '@blocksuite/affine-block-surface';
 import { focusTextModel } from '@blocksuite/affine-components/rich-text';
@@ -17,10 +15,7 @@ import {
   ShapeElementModel,
   TextElementModel,
 } from '@blocksuite/affine-model';
-import {
-  FeatureFlagService,
-  TelemetryProvider,
-} from '@blocksuite/affine-shared/services';
+import { TelemetryProvider } from '@blocksuite/affine-shared/services';
 import {
   clamp,
   handleNativeRangeAtPoint,
@@ -57,6 +52,7 @@ import {
   isCanvasElement,
   isEdgelessTextBlock,
   isFrameBlock,
+  isNoteBlock,
 } from '../utils/query.js';
 import type { EdgelessSnapManager } from '../utils/snap-manager.js';
 import {
@@ -67,6 +63,7 @@ import {
   mountShapeTextEditor,
   mountTextElementEditor,
 } from '../utils/text.js';
+import { fitToScreen } from '../utils/viewport.js';
 import { CanvasElementEventExt } from './default-tool-ext/event-ext.js';
 import type { DefaultToolExt } from './default-tool-ext/ext.js';
 import { DefaultModeDragType } from './default-tool-ext/ext.js';
@@ -765,7 +762,11 @@ export class DefaultTool extends BaseTool {
     if (this.doc.readonly) {
       const viewport = this.gfx.viewport;
       if (viewport.zoom === 1) {
-        this.gfx.fitToScreen();
+        // Fit to Screen
+        fitToScreen(
+          [...this.gfx.layer.blocks, ...this.gfx.layer.canvasElements],
+          this.gfx.viewport
+        );
       } else {
         // Zoom to 100% and Center
         const [x, y] = viewport.toModelCoord(e.x, e.y);
@@ -782,13 +783,11 @@ export class DefaultTool extends BaseTool {
     }
 
     if (!selected) {
-      const textFlag = this.doc
-        .get(FeatureFlagService)
-        .getFlag('enable_edgeless_text');
+      const textFlag = this.doc.awarenessStore.getFlag('enable_edgeless_text');
 
       if (textFlag) {
         const [x, y] = this.gfx.viewport.toModelCoord(e.x, e.y);
-        this.std.command.exec(insertEdgelessTextCommand, { x, y });
+        this.std.command.exec('insertEdgelessText', { x, y });
       } else {
         addText(this._edgeless, e);
       }

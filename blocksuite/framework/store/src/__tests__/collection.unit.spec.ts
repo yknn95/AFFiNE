@@ -2,13 +2,13 @@
 
 import type { Slot } from '@blocksuite/global/utils';
 import { assert, beforeEach, describe, expect, it, vi } from 'vitest';
-import { applyUpdate, type Doc, encodeStateAsUpdate } from 'yjs';
+import { applyUpdate, encodeStateAsUpdate } from 'yjs';
 
-import type { BlockModel, BlockSchemaType, DocMeta, Store } from '../index.js';
-import { Schema } from '../index.js';
-import { Text } from '../reactive/text.js';
-import { createAutoIncrementIdGenerator } from '../test/index.js';
-import { TestWorkspace } from '../test/test-workspace.js';
+import { COLLECTION_VERSION, PAGE_VERSION } from '../consts.js';
+import type { BlockModel, BlockSchemaType, Doc } from '../index.js';
+import { DocCollection, IdGeneratorType, Schema } from '../index.js';
+import type { DocMeta } from '../store/index.js';
+import type { BlockSuiteDoc } from '../yjs/index.js';
 import {
   NoteBlockSchema,
   ParagraphBlockSchema,
@@ -23,7 +23,7 @@ export const BlockSchemas = [
 ] as BlockSchemaType[];
 
 function createTestOptions() {
-  const idGenerator = createAutoIncrementIdGenerator();
+  const idGenerator = IdGeneratorType.AutoIncrement;
   const schema = new Schema();
   schema.register(BlockSchemas);
   return { id: 'test-collection', idGenerator, schema };
@@ -33,9 +33,9 @@ const defaultDocId = 'doc:home';
 const spaceId = defaultDocId;
 const spaceMetaId = 'meta';
 
-function serializCollection(doc: Doc): Record<string, any> {
+function serializCollection(doc: BlockSuiteDoc): Record<string, any> {
   const spaces = {};
-  doc.getMap('spaces').forEach((subDoc, key) => {
+  doc.spaces.forEach((subDoc, key) => {
     // @ts-expect-error ignore
     spaces[key] = subDoc.toJSON();
   });
@@ -52,7 +52,7 @@ function waitOnce<T>(slot: Slot<T>) {
   return new Promise<T>(resolve => slot.once(val => resolve(val)));
 }
 
-function createRoot(doc: Store) {
+function createRoot(doc: Doc) {
   doc.addBlock('affine:page');
   if (!doc.root) throw new Error('root not found');
   return doc.root;
@@ -60,7 +60,7 @@ function createRoot(doc: Store) {
 
 function createTestDoc(docId = defaultDocId) {
   const options = createTestOptions();
-  const collection = new TestWorkspace(options);
+  const collection = new DocCollection(options);
   collection.meta.initialize();
   const doc = collection.createDoc({ id: docId });
   doc.load();
@@ -92,14 +92,16 @@ beforeEach(() => {
 describe('basic', () => {
   it('can init collection', () => {
     const options = createTestOptions();
-    const collection = new TestWorkspace(options);
+    const collection = new DocCollection(options);
     collection.meta.initialize();
+    assert.equal(collection.isEmpty, true);
 
     const doc = collection.createDoc({ id: 'doc:home' });
     doc.load();
     const actual = serializCollection(collection.doc);
     const actualDoc = actual[spaceMetaId].pages[0] as DocMeta;
 
+    assert.equal(collection.isEmpty, false);
     assert.equal(typeof actualDoc.createDate, 'number');
     // @ts-expect-error ignore
     delete actualDoc.createDate;
@@ -113,8 +115,8 @@ describe('basic', () => {
             tags: [],
           },
         ],
-        workspaceVersion: 2,
-        pageVersion: 2,
+        workspaceVersion: COLLECTION_VERSION,
+        pageVersion: PAGE_VERSION,
         blockVersions: {
           'affine:note': 1,
           'affine:page': 2,
@@ -132,7 +134,7 @@ describe('basic', () => {
   it('init collection with custom id generator', () => {
     const options = createTestOptions();
     let id = 100;
-    const collection = new TestWorkspace({
+    const collection = new DocCollection({
       ...options,
       idGenerator: () => {
         return String(id++);
@@ -151,7 +153,7 @@ describe('basic', () => {
 
   it('doc ready lifecycle', () => {
     const options = createTestOptions();
-    const collection = new TestWorkspace(options);
+    const collection = new DocCollection(options);
     collection.meta.initialize();
     const doc = collection.createDoc({
       id: 'space:0',
@@ -163,28 +165,31 @@ describe('basic', () => {
     doc.slots.rootAdded.on(rootAddedCallback);
 
     doc.load(() => {
+      expect(doc.ready).toBe(false);
       const rootId = doc.addBlock('affine:page', {
-        title: new Text(),
+        title: new doc.Text(),
       });
       expect(rootAddedCallback).toBeCalledTimes(1);
+      expect(doc.ready).toBe(false);
 
       doc.addBlock('affine:note', {}, rootId);
     });
 
+    expect(doc.ready).toBe(true);
     expect(readyCallback).toBeCalledTimes(1);
   });
 
   it('collection docs with yjs applyUpdate', () => {
     const options = createTestOptions();
-    const collection = new TestWorkspace(options);
+    const collection = new DocCollection(options);
     collection.meta.initialize();
-    const collection2 = new TestWorkspace(options);
+    const collection2 = new DocCollection(options);
     const doc = collection.createDoc({
       id: 'space:0',
     });
     doc.load(() => {
       doc.addBlock('affine:page', {
-        title: new Text(),
+        title: new doc.Text(),
       });
     });
     {
@@ -197,7 +202,7 @@ describe('basic', () => {
       expect(collection2.docs.size).toBe(0);
       const update = encodeStateAsUpdate(collection.doc);
       applyUpdate(collection2.doc, update);
-      expect(serializCollection(collection2.doc)['spaces']).toEqual({
+      expect(collection2.doc.toJSON()['spaces']).toEqual({
         'space:0': {
           blocks: {},
         },
@@ -212,7 +217,7 @@ describe('basic', () => {
       const doc2 = collection2.getDoc('space:0');
       assertExists(doc2);
       applyUpdate(doc2.spaceDoc, update);
-      expect(serializCollection(collection2.doc)['spaces']).toEqual({
+      expect(collection2.doc.toJSON()['spaces']).toEqual({
         'space:0': {
           blocks: {
             '0': {
@@ -243,7 +248,7 @@ describe('addBlock', () => {
   it('can add single model', () => {
     const doc = createTestDoc();
     doc.addBlock('affine:page', {
-      title: new Text(),
+      title: new doc.Text(),
     });
 
     assert.deepEqual(serializCollection(doc.rootDoc).spaces[spaceId].blocks, {
@@ -262,7 +267,7 @@ describe('addBlock', () => {
 
   it('can add model with props', () => {
     const doc = createTestDoc();
-    doc.addBlock('affine:page', { title: new Text('hello') });
+    doc.addBlock('affine:page', { title: new doc.Text('hello') });
 
     assert.deepEqual(serializCollection(doc.rootDoc).spaces[spaceId].blocks, {
       '0': {
@@ -281,7 +286,7 @@ describe('addBlock', () => {
   it('can add multi models', () => {
     const doc = createTestDoc();
     const rootId = doc.addBlock('affine:page', {
-      title: new Text(),
+      title: new doc.Text(),
     });
     const noteId = doc.addBlock('affine:note', {}, rootId);
     doc.addBlock('affine:paragraph', {}, noteId);
@@ -342,7 +347,7 @@ describe('addBlock', () => {
 
     queueMicrotask(() =>
       doc.addBlock('affine:page', {
-        title: new Text(),
+        title: new doc.Text(),
       })
     );
     const blockId = await waitOnce(doc.slots.rootAdded);
@@ -378,7 +383,7 @@ describe('addBlock', () => {
 
   it('can add and remove multi docs', async () => {
     const options = createTestOptions();
-    const collection = new TestWorkspace(options);
+    const collection = new DocCollection(options);
     collection.meta.initialize();
 
     const doc0 = collection.createDoc({ id: 'doc:home' });
@@ -387,7 +392,7 @@ describe('addBlock', () => {
     assert.equal(collection.docs.size, 2);
 
     doc0.addBlock('affine:page', {
-      title: new Text(),
+      title: new doc0.Text(),
     });
     collection.removeDoc(doc0.id);
 
@@ -403,7 +408,7 @@ describe('addBlock', () => {
 
   it('can remove doc that has not been loaded', () => {
     const options = createTestOptions();
-    const collection = new TestWorkspace(options);
+    const collection = new DocCollection(options);
     collection.meta.initialize();
 
     const doc0 = collection.createDoc({ id: 'doc:home' });
@@ -414,7 +419,7 @@ describe('addBlock', () => {
 
   it('can set doc state', () => {
     const options = createTestOptions();
-    const collection = new TestWorkspace(options);
+    const collection = new DocCollection(options);
     collection.meta.initialize();
     collection.createDoc({ id: 'doc:home' });
 
@@ -432,11 +437,11 @@ describe('addBlock', () => {
     );
 
     let called = false;
-    collection.slots.docListUpdated.on(() => {
+    collection.meta.docMetaUpdated.on(() => {
       called = true;
     });
 
-    collection.meta.setDocMeta('doc:home', { favorite: true });
+    collection.setDocMeta('doc:home', { favorite: true });
     assert.deepEqual(
       collection.meta.docMetas.map(({ id, title, favorite }) => ({
         id,
@@ -456,7 +461,7 @@ describe('addBlock', () => {
 
   it('can set collection common meta fields', async () => {
     const options = createTestOptions();
-    const collection = new TestWorkspace(options);
+    const collection = new DocCollection(options);
 
     queueMicrotask(() => collection.meta.setName('hello'));
     await waitOnce(collection.meta.commonFieldsUpdated);
@@ -857,6 +862,84 @@ describe('getBlock', () => {
 
     const invalid = doc.getPrev(rootModel.children[0].children[0]);
     assert.equal(invalid, null);
+  });
+});
+
+// Inline snapshot is not supported under describe.parallel config
+describe('collection.exportJSX works', () => {
+  it('collection matches snapshot', () => {
+    const options = createTestOptions();
+    const collection = new DocCollection(options);
+    collection.meta.initialize();
+    const doc = collection.createDoc({ id: 'doc:home' });
+
+    doc.addBlock('affine:page', { title: new doc.Text('hello') });
+
+    expect(collection.exportJSX()).toMatchInlineSnapshot(`
+      <affine:page
+        prop:count={0}
+        prop:items={[]}
+        prop:style={{}}
+        prop:title="hello"
+      />
+    `);
+  });
+
+  it('empty collection matches snapshot', () => {
+    const options = createTestOptions();
+    const collection = new DocCollection(options);
+    collection.meta.initialize();
+    collection.createDoc({ id: 'doc:home' });
+
+    expect(collection.exportJSX()).toMatchInlineSnapshot('null');
+  });
+
+  it('collection with multiple blocks children matches snapshot', () => {
+    const options = createTestOptions();
+    const collection = new DocCollection(options);
+    collection.meta.initialize();
+    const doc = collection.createDoc({ id: 'doc:home' });
+    doc.load(() => {
+      const rootId = doc.addBlock('affine:page', {
+        title: new doc.Text(),
+      });
+      const noteId = doc.addBlock('affine:note', {}, rootId);
+      doc.addBlock('affine:paragraph', {}, noteId);
+      doc.addBlock('affine:paragraph', {}, noteId);
+    });
+
+    expect(collection.exportJSX()).toMatchInlineSnapshot(/* xml */ `
+      <affine:page
+        prop:count={0}
+        prop:items={[]}
+        prop:style={{}}
+      >
+        <affine:note>
+          <affine:paragraph
+            prop:type="text"
+          />
+          <affine:paragraph
+            prop:type="text"
+          />
+        </affine:note>
+      </affine:page>
+    `);
+  });
+});
+
+describe('flags', () => {
+  it('update flags', () => {
+    const options = createTestOptions();
+    const collection = new DocCollection(options);
+    collection.meta.initialize();
+
+    const awareness = collection.awarenessStore;
+
+    awareness.setFlag('enable_lasso_tool', false);
+    expect(awareness.getFlag('enable_lasso_tool')).toBe(false);
+
+    awareness.setFlag('enable_lasso_tool', true);
+    expect(awareness.getFlag('enable_lasso_tool')).toBe(true);
   });
 });
 

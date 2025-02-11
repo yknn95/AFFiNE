@@ -14,7 +14,7 @@ import {
   CompatibleFavoriteItemsAdapter,
   FavoriteService,
 } from '@affine/core/modules/favorite';
-import { GuardService } from '@affine/core/modules/permissions';
+import { FeatureFlagService } from '@affine/core/modules/feature-flag';
 import { WorkbenchService } from '@affine/core/modules/workbench';
 import { WorkspaceService } from '@affine/core/modules/workspace';
 import type { Collection, DeleteCollectionInfo } from '@affine/env/filter';
@@ -58,25 +58,26 @@ export interface PageOperationCellProps {
   onRemoveFromAllowList?: () => void;
 }
 
-const PageOperationCellMenuItem = ({
+export const PageOperationCell = ({
   isInAllowList,
   page,
   onRemoveFromAllowList,
 }: PageOperationCellProps) => {
   const t = useI18n();
   const {
+    featureFlagService,
     workspaceService,
     compatibleFavoriteItemsAdapter: favAdapter,
     workbenchService,
-    guardService,
   } = useServices({
+    FeatureFlagService,
     WorkspaceService,
     CompatibleFavoriteItemsAdapter,
     WorkbenchService,
-    GuardService,
   });
-
-  const canMoveToTrash = useLiveData(guardService.can$('Doc_Trash', page.id));
+  const enableSplitView = useLiveData(
+    featureFlagService.flags.enable_multi_view.$
+  );
   const currentWorkspace = workspaceService.workspace;
   const favourite = useLiveData(favAdapter.isFavorite$(page.id, 'doc'));
   const workbench = workbenchService.workbench;
@@ -163,7 +164,7 @@ const PageOperationCellMenuItem = ({
     }
   }, [onRemoveFromAllowList]);
 
-  return (
+  const OperationMenu = (
     <>
       {page.isPublic && (
         <DisablePublicSharing
@@ -193,7 +194,7 @@ const PageOperationCellMenuItem = ({
       <MenuItem onClick={onOpenInNewTab} prefixIcon={<OpenInNewIcon />}>
         {t['com.affine.workbench.tab.page-menu-open']()}
       </MenuItem>
-      {BUILD_CONFIG.isElectron ? (
+      {BUILD_CONFIG.isElectron && enableSplitView ? (
         <MenuItem onClick={onOpenInSplitView} prefixIcon={<SplitViewIcon />}>
           {t['com.affine.workbench.split-view.page-menu-open']()}
         </MenuItem>
@@ -203,36 +204,9 @@ const PageOperationCellMenuItem = ({
         {t['com.affine.header.option.duplicate']()}
       </MenuItem>
 
-      <MoveToTrash
-        data-testid="move-to-trash"
-        onSelect={onRemoveToTrash}
-        disabled={!canMoveToTrash}
-      />
+      <MoveToTrash data-testid="move-to-trash" onSelect={onRemoveToTrash} />
     </>
   );
-};
-
-export const PageOperationCell = ({
-  isInAllowList,
-  page,
-  onRemoveFromAllowList,
-}: PageOperationCellProps) => {
-  const t = useI18n();
-  const { compatibleFavoriteItemsAdapter: favAdapter } = useServices({
-    CompatibleFavoriteItemsAdapter,
-  });
-
-  const favourite = useLiveData(favAdapter.isFavorite$(page.id, 'doc'));
-
-  const onToggleFavoritePage = useCallback(() => {
-    const status = favAdapter.isFavorite(page.id, 'doc');
-    favAdapter.toggle(page.id, 'doc');
-    toast(
-      status
-        ? t['com.affine.toastMessage.removedFavorites']()
-        : t['com.affine.toastMessage.addedFavorites']()
-    );
-  }, [page.id, favAdapter, t]);
   return (
     <>
       <ColWrapper
@@ -245,13 +219,7 @@ export const PageOperationCell = ({
       </ColWrapper>
       <ColWrapper alignment="start">
         <Menu
-          items={
-            <PageOperationCellMenuItem
-              page={page}
-              isInAllowList={isInAllowList}
-              onRemoveFromAllowList={onRemoveFromAllowList}
-            />
-          }
+          items={OperationMenu}
           contentOptions={{
             align: 'end',
           }}

@@ -12,13 +12,11 @@ export const useEditor = (
   pageId: string,
   preferMode?: DocMode,
   preferSelector?: EditorSelector,
-  defaultOpenProperty?: DefaultOpenProperty,
-  canLoad?: boolean
+  defaultOpenProperty?: DefaultOpenProperty
 ) => {
   const currentWorkspace = useService(WorkspaceService).workspace;
   const docsService = useService(DocsService);
   const docRecordList = docsService.list;
-  const [loading, setLoading] = useState(false);
   const docListReady = useLiveData(docRecordList.isReady$);
   const docRecord = docRecordList.doc$(pageId).value;
   const preferModeRef = useRef(preferMode);
@@ -27,40 +25,16 @@ export const useEditor = (
   const [doc, setDoc] = useState<Doc | null>(null);
   const [editor, setEditor] = useState<Editor | null>(null);
 
-  useEffect(() => {
+  useLayoutEffect(() => {
     if (!docRecord) {
       return;
     }
-    let canceled = false;
-    let release: () => void;
-    setLoading(true);
-    const loaded = docsService.loaded(pageId);
-    if (loaded) {
-      setDoc(loaded.doc);
-      release = loaded.release;
-      setLoading(false);
-    } else if (canLoad) {
-      requestIdleCallback(
-        () => {
-          if (canceled) {
-            return;
-          }
-          const { doc: opened, release: _release } = docsService.open(pageId);
-          setDoc(opened);
-          release = _release;
-          setLoading(false);
-        },
-        {
-          timeout: 1000,
-        }
-      );
-    }
+    const { doc: opened, release } = docsService.open(pageId);
+    setDoc(opened);
     return () => {
-      canceled = true;
-      release?.();
-      setLoading(false);
+      release();
     };
-  }, [canLoad, docRecord, docsService, pageId]);
+  }, [docRecord, docsService, pageId]);
 
   useLayoutEffect(() => {
     if (!doc) {
@@ -78,13 +52,11 @@ export const useEditor = (
 
   // set sync engine priority target
   useEffect(() => {
-    return currentWorkspace.engine.doc.addPriority(pageId, 10);
+    currentWorkspace.engine.doc.setPriority(pageId, 10);
+    return () => {
+      currentWorkspace.engine.doc.setPriority(pageId, 5);
+    };
   }, [currentWorkspace, pageId]);
 
-  return {
-    doc,
-    editor,
-    workspace: currentWorkspace,
-    loading: !docListReady || loading,
-  };
+  return { doc, editor, workspace: currentWorkspace, loading: !docListReady };
 };

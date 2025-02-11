@@ -17,7 +17,7 @@ export type TextToTextOptions = {
   sessionId?: string | Promise<string>;
   content?: string;
   attachments?: (string | Blob | File)[];
-  params?: Record<string, any>;
+  params?: Record<string, string>;
   timeout?: number;
   stream?: boolean;
   signal?: AbortSignal;
@@ -35,32 +35,15 @@ export function createChatSession({
   client,
   workspaceId,
   docId,
-  promptName,
 }: {
   client: CopilotClient;
   workspaceId: string;
   docId: string;
-  promptName: string;
 }) {
   return client.createSession({
     workspaceId,
     docId,
-    promptName,
-  });
-}
-
-export function updateChatSession({
-  client,
-  sessionId,
-  promptName,
-}: {
-  client: CopilotClient;
-  sessionId: string;
-  promptName: string;
-}) {
-  return client.updateSession({
-    sessionId,
-    promptName,
+    promptName: 'Chat With AFFiNE AI',
   });
 }
 
@@ -91,7 +74,7 @@ async function resizeImage(blob: Blob | File): Promise<Blob | null> {
     if (ctx) {
       ctx.imageSmoothingQuality = 'high';
       ctx.drawImage(img, 0, 0, canvas.width, canvas.height);
-      return await new Promise(resolve =>
+      return new Promise(resolve =>
         canvas.toBlob(blob => resolve(blob), 'image/jpeg', 0.8)
       );
     }

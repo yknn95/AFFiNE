@@ -1,8 +1,8 @@
+import type { ExtensionType } from '@blocksuite/block-std';
 import {
   createIdentifier,
   type ServiceIdentifier,
 } from '@blocksuite/global/di';
-import type { ExtensionType } from '@blocksuite/store';
 
 import type { BlockAdapterMatcher } from '../types/adapter.js';
 import type { HtmlAST } from '../types/hast.js';

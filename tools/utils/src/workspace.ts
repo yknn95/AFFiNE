@@ -1,8 +1,11 @@
+import once from 'lodash-es/once';
+
 import { Logger } from './logger';
 import { Package, readPackageJson } from './package';
 import { ProjectRoot } from './path';
-import type { CommonPackageJsonContent } from './types';
-import { PackageList, type PackageName, yarnList } from './yarn';
+import { exec } from './process';
+import type { CommonPackageJsonContent, YarnWorkspaceItem } from './types';
+import { PackageList, type PackageName } from './workspace.gen';
 
 class CircularDependenciesError extends Error {
   constructor(public currentName: string) {
@@ -46,15 +49,11 @@ export class Workspace {
     return this.packageJson.dependencies ?? {};
   }
 
-  get isTsProject() {
-    return this.join('tsconfig.json').exists();
-  }
-
-  constructor(list: typeof PackageList = PackageList) {
+  constructor() {
     this.packageJson = readPackageJson(ProjectRoot);
     const packages = new Map<string, Package>();
 
-    for (const meta of list) {
+    for (const meta of PackageList) {
       try {
         const pkg = new Package(meta.name as PackageName, meta);
         // @ts-expect-error internal api
@@ -71,7 +70,6 @@ export class Workspace {
     } catch (e) {
       if (e instanceof CircularDependenciesError) {
         const inProcessPackages = Array.from(building);
-        console.log(inProcessPackages, e.currentName);
         const circle = inProcessPackages
           .slice(inProcessPackages.indexOf(e.currentName))
           .concat(e.currentName);
@@ -129,7 +127,7 @@ export class Workspace {
         }
 
         if (building.has(dep.name)) {
-          throw new CircularDependenciesError(dep.name);
+          throw new CircularDependenciesError(pkg.name);
         }
 
         if (!pkg.packageJson.private && dep.packageJson.private) {
@@ -144,9 +142,63 @@ export class Workspace {
     building.delete(pkg.name);
   }
 
+  yarnList = once(() => {
+    const output = exec('', 'yarn workspaces list -v --json', { silent: true });
+
+    let packageList = JSON.parse(
+      `[${output.trim().replace(/\r\n|\n/g, ',')}]`
+    ) as YarnWorkspaceItem[];
+
+    packageList.forEach(p => {
+      p.location = p.location.replaceAll(/\\/g, '/');
+      delete p['mismatchedWorkspaceDependencies'];
+    });
+
+    // ignore root package
+    return packageList.filter(p => p.location !== '.');
+  });
+
+  genWorkspaceInfo() {
+    const list = this.yarnList();
+
+    const names = list.map(p => p.name);
+
+    const content = [
+      '// Auto generated content',
+      '// DO NOT MODIFY THIS FILE MANUALLY',
+      `export const PackageList = ${JSON.stringify(list, null, 2)}`,
+      '',
+      `export type PackageName = ${names.map(n => `'${n}'`).join(' | ')}`,
+    ];
+
+    return content.join('\n');
+  }
+
+  genProjectTsConfig() {
+    const content = [
+      '// Auto generated content',
+      '// DO NOT MODIFY THIS FILE MANUALLY',
+      '{',
+      '  "compilerOptions": {',
+      '    "noEmit": true',
+      '  },',
+      '  "include": [],',
+      '  "references": [',
+      this.packages
+        .filter(p => p.isTsProject)
+        .map(p => `    { "path": "${p.path.relativePath}" }`)
+        .join(',\n'),
+      '  ]',
+      '}',
+      '',
+    ];
+
+    return content.join('\n');
+  }
+
   forEach(callback: (pkg: Package) => void) {
     this.packages.forEach(callback);
   }
 }
 
-export { Package, type PackageName, yarnList };
+export { Package, type PackageName };

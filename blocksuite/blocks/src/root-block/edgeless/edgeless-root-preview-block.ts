@@ -5,16 +5,15 @@ import type {
 import type { EdgelessPreviewer } from '@blocksuite/affine-block-surface-ref';
 import type { RootBlockModel } from '@blocksuite/affine-model';
 import {
-  EditorSettingProvider,
   FontLoaderService,
   ThemeProvider,
 } from '@blocksuite/affine-shared/services';
 import { requestThrottledConnectedFrame } from '@blocksuite/affine-shared/utils';
-import {
-  BlockComponent,
-  type GfxBlockComponent,
+import type {
+  GfxBlockComponent,
   SurfaceSelection,
 } from '@blocksuite/block-std';
+import { BlockComponent } from '@blocksuite/block-std';
 import type { GfxViewportElement } from '@blocksuite/block-std/gfx';
 import { assertExists } from '@blocksuite/global/utils';
 import { css, html } from 'lit';
@@ -177,18 +176,12 @@ export class EdgelessRootPreviewBlockComponent
     );
   }
 
-  private get _disableScheduleUpdate() {
-    const editorSetting = this.std.getOptional(EditorSettingProvider);
-
-    return editorSetting?.peek().edgelessDisableScheduleUpdate ?? false;
-  }
-
   override connectedCallback() {
     super.connectedCallback();
 
     this.handleEvent('selectionChange', () => {
       const surface = this.host.selection.value.find(
-        (sel): sel is SurfaceSelection => sel.is(SurfaceSelection)
+        (sel): sel is SurfaceSelection => sel.is('surface')
       );
       if (!surface) return;
 
@@ -230,7 +223,6 @@ export class EdgelessRootPreviewBlockComponent
     return html`
       <div class="edgeless-background edgeless-container">
         <gfx-viewport
-          .enableChildrenSchedule=${!this._disableScheduleUpdate}
           .viewport=${this.service.viewport}
           .getModelsInViewport=${() => {
             const blocks = this.service.gfx.grid.search(

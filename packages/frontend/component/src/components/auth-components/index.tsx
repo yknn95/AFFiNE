@@ -4,6 +4,7 @@ export * from './auth-page-container';
 export * from './back-button';
 export * from './change-email-page';
 export * from './change-password-page';
+export * from './count-down-render';
 export * from './modal-header';
 export * from './onboarding-page';
 export * from './password-input';

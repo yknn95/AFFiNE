@@ -13,7 +13,7 @@ import type { SnapshotHistory } from '@prisma/client';
 
 import { CurrentUser } from '../../auth';
 import { PgWorkspaceDocStorageAdapter } from '../../doc';
-import { PermissionService } from '../../permission';
+import { Permission, PermissionService } from '../../permission';
 import { DocID } from '../../utils/doc';
 import { WorkspaceType } from '../types';
 import { EditorType } from './workspace';
@@ -79,8 +79,8 @@ export class DocHistoryResolver {
     await this.permission.checkPagePermission(
       docId.workspace,
       docId.guid,
-      'Doc.Update',
-      user.id
+      user.id,
+      Permission.Write
     );
 
     await this.workspace.rollbackDoc(

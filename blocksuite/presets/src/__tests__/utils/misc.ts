@@ -1,23 +1,13 @@
 import { replaceIdMiddleware } from '@blocksuite/blocks';
-import {
-  type DocSnapshot,
-  Transformer,
-  type Workspace,
-} from '@blocksuite/store';
+import { type DocCollection, type DocSnapshot, Job } from '@blocksuite/store';
 
 export async function importFromSnapshot(
-  collection: Workspace,
+  collection: DocCollection,
   snapshot: DocSnapshot
 ) {
-  const job = new Transformer({
-    schema: collection.schema,
-    blobCRUD: collection.blobSync,
-    docCRUD: {
-      create: (id: string) => collection.createDoc({ id }),
-      get: (id: string) => collection.getDoc(id),
-      delete: (id: string) => collection.removeDoc(id),
-    },
-    middlewares: [replaceIdMiddleware(collection.idGenerator)],
+  const job = new Job({
+    collection,
+    middlewares: [replaceIdMiddleware],
   });
 
   return job.snapshotToDoc(snapshot);

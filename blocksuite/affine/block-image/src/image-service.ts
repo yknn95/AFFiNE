@@ -1,10 +1,6 @@
-import { SurfaceBlockModel } from '@blocksuite/affine-block-surface';
-import { FileDropConfigExtension } from '@blocksuite/affine-components/drop-indicator';
+import { FileDropConfigExtension } from '@blocksuite/affine-components/drag-indicator';
 import { ImageBlockSchema, MAX_IMAGE_WIDTH } from '@blocksuite/affine-model';
-import {
-  FileSizeLimitService,
-  TelemetryProvider,
-} from '@blocksuite/affine-shared/services';
+import { TelemetryProvider } from '@blocksuite/affine-shared/services';
 import {
   isInsideEdgelessEditor,
   matchFlavours,
@@ -12,27 +8,34 @@ import {
 import { BlockService } from '@blocksuite/block-std';
 import { GfxControllerIdentifier } from '@blocksuite/block-std/gfx';
 
+import { setImageProxyMiddlewareURL } from './adapters/middleware.js';
 import { addImages, addSiblingImageBlock } from './utils.js';
+
+// bytes.parse('2GB')
+const maxFileSize = 2147483648;
 
 export class ImageBlockService extends BlockService {
   static override readonly flavour = ImageBlockSchema.model.flavour;
+
+  static setImageProxyURL = setImageProxyMiddlewareURL;
+
+  maxFileSize = maxFileSize;
 }
 
 export const ImageDropOption = FileDropConfigExtension({
   flavour: ImageBlockSchema.model.flavour,
-  onDrop: ({ files, targetModel, placement, point, std }) => {
+  onDrop: ({ files, targetModel, place, point, std }) => {
     const imageFiles = files.filter(file => file.type.startsWith('image/'));
     if (!imageFiles.length) return false;
 
-    const maxFileSize = std.store.get(FileSizeLimitService).maxFileSize;
-
-    if (targetModel && !matchFlavours(targetModel, [SurfaceBlockModel])) {
+    if (targetModel && !matchFlavours(targetModel, ['affine:surface'])) {
       addSiblingImageBlock(
         std.host,
         imageFiles,
+        // TODO: use max file size from service
         maxFileSize,
         targetModel,
-        placement
+        place
       );
       return true;
     }

@@ -50,18 +50,8 @@ test.beforeEach(async t => {
 test('should be able to sign and verify', t => {
   const data = 'hello world';
   const signature = t.context.crypto.sign(data);
-  t.true(t.context.crypto.verify(signature));
-  t.false(t.context.crypto.verify('fake-signature'));
-  t.false(t.context.crypto.verify(`${data},fake-signature`));
-});
-
-test('should same data should get different signature', t => {
-  const data = 'hello world';
-  const signature = t.context.crypto.sign(data);
-  const signature2 = t.context.crypto.sign(data);
-  t.not(signature2, signature);
-  t.true(t.context.crypto.verify(signature));
-  t.true(t.context.crypto.verify(signature2));
+  t.true(t.context.crypto.verify(data, signature));
+  t.false(t.context.crypto.verify(data, 'fake-signature'));
 });
 
 test('should be able to encrypt and decrypt', t => {

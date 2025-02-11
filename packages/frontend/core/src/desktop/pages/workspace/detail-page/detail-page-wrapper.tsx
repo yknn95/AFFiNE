@@ -41,14 +41,20 @@ const useLoadDoc = (pageId: string) => {
 
   // set sync engine priority target
   useEffect(() => {
-    return currentWorkspace.engine.doc.addPriority(pageId, 10);
+    currentWorkspace.engine.doc.setPriority(pageId, 10);
+    return () => {
+      currentWorkspace.engine.doc.setPriority(pageId, 5);
+    };
   }, [currentWorkspace, pageId]);
 
   const isInTrash = useLiveData(doc?.meta$.map(meta => meta.trash));
 
   useEffect(() => {
     if (doc && isInTrash) {
-      doc.blockSuiteDoc.readonly = true;
+      currentWorkspace.docCollection.awarenessStore.setReadonly(
+        doc.blockSuiteDoc.blockCollection,
+        true
+      );
     }
   }, [currentWorkspace.docCollection.awarenessStore, doc, isInTrash]);
 

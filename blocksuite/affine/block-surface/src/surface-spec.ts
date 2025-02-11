@@ -1,11 +1,17 @@
-import { BlockViewExtension, FlavourExtension } from '@blocksuite/block-std';
-import type { ExtensionType } from '@blocksuite/store';
+import { HighlightSelectionExtension } from '@blocksuite/affine-shared/selection';
+import {
+  BlockViewExtension,
+  CommandExtension,
+  type ExtensionType,
+  FlavourExtension,
+} from '@blocksuite/block-std';
 import { literal } from 'lit/static-html.js';
 
 import {
   EdgelessSurfaceBlockAdapterExtensions,
   SurfaceBlockAdapterExtensions,
 } from './adapters/extension';
+import { commands } from './commands';
 import {
   EdgelessCRUDExtension,
   EdgelessLegacySlotExtension,
@@ -16,6 +22,8 @@ import { MindMapView } from './view/mindmap';
 const CommonSurfaceBlockSpec: ExtensionType[] = [
   FlavourExtension('affine:surface'),
   SurfaceBlockService,
+  CommandExtension(commands),
+  HighlightSelectionExtension,
   MindMapView,
   EdgelessCRUDExtension,
   EdgelessLegacySlotExtension,

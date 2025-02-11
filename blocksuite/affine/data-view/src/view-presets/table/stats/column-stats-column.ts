@@ -211,7 +211,6 @@ export class DatabaseColumnStatsCell extends SignalWatcher(
       this.subscriptionMap.forEach(unsub => {
         unsub();
       });
-      this.subscriptionMap.clear();
     });
   }
 

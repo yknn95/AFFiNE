@@ -134,9 +134,7 @@ export abstract class AutoMessageHandler {
   private listening = false;
   protected abstract handlers: Partial<MessageHandlers>;
 
-  constructor(protected readonly port: MessageCommunicapable) {
-    this.listen();
-  }
+  constructor(protected readonly port: MessageCommunicapable) {}
 
   protected handleMessage = ignoreUnknownEvent((msg: Messages) => {
     const handler = this.handlers[msg.type];
@@ -147,7 +145,7 @@ export abstract class AutoMessageHandler {
     handler(msg as any);
   });
 
-  protected listen() {
+  listen() {
     if (this.listening) {
       return;
     }

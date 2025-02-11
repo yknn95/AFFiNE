@@ -69,7 +69,7 @@ export class Menu {
 
   constructor(public options: MenuOptions) {
     this.menuElement = IS_MOBILE
-      ? document.createElement('mobile-menu')
+      ? document.createElement('affine-menu-mobile')
       : document.createElement('affine-menu');
     this.menuElement.menu = this;
 

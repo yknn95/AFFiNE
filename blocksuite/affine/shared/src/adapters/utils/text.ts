@@ -1,4 +1,3 @@
-import type { ReferenceParams } from '@blocksuite/affine-model';
 import { isEqual } from '@blocksuite/global/utils';
 import type { DeltaInsert } from '@blocksuite/inline';
 
@@ -75,22 +74,10 @@ function toURLSearchParams(
   );
 }
 
-function generateDocUrl(
-  docBaseUrl: string,
-  pageId: string,
-  params: ReferenceParams
-) {
-  const search = toURLSearchParams(params);
-  const query = search?.size ? `?${search.toString()}` : '';
-  const url = docBaseUrl ? `${docBaseUrl}/${pageId}${query}` : '';
-  return url;
-}
-
 export const TextUtils = {
   mergeDeltas,
   isNullish,
   createText,
   isText,
   toURLSearchParams,
-  generateDocUrl,
 };

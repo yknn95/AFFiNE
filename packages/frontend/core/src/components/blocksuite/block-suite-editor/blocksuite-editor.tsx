@@ -1,16 +1,17 @@
 import { useRefEffect } from '@affine/component';
 import { EditorLoading } from '@affine/component/page-detail-skeleton';
-import { ServerService } from '@affine/core/modules/cloud';
 import {
+  BookmarkBlockService,
   customImageProxyMiddleware,
   type DocMode,
-  ImageProxyService,
-  LinkPreviewerService,
+  EmbedGithubBlockService,
+  EmbedLoomBlockService,
+  EmbedYoutubeBlockService,
+  ImageBlockService,
 } from '@blocksuite/affine/blocks';
 import { DisposableGroup } from '@blocksuite/affine/global/utils';
 import type { AffineEditorContainer } from '@blocksuite/affine/presets';
-import type { Store } from '@blocksuite/affine/store';
-import { useService } from '@toeverything/infra';
+import type { Doc } from '@blocksuite/affine/store';
 import type { CSSProperties } from 'react';
 import { useEffect, useState } from 'react';
 
@@ -19,10 +20,9 @@ import { BlocksuiteEditorContainer } from './blocksuite-editor-container';
 import { NoPageRootError } from './no-page-error';
 
 export type EditorProps = {
-  page: Store;
+  page: Doc;
   mode: DocMode;
   shared?: boolean;
-  readonly?: boolean;
   defaultOpenProperty?: DefaultOpenProperty;
   // on Editor ready
   onEditorReady?: (editor: AffineEditorContainer) => (() => void) | void;
@@ -35,14 +35,13 @@ const BlockSuiteEditorImpl = ({
   page,
   className,
   shared,
-  readonly,
   style,
   onEditorReady,
   defaultOpenProperty,
 }: EditorProps) => {
   useEffect(() => {
     const disposable = page.slots.blockUpdated.once(() => {
-      page.workspace.meta.setDocMeta(page.id, {
+      page.collection.setDocMeta(page.id, {
         updatedDate: Date.now(),
       });
     });
@@ -50,8 +49,6 @@ const BlockSuiteEditorImpl = ({
       disposable.dispose();
     };
   }, [page]);
-
-  const server = useService(ServerService).server;
 
   const editorRef = useRefEffect(
     (editor: AffineEditorContainer) => {
@@ -69,22 +66,24 @@ const BlockSuiteEditorImpl = ({
             // host should be ready
 
             // provide image proxy endpoint to blocksuite
-            const imageProxyUrl = new URL(
-              BUILD_CONFIG.imageProxyUrl,
-              server.baseUrl
-            ).toString();
-            const linkPreviewUrl = new URL(
-              BUILD_CONFIG.linkPreviewUrl,
-              server.baseUrl
-            ).toString();
-
             editor.host?.std.clipboard.use(
-              customImageProxyMiddleware(imageProxyUrl)
+              customImageProxyMiddleware(BUILD_CONFIG.imageProxyUrl)
             );
+            ImageBlockService.setImageProxyURL(BUILD_CONFIG.imageProxyUrl);
 
-            page.get(LinkPreviewerService).setEndpoint(linkPreviewUrl);
-
-            page.get(ImageProxyService).setImageProxyURL(imageProxyUrl);
+            // provide link preview endpoint to blocksuite
+            BookmarkBlockService.setLinkPreviewEndpoint(
+              BUILD_CONFIG.linkPreviewUrl
+            );
+            EmbedGithubBlockService.setLinkPreviewEndpoint(
+              BUILD_CONFIG.linkPreviewUrl
+            );
+            EmbedYoutubeBlockService.setLinkPreviewEndpoint(
+              BUILD_CONFIG.linkPreviewUrl
+            );
+            EmbedLoomBlockService.setLinkPreviewEndpoint(
+              BUILD_CONFIG.linkPreviewUrl
+            );
 
             return editor.host?.updateComplete;
           })
@@ -105,7 +104,7 @@ const BlockSuiteEditorImpl = ({
         disposableGroup.dispose();
       };
     },
-    [onEditorReady, page, server]
+    [onEditorReady, page]
   );
 
   return (
@@ -113,7 +112,6 @@ const BlockSuiteEditorImpl = ({
       mode={mode}
       page={page}
       shared={shared}
-      readonly={readonly}
       defaultOpenProperty={defaultOpenProperty}
       ref={editorRef}
       className={className}

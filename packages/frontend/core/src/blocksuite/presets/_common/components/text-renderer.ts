@@ -1,6 +1,7 @@
 import {
   BlockStdScope,
   type EditorHost,
+  type ExtensionType,
   ShadowlessElement,
 } from '@blocksuite/affine/block-std';
 import type {
@@ -11,19 +12,19 @@ import {
   CodeBlockComponent,
   defaultBlockMarkdownAdapterMatchers,
   DividerBlockComponent,
-  InlineDeltaToMarkdownAdapterExtensions,
+  inlineDeltaToMarkdownAdapterMatchers,
   ListBlockComponent,
-  MarkdownInlineToDeltaAdapterExtensions,
+  markdownInlineToDeltaMatchers,
   ParagraphBlockComponent,
 } from '@blocksuite/affine/blocks';
 import { Container, type ServiceProvider } from '@blocksuite/affine/global/di';
 import { WithDisposable } from '@blocksuite/affine/global/utils';
-import type {
-  ExtensionType,
-  Query,
-  Schema,
-  Store,
-  TransformerMiddleware,
+import {
+  BlockViewType,
+  type Doc,
+  type JobMiddleware,
+  type Query,
+  type Schema,
 } from '@blocksuite/affine/store';
 import { css, html, nothing, type PropertyValues } from 'lit';
 import { property, query } from 'lit/decorators.js';
@@ -85,7 +86,7 @@ export type TextRendererOptions = {
   maxHeight?: number;
   customHeading?: boolean;
   extensions?: ExtensionType[];
-  additionalMiddlewares?: TransformerMiddleware[];
+  additionalMiddlewares?: JobMiddleware[];
 };
 
 // todo: refactor it for more general purpose usage instead of AI only?
@@ -100,7 +101,6 @@ export class TextRenderer extends WithDisposable(ShadowlessElement) {
 
     .ai-answer-text-editor .affine-page-root-block-container {
       padding: 0;
-      margin: 0;
       line-height: var(--affine-line-height);
       color: var(--affine-text-primary-color);
       font-weight: 400;
@@ -174,7 +174,7 @@ export class TextRenderer extends WithDisposable(ShadowlessElement) {
     }
   };
 
-  private _doc: Store | null = null;
+  private _doc: Doc | null = null;
 
   private readonly _query: Query = {
     mode: 'strict',
@@ -186,7 +186,7 @@ export class TextRenderer extends WithDisposable(ShadowlessElement) {
       'affine:code',
       'affine:list',
       'affine:divider',
-    ].map(flavour => ({ flavour, viewType: 'display' })),
+    ].map(flavour => ({ flavour, viewType: BlockViewType.Display })),
   };
 
   private _timer?: ReturnType<typeof setInterval> | null = null;
@@ -195,16 +195,16 @@ export class TextRenderer extends WithDisposable(ShadowlessElement) {
     if (this._answers.length > 0) {
       const latestAnswer = this._answers.pop();
       this._answers = [];
-      const schema = this.schema ?? this.host?.std.store.workspace.schema;
+      const schema = this.schema ?? this.host?.std.doc.collection.schema;
       let provider: ServiceProvider;
       if (this.host) {
         provider = this.host.std.provider;
       } else {
         const container = new Container();
         [
-          ...MarkdownInlineToDeltaAdapterExtensions,
+          ...markdownInlineToDeltaMatchers,
           ...defaultBlockMarkdownAdapterMatchers,
-          ...InlineDeltaToMarkdownAdapterExtensions,
+          ...inlineDeltaToMarkdownAdapterMatchers,
         ].forEach(ext => {
           ext.setup(container);
         });
@@ -220,13 +220,16 @@ export class TextRenderer extends WithDisposable(ShadowlessElement) {
         )
           .then(doc => {
             this.disposeDoc();
-            this._doc = doc.doc.getStore({
+            this._doc = doc.blockCollection.getDoc({
               query: this._query,
             });
             this.disposables.add(() => {
-              doc.doc.clearQuery(this._query);
+              doc.blockCollection.clearQuery(this._query);
             });
-            this._doc.readonly = true;
+            this._doc.awarenessStore.setReadonly(
+              this._doc.blockCollection,
+              true
+            );
             this.requestUpdate();
             if (this.state !== 'generating') {
               this._clearTimer();
@@ -256,7 +259,7 @@ export class TextRenderer extends WithDisposable(ShadowlessElement) {
 
   private disposeDoc() {
     this._doc?.dispose();
-    this._doc?.workspace.dispose();
+    this._doc?.collection.dispose();
   }
 
   override disconnectedCallback() {
@@ -287,7 +290,7 @@ export class TextRenderer extends WithDisposable(ShadowlessElement) {
           this._doc,
           html`<div class="ai-answer-text-editor affine-page-viewport">
             ${new BlockStdScope({
-              store: this._doc,
+              doc: this._doc,
               extensions: this.options.extensions ?? CustomPageEditorBlockSpecs,
             }).render()}
           </div>`

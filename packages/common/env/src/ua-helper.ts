@@ -32,9 +32,6 @@ export class UaHelper {
   }
 
   private isStandaloneMode() {
-    if (typeof window === 'undefined') {
-      return false;
-    }
     if ('standalone' in window.navigator) {
       return !!window.navigator.standalone;
     }

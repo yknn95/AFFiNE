@@ -31,6 +31,11 @@ export const BRACKET_PAIRS: BracketPair[] = [
     right: '"',
   },
   {
+    name: 'angle bracket',
+    left: '<',
+    right: '>',
+  },
+  {
     name: 'fullwidth single quote',
     left: '‘',
     right: '’',

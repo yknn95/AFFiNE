@@ -1,4 +1,4 @@
-import type { ExtensionType } from '@blocksuite/store';
+import type { ExtensionType } from '@blocksuite/block-std';
 
 import { EmbedLinkedDocHtmlAdapterExtension } from './html.js';
 import { EmbedLinkedDocMarkdownAdapterExtension } from './markdown.js';

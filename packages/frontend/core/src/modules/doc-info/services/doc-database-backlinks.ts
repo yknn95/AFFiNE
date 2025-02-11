@@ -28,9 +28,8 @@ export class DocDatabaseBacklinksService extends Service {
     if (!docRef.doc.blockSuiteDoc.ready) {
       docRef.doc.blockSuiteDoc.load();
     }
-    const disposePriorityLoad = docRef.doc.addPriorityLoad(10);
+    docRef.doc.setPriorityLoad(10);
     await docRef.doc.waitForSyncReady();
-    disposePriorityLoad();
     return docRef;
   }
 

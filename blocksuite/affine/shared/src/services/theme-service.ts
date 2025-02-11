@@ -4,9 +4,13 @@ import {
   DefaultTheme,
   resolveColor,
 } from '@blocksuite/affine-model';
-import { type BlockStdScope, StdIdentifier } from '@blocksuite/block-std';
+import {
+  type BlockStdScope,
+  Extension,
+  type ExtensionType,
+  StdIdentifier,
+} from '@blocksuite/block-std';
 import { type Container, createIdentifier } from '@blocksuite/global/di';
-import { Extension, type ExtensionType } from '@blocksuite/store';
 import { type Signal, signal } from '@preact/signals-core';
 import {
   type AffineCssVariables,
@@ -14,7 +18,7 @@ import {
   combinedLightCssVariables,
 } from '@toeverything/theme';
 
-import { isInsideEdgelessEditor } from '../utils/dom';
+import { isInsideEdgelessEditor } from '../utils/index.js';
 
 export const ThemeExtensionIdentifier = createIdentifier<ThemeExtension>(
   'AffineThemeExtension'
@@ -63,7 +67,7 @@ export class ThemeService extends Extension {
     const extension = this.std.getOptional(ThemeExtensionIdentifier);
     this.app$ = extension?.getAppTheme?.() || getThemeObserver().theme$;
     this.edgeless$ =
-      extension?.getEdgelessTheme?.(this.std.store.id) ||
+      extension?.getEdgelessTheme?.(this.std.doc.id) ||
       getThemeObserver().theme$;
   }
 
@@ -161,17 +165,10 @@ export class ThemeService extends Extension {
 export class ThemeObserver {
   private readonly observer: MutationObserver;
 
-  theme$: Signal<ColorScheme>;
+  theme$ = signal(ColorScheme.Light);
 
   constructor() {
     const COLOR_SCHEMES: string[] = Object.values(ColorScheme);
-    // Set initial theme according to the data-theme attribute
-    const initialMode = document.documentElement.dataset.theme;
-    this.theme$ = signal(
-      initialMode && COLOR_SCHEMES.includes(initialMode)
-        ? (initialMode as ColorScheme)
-        : ColorScheme.Light
-    );
     this.observer = new MutationObserver(() => {
       const mode = document.documentElement.dataset.theme;
       if (!mode) return;

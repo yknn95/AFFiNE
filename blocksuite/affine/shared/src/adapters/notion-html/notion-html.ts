@@ -1,4 +1,5 @@
 import { DefaultTheme, NoteDisplayMode } from '@blocksuite/affine-model';
+import type { ExtensionType } from '@blocksuite/block-std';
 import type { ServiceProvider } from '@blocksuite/global/di';
 import { BlockSuiteError, ErrorCode } from '@blocksuite/global/exceptions';
 import {
@@ -7,16 +8,15 @@ import {
   BaseAdapter,
   type BlockSnapshot,
   type DocSnapshot,
-  type ExtensionType,
   type FromBlockSnapshotPayload,
   type FromBlockSnapshotResult,
   type FromDocSnapshotPayload,
   type FromDocSnapshotResult,
   type FromSliceSnapshotPayload,
   type FromSliceSnapshotResult,
+  type Job,
   nanoid,
   type SliceSnapshot,
-  type Transformer,
 } from '@blocksuite/store';
 import rehypeParse from 'rehype-parse';
 import { unified } from 'unified';
@@ -41,6 +41,7 @@ export type NotionHtml = string;
 type NotionHtmlToSliceSnapshotPayload = {
   file: NotionHtml;
   assets?: AssetsManager;
+  blockVersions: Record<string, number>;
   workspaceId: string;
   pageId: string;
 };
@@ -115,7 +116,7 @@ export class NotionHtmlAdapter extends BaseAdapter<NotionHtml> {
 
   readonly blockMatchers: BlockNotionHtmlAdapterMatcher[];
 
-  constructor(job: Transformer, provider: ServiceProvider) {
+  constructor(job: Job, provider: ServiceProvider) {
     super(job);
     const blockMatchers = Array.from(
       provider.getAll(BlockNotionHtmlAdapterMatcherIdentifier).values()
@@ -294,7 +295,7 @@ export const NotionHtmlAdapterFactoryIdentifier =
 export const NotionHtmlAdapterFactoryExtension: ExtensionType = {
   setup: di => {
     di.addImpl(NotionHtmlAdapterFactoryIdentifier, provider => ({
-      get: (job: Transformer) => new NotionHtmlAdapter(job, provider),
+      get: (job: Job) => new NotionHtmlAdapter(job, provider),
     }));
   },
 };

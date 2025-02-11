@@ -40,15 +40,16 @@ interface DocDisplayIconOptions<T extends IconType> {
    * by default, it will use the `primaryMode$` of the doc.
    */
   mode?: 'edgeless' | 'page';
-  title?: string; // title alias
   reference?: boolean;
   referenceToNode?: boolean;
+  hasTitleAlias?: boolean;
   /**
    * @default true
    */
   enableEmojiIcon?: boolean;
 }
 interface DocDisplayTitleOptions {
+  originalTitle?: string;
   title?: string; // title alias
   reference?: boolean;
   /**
@@ -129,31 +130,24 @@ export class DocDisplayMetaService extends Service {
     const iconSet = icons[options?.type ?? 'rc'];
 
     return LiveData.computed(get => {
-      const enableEmojiIcon =
-        get(this.featureFlagService.flags.enable_emoji_doc_icon.$) &&
-        options?.enableEmojiIcon !== false;
       const doc = get(this.docsService.list.doc$(docId));
-      const referenced = !!options?.reference;
-      const titleAlias = referenced ? options?.title : undefined;
-      const originalTitle = doc ? get(doc.title$) : '';
-      const title = titleAlias ?? originalTitle;
+      const title = doc ? get(doc.title$) : '';
       const mode = doc ? get(doc.primaryMode$) : undefined;
       const finalMode = options?.mode ?? mode ?? 'page';
-      const referenceToNode = !!(referenced && options.referenceToNode);
+      const referenceToNode = !!(options?.reference && options.referenceToNode);
+      const hasTitleAlias = !!(options?.reference && options?.hasTitleAlias);
 
-      // emoji title
-      if (enableEmojiIcon && title) {
-        const { emoji } = extractEmojiIcon(title);
-        if (emoji) return () => emoji;
+      // increases block link priority with title alias
+      if (hasTitleAlias) {
+        return iconSet.AliasIcon;
       }
 
-      // title alias
-      if (titleAlias) return iconSet.AliasIcon;
+      // increases block link priority
+      if (referenceToNode) {
+        return iconSet.BlockLinkIcon;
+      }
 
-      // link to specified block
-      if (referenceToNode) return iconSet.BlockLinkIcon;
-
-      // link to journal doc
+      // journal icon
       const journalDate = this._toDayjs(
         get(this.journalService.journalDate$(docId))
       );
@@ -161,11 +155,20 @@ export class DocDisplayMetaService extends Service {
         return this.getJournalIcon(journalDate, options);
       }
 
-      // link to regular doc (reference)
+      // reference icon
       if (options?.reference) {
         return finalMode === 'edgeless'
           ? iconSet.LinkedEdgelessIcon
           : iconSet.LinkedPageIcon;
+      }
+
+      // emoji icon
+      const enableEmojiIcon =
+        get(this.featureFlagService.flags.enable_emoji_doc_icon.$) &&
+        options?.enableEmojiIcon !== false;
+      if (enableEmojiIcon) {
+        const { emoji } = extractEmojiIcon(title);
+        if (emoji) return () => emoji;
       }
 
       // default icon
@@ -180,28 +183,14 @@ export class DocDisplayMetaService extends Service {
         options?.enableEmojiIcon !== false;
       const lng = get(this.i18nService.i18n.currentLanguageKey$);
       const doc = get(this.docsService.list.doc$(docId));
-      const referenced = !!options?.reference;
-      const titleAlias = referenced ? options?.title : undefined;
-      const originalTitle = doc ? get(doc.title$) : '';
-      const title = titleAlias ?? originalTitle;
-
-      // emoji title
-      if (enableEmojiIcon && title) {
-        const { rest } = extractEmojiIcon(title);
-        if (rest) return rest;
-
-        // When the title has only one emoji character,
-        // if it's a journal document, the date should be displayed.
-        const journalDateString = get(this.journalService.journalDate$(docId));
-        if (journalDateString) {
-          return i18nTime(journalDateString, { absolute: { accuracy: 'day' } });
-        }
-      }
 
       // title alias
-      if (titleAlias) return titleAlias;
+      if (options?.title) {
+        return enableEmojiIcon
+          ? extractEmojiIcon(options.title).rest
+          : options.title;
+      }
 
-      // doc not found
       if (!doc) {
         return this.i18nService.i18n.i18next.t(
           'com.affine.notFoundPage.title',
@@ -216,16 +205,31 @@ export class DocDisplayMetaService extends Service {
       }
 
       // original title
-      if (originalTitle) return originalTitle;
+      if (options?.originalTitle) return options.originalTitle;
+
+      const docTitle = get(doc.title$);
 
       // empty title
-      return this.i18nService.i18n.i18next.t('Untitled', { lng });
+      if (!docTitle) {
+        return this.i18nService.i18n.i18next.t('Untitled', { lng });
+      }
+
+      // reference
+      if (options?.reference) return docTitle;
+
+      // emoji icon
+      if (enableEmojiIcon) {
+        return extractEmojiIcon(docTitle).rest;
+      }
+
+      // default
+      return docTitle;
     });
   }
 
-  getDocDisplayMeta(docRecord: DocRecord) {
+  getDocDisplayMeta(docRecord: DocRecord, originalTitle?: string) {
     return {
-      title: this.title$(docRecord.id).value,
+      title: this.title$(docRecord.id, { originalTitle }).value,
       icon: this.icon$(docRecord.id).value,
       updatedDate: docRecord.meta$.value.updatedDate,
     };

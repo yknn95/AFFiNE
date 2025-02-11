@@ -1,10 +1,10 @@
-import { Menu, MenuItem, MenuTrigger, Switch } from '@affine/component';
+import { Menu, MenuItem, MenuTrigger } from '@affine/component';
 import { SettingRow } from '@affine/component/setting-components';
 import { EditorSettingService } from '@affine/core/modules/editor-setting';
 import type { EdgelessDefaultTheme } from '@affine/core/modules/editor-setting/schema';
 import { useI18n } from '@affine/i18n';
 import { useLiveData, useService } from '@toeverything/infra';
-import { useCallback, useMemo } from 'react';
+import { useMemo } from 'react';
 
 import { menuTrigger } from '../style.css';
 
@@ -78,51 +78,29 @@ export const GeneralEdgelessSetting = () => {
     });
   }, [editorSetting, items, edgelessDefaultTheme]);
 
-  const handleScrollZoomChange = useCallback(
-    (checked: boolean) => {
-      editorSetting.set('edgelessScrollZoom', checked);
-    },
-    [editorSetting]
-  );
-
   return (
-    <>
-      <SettingRow
-        name={t[
-          'com.affine.settings.editorSettings.page.edgeless-default-theme.title'
-        ]()}
-        desc={t[
-          'com.affine.settings.editorSettings.page.edgeless-default-theme.description'
-        ]()}
+    <SettingRow
+      name={t[
+        'com.affine.settings.editorSettings.page.edgeless-default-theme.title'
+      ]()}
+      desc={t[
+        'com.affine.settings.editorSettings.page.edgeless-default-theme.description'
+      ]()}
+    >
+      <Menu
+        items={menuItems}
+        contentOptions={{
+          align: 'end',
+          sideOffset: 16,
+          style: {
+            width: '280px',
+          },
+        }}
       >
-        <Menu
-          items={menuItems}
-          contentOptions={{
-            align: 'end',
-            sideOffset: 16,
-            style: {
-              width: '280px',
-            },
-          }}
-        >
-          <MenuTrigger tooltip={currentTheme} className={menuTrigger}>
-            {currentTheme}
-          </MenuTrigger>
-        </Menu>
-      </SettingRow>
-      <SettingRow
-        name={t[
-          'com.affine.settings.editorSettings.page.edgeless-scroll-wheel-zoom.title'
-        ]()}
-        desc={t[
-          'com.affine.settings.editorSettings.page.edgeless-scroll-wheel-zoom.description'
-        ]()}
-      >
-        <Switch
-          checked={editorSetting.edgelessScrollZoom.$.value}
-          onChange={handleScrollZoomChange}
-        ></Switch>
-      </SettingRow>
-    </>
+        <MenuTrigger tooltip={currentTheme} className={menuTrigger}>
+          {currentTheme}
+        </MenuTrigger>
+      </Menu>
+    </SettingRow>
   );
 };

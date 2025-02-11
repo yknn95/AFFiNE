@@ -51,7 +51,7 @@ export const PPTBuilder = (host: EditorHost) => {
       );
     }
     await job.insertTemplate(content);
-    getSurfaceElementFromEditor(host)?.refresh();
+    getSurfaceElementFromEditor(host).refresh();
   };
 
   return {
@@ -62,7 +62,8 @@ export const PPTBuilder = (host: EditorHost) => {
         const block = snapshot.snapshot.content[0];
         for (const child of block.children) {
           await addDoc(child);
-          service.gfx.fitToScreen();
+          const { centerX, centerY, zoom } = service.getFitToScreenData();
+          service.viewport.setViewport(zoom, [centerX, centerY]);
         }
       } catch (e) {
         console.error(e);

@@ -1,6 +1,6 @@
 import { menu } from '@blocksuite/affine-components/context-menu';
 import { unsafeCSSVarV2 } from '@blocksuite/affine-shared/theme';
-import { CheckBoxCheckSolidIcon, CheckBoxUnIcon } from '@blocksuite/icons/lit';
+import { CheckBoxCkeckSolidIcon, CheckBoxUnIcon } from '@blocksuite/icons/lit';
 import { html } from 'lit';
 
 import { t } from '../../logical/type-presets.js';
@@ -87,7 +87,7 @@ export const allLiteralConfig: LiteralItemsConfig[] = [
             type.element.data?.map(tag => {
               const selected = set.has(tag.id);
               const prefix = selected
-                ? CheckBoxCheckSolidIcon({ style: `color:#1E96EB` })
+                ? CheckBoxCkeckSolidIcon({ style: `color:#1E96EB` })
                 : CheckBoxUnIcon();
               return menu.action({
                 name: tag.value,

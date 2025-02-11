@@ -35,16 +35,4 @@ public extension UIViewController {
   @objc func dismissKeyboard() {
     view.endEditing(true)
   }
-
-  func presentError(_ error: Error, onDismiss: @escaping () -> Void = {}) {
-    let alert = UIAlertController(
-      title: "Error".localized(),
-      message: error.localizedDescription,
-      preferredStyle: .alert
-    )
-    alert.addAction(UIAlertAction(title: "OK".localized(), style: .default) { _ in
-      onDismiss()
-    })
-    present(alert, animated: true)
-  }
 }

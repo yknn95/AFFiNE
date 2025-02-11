@@ -16,10 +16,6 @@ export abstract class Command extends BaseCommand<CliContext> {
   get workspace() {
     return this.context.workspace;
   }
-
-  set workspace(workspace: Workspace) {
-    this.context.workspace = workspace;
-  }
 }
 
 export abstract class PackageCommand extends Command {

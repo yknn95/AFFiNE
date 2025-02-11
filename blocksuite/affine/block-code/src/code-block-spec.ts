@@ -1,9 +1,9 @@
 import {
   BlockViewExtension,
+  type ExtensionType,
   FlavourExtension,
   WidgetViewMapExtension,
 } from '@blocksuite/block-std';
-import type { ExtensionType } from '@blocksuite/store';
 import { literal, unsafeStatic } from 'lit/static-html.js';
 
 import { CodeBlockAdapterExtensions } from './adapters/extension.js';

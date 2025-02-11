@@ -1,3 +1,4 @@
+import { CommonUtils } from '@blocksuite/affine-block-surface';
 import {
   FrameNavigatorNextIcon,
   FrameNavigatorPrevIcon,
@@ -9,7 +10,7 @@ import { toast } from '@blocksuite/affine-components/toast';
 import type { FrameBlockModel } from '@blocksuite/affine-model';
 import { EditPropsStore } from '@blocksuite/affine-shared/services';
 import type { GfxToolsFullOptionValue } from '@blocksuite/block-std/gfx';
-import { Bound, clamp, SignalWatcher } from '@blocksuite/global/utils';
+import { Bound, SignalWatcher } from '@blocksuite/global/utils';
 import { effect } from '@preact/signals-core';
 import { cssVar } from '@toeverything/theme';
 import { css, html, LitElement, nothing, type PropertyValues } from 'lit';
@@ -20,6 +21,8 @@ import type { EdgelessRootBlockComponent } from '../../edgeless-root-block.js';
 import { isFrameBlock } from '../../utils/query.js';
 import { launchIntoFullscreen } from '../utils.js';
 import { EdgelessToolbarToolMixin } from './mixins/tool.mixin.js';
+
+const { clamp } = CommonUtils;
 
 export class PresentationToolbar extends EdgelessToolbarToolMixin(
   SignalWatcher(LitElement)

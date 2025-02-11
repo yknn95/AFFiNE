@@ -27,9 +27,7 @@ describe('op client', () => {
     port1.postMessage = vi.fn(port1.postMessage);
     // @ts-expect-error patch postMessage
     ctx.postMessage = port1.postMessage;
-    ctx.producer = new OpClient(port1, {
-      timeout: 1000,
-    });
+    ctx.producer = new OpClient(port1);
     // @ts-expect-error internal api
     ctx.handlers = ctx.producer.handlers;
     vi.useFakeTimers();

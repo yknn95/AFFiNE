@@ -51,7 +51,6 @@ export const MenuItem = React.forwardRef<HTMLDivElement, MenuItemProps>(
         data-active={active}
         data-disabled={disabled}
         data-collapsible={collapsible}
-        tabIndex={0}
       >
         {icon && (
           <div className={styles.iconsContainer} data-collapsible={collapsible}>

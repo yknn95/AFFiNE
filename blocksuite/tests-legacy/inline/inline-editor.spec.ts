@@ -1,158 +1,17 @@
-import type {
-  DeltaInsert,
-  InlineEditor,
-  InlineRange,
-} from '@blocksuite/inline';
-import { ZERO_WIDTH_SPACE } from '@blocksuite/inline';
-import { expect, type Page, test } from '@playwright/test';
-
-// FIXME(mirone): copy paste from framework/inline/__tests__/utils.ts
-const defaultPlaygroundURL = new URL(
-  `http://localhost:${process.env.CI ? 4173 : 5173}/`
-);
-
-async function type(page: Page, content: string) {
-  await page.keyboard.type(content, { delay: 50 });
-}
-
-async function press(page: Page, content: string) {
-  await page.keyboard.press(content, { delay: 50 });
-  await page.waitForTimeout(50);
-}
-
-async function enterInlineEditorPlayground(page: Page) {
-  const url = new URL('examples/inline/index.html', defaultPlaygroundURL);
-  await page.goto(url.toString());
-}
-
-async function focusInlineRichText(page: Page, index = 0): Promise<void> {
-  await page.evaluate(index => {
-    const richTexts = document
-      .querySelector('test-page')
-      ?.querySelectorAll('test-rich-text');
-
-    if (!richTexts) {
-      throw new Error('Cannot find test-rich-text');
-    }
-
-    (richTexts[index] as any).inlineEditor.focusEnd();
-  }, index);
-}
-
-async function getDeltaFromInlineRichText(
-  page: Page,
-  index = 0
-): Promise<DeltaInsert> {
-  await page.waitForTimeout(100);
-  return page.evaluate(index => {
-    const richTexts = document
-      .querySelector('test-page')
-      ?.querySelectorAll('test-rich-text');
-
-    if (!richTexts) {
-      throw new Error('Cannot find test-rich-text');
-    }
-
-    const editor = (richTexts[index] as any).inlineEditor as InlineEditor;
-    return editor.yText.toDelta();
-  }, index);
-}
-
-async function setInlineRichTextRange(
-  page: Page,
-  inlineRange: InlineRange,
-  index = 0
-): Promise<void> {
-  await page.evaluate(
-    ([inlineRange, index]) => {
-      const richTexts = document
-        .querySelector('test-page')
-        ?.querySelectorAll('test-rich-text');
-
-      if (!richTexts) {
-        throw new Error('Cannot find test-rich-text');
-      }
-
-      const editor = (richTexts[index as number] as any)
-        .inlineEditor as InlineEditor;
-      editor.setInlineRange(inlineRange as InlineRange);
-    },
-    [inlineRange, index]
-  );
-}
-
-async function getInlineRichTextLine(
-  page: Page,
-  index: number,
-  i = 0
-): Promise<readonly [string, number]> {
-  return page.evaluate(
-    ([index, i]) => {
-      const richTexts = document.querySelectorAll('test-rich-text');
-
-      if (!richTexts) {
-        throw new Error('Cannot find test-rich-text');
-      }
-
-      const editor = (richTexts[i] as any).inlineEditor as InlineEditor;
-      const result = editor.getLine(index);
-      if (!result) {
-        throw new Error('Cannot find line');
-      }
-      const { line, rangeIndexRelatedToLine } = result;
-      return [line.vTextContent, rangeIndexRelatedToLine] as const;
-    },
-    [index, i]
-  );
-}
-
-async function getInlineRangeIndexRect(
-  page: Page,
-  [richTextIndex, inlineIndex]: [number, number],
-  coordOffSet: { x: number; y: number } = { x: 0, y: 0 }
-) {
-  const rect = await page.evaluate(
-    ({ richTextIndex, inlineIndex: vIndex, coordOffSet }) => {
-      const richText = document.querySelectorAll('test-rich-text')[
-        richTextIndex
-      ] as any;
-      const domRange = richText.inlineEditor.toDomRange({
-        index: vIndex,
-        length: 0,
-      });
-      const pointBound = domRange.getBoundingClientRect();
-      return {
-        x: pointBound.left + coordOffSet.x,
-        y: pointBound.top + pointBound.height / 2 + coordOffSet.y,
-      };
-    },
-    {
-      richTextIndex,
-      inlineIndex,
-      coordOffSet,
-    }
-  );
-  return rect;
-}
-
-async function assertSelection(
-  page: Page,
-  richTextIndex: number,
-  rangeIndex: number,
-  rangeLength = 0
-) {
-  const actual = await page.evaluate(
-    ([richTextIndex]) => {
-      const richText =
-        document?.querySelectorAll('test-rich-text')[richTextIndex];
-      // @ts-expect-error getInlineRange
-      const inlineEditor = richText.inlineEditor;
-      return inlineEditor?.getInlineRange();
-    },
-    [richTextIndex]
-  );
-  expect(actual).toEqual({ index: rangeIndex, length: rangeLength });
-}
+import {
+  assertSelection,
+  enterInlineEditorPlayground,
+  focusInlineRichText,
+  getDeltaFromInlineRichText,
+  getInlineRangeIndexRect,
+  getInlineRichTextLine,
+  press,
+  setInlineRichTextRange,
+  type,
+} from '@inline/__tests__/utils.js';
+import { ZERO_WIDTH_SPACE } from '@inline/consts.js';
+import type { InlineEditor } from '@inline/index.js';
+import { expect, test } from '@playwright/test';
 
 test('basic input', async ({ page }) => {
   await enterInlineEditorPlayground(page);

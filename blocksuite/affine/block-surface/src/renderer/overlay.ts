@@ -1,10 +1,10 @@
+import { Extension } from '@blocksuite/block-std';
 import {
   type GfxController,
   GfxControllerIdentifier,
 } from '@blocksuite/block-std/gfx';
 import { type Container, createIdentifier } from '@blocksuite/global/di';
 import { BlockSuiteError, ErrorCode } from '@blocksuite/global/exceptions';
-import { Extension } from '@blocksuite/store';
 
 import type { RoughCanvas } from '../utils/rough/canvas.js';
 import type { CanvasRenderer } from './canvas-renderer.js';

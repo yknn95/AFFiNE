@@ -1,20 +1,9 @@
-import { addAttachments } from '@blocksuite/affine-block-attachment';
-import { insertEdgelessTextCommand } from '@blocksuite/affine-block-edgeless-text';
-import { addImages } from '@blocksuite/affine-block-image';
 import { CanvasElementType } from '@blocksuite/affine-block-surface';
-import {
-  MAX_IMAGE_WIDTH,
-  type MindmapStyle,
-  TextElementModel,
-} from '@blocksuite/affine-model';
-import {
-  FeatureFlagService,
-  TelemetryProvider,
-} from '@blocksuite/affine-shared/services';
-import { openFileOrFiles } from '@blocksuite/affine-shared/utils';
+import { type MindmapStyle, TextElementModel } from '@blocksuite/affine-model';
+import { TelemetryProvider } from '@blocksuite/affine-shared/services';
 import { assertInstanceOf, Bound } from '@blocksuite/global/utils';
+import { DocCollection } from '@blocksuite/store';
 import type { TemplateResult } from 'lit';
-import * as Y from 'yjs';
 
 import type { EdgelessRootBlockComponent } from '../../../edgeless-root-block.js';
 import type { EdgelessRootService } from '../../../edgeless-root-service.js';
@@ -26,7 +15,7 @@ export type ConfigStyle = Partial<Record<ConfigProperty, number | string>>;
 export type ToolConfig = Record<ConfigState, ConfigStyle>;
 
 export type DraggableTool = {
-  name: 'text' | 'mindmap' | 'media';
+  name: 'text' | 'mindmap';
   icon: TemplateResult;
   config: ToolConfig;
   standardWidth?: number;
@@ -34,7 +23,7 @@ export type DraggableTool = {
     bound: Bound,
     edgelessService: EdgelessRootService,
     edgeless: EdgelessRootBlockComponent
-  ) => Promise<string | null>;
+  ) => string;
 };
 
 const unitMap = { x: 'px', y: 'px', r: 'deg', s: '', z: '', o: '' };
@@ -45,21 +34,15 @@ export const textConfig: ToolConfig = {
   next: { x: -22, y: 64, r: 0 },
 };
 export const mindmapConfig: ToolConfig = {
-  default: { x: 4, y: -4, s: 1, z: 2, r: -7 },
+  default: { x: 4, y: -4, s: 1, z: 1, r: -7 },
   active: { x: 11, y: -14, r: 9, s: 1 },
   hover: { x: 11, y: -14, r: 9, s: 1.16, z: 3 },
-  next: { y: 64, r: 0 },
-};
-export const mediaConfig: ToolConfig = {
-  default: { x: -20, y: -15, r: 23, s: 1.2, z: 1 },
-  active: { x: -25, y: -20, r: -9, s: 1.2 },
-  hover: { x: -25, y: -20, r: -9, s: 1.5, z: 2 },
   next: { y: 64, r: 0 },
 };
 
 export const getMindmapRender =
   (mindmapStyle: MindmapStyle): DraggableTool['render'] =>
-  async (bound, edgelessService) => {
+  (bound, edgelessService) => {
     const [x, y, _, h] = bound.toXYWH();
 
     const rootW = 145;
@@ -111,8 +94,7 @@ export const getMindmapRender =
 
     return mindmapId;
   };
-
-export const textRender: DraggableTool['render'] = async (
+export const textRender: DraggableTool['render'] = (
   bound,
   service,
   edgeless
@@ -121,23 +103,18 @@ export const textRender: DraggableTool['render'] = async (
   const w = 100;
   const h = 32;
 
-  const flag = edgeless.doc
-    .get(FeatureFlagService)
-    .getFlag('enable_edgeless_text');
+  const flag = edgeless.doc.awarenessStore.getFlag('enable_edgeless_text');
   let id: string;
   if (flag) {
-    const [_, { textId }] = edgeless.std.command.exec(
-      insertEdgelessTextCommand,
-      {
-        x: bound.x,
-        y: vCenter - h / 2,
-      }
-    );
+    const { textId } = edgeless.std.command.exec('insertEdgelessText', {
+      x: bound.x,
+      y: vCenter - h / 2,
+    });
     id = textId!;
   } else {
     id = service.crud.addElement(CanvasElementType.TEXT, {
       xywh: new Bound(bound.x, vCenter - h / 2, w, h).serialize(),
-      text: new Y.Text(),
+      text: new DocCollection.Y.Text(),
     }) as string;
 
     edgeless.doc.captureSync();
@@ -154,41 +131,6 @@ export const textRender: DraggableTool['render'] = async (
     type: 'text',
   });
 
-  return id;
-};
-
-export const mediaRender: DraggableTool['render'] = async (
-  bound,
-  _,
-  edgeless
-) => {
-  let file: File | null = null;
-  try {
-    file = await openFileOrFiles();
-  } catch (e) {
-    console.error(e);
-    return null;
-  }
-  if (!file) return null;
-
-  // image
-  if (file.type.startsWith('image/')) {
-    const [id] = await addImages(edgeless.std, [file], {
-      point: [bound.x, bound.y],
-      maxWidth: MAX_IMAGE_WIDTH,
-      transformPoint: false,
-    });
-    if (id) return id;
-    return null;
-  }
-
-  // attachment
-  const [id] = await addAttachments(
-    edgeless.std,
-    [file],
-    [bound.x, bound.y],
-    false
-  );
   return id;
 };
 

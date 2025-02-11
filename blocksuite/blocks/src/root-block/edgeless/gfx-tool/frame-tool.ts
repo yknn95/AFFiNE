@@ -1,9 +1,6 @@
 import { OverlayIdentifier } from '@blocksuite/affine-block-surface';
 import type { FrameBlockModel } from '@blocksuite/affine-model';
-import {
-  EditPropsStore,
-  TelemetryProvider,
-} from '@blocksuite/affine-shared/services';
+import { TelemetryProvider } from '@blocksuite/affine-shared/services';
 import type { PointerEventState } from '@blocksuite/block-std';
 import {
   BaseTool,
@@ -12,8 +9,7 @@ import {
 } from '@blocksuite/block-std/gfx';
 import type { IPoint, IVec } from '@blocksuite/global/utils';
 import { Bound, Vec } from '@blocksuite/global/utils';
-import { Text } from '@blocksuite/store';
-import * as Y from 'yjs';
+import { DocCollection, Text } from '@blocksuite/store';
 
 import type { EdgelessFrameManager, FrameOverlay } from '../frame-manager.js';
 
@@ -73,17 +69,18 @@ export class FrameTool extends BaseTool {
       const frames = this.gfx.layer.blocks.filter(
         block => block.flavour === 'affine:frame'
       ) as FrameBlockModel[];
-
-      const props = this.std
-        .get(EditPropsStore)
-        .applyLastProps('affine:frame', {
-          title: new Text(new Y.Text(`Frame ${frames.length + 1}`)),
+      const id = this.doc.addBlock(
+        'affine:frame',
+        {
+          title: new Text(
+            new DocCollection.Y.Text(`Frame ${frames.length + 1}`)
+          ),
           xywh: Bound.fromPoints([this._startPoint, currentPoint]).serialize(),
           index: this.gfx.layer.generateIndex(true),
           presentationIndex: this.frameManager.generatePresentationIndex(),
-        });
-
-      const id = this.doc.addBlock('affine:frame', props, this.gfx.surface);
+        },
+        this.gfx.surface
+      );
 
       this.std.getOptional(TelemetryProvider)?.track('CanvasElementAdded', {
         control: 'canvas:draw',

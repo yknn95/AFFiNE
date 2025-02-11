@@ -1,4 +1,5 @@
-import type { DraftModel, Store } from '../model/index';
+import type { Doc } from '../store/index.js';
+import type { DraftModel } from './draft.js';
 
 type SliceData = {
   content: DraftModel[];
@@ -21,10 +22,10 @@ export class Slice {
 
   constructor(readonly data: SliceData) {}
 
-  static fromModels(doc: Store, models: DraftModel[]) {
+  static fromModels(doc: Doc, models: DraftModel[]) {
     return new Slice({
       content: models,
-      workspaceId: doc.workspace.id,
+      workspaceId: doc.collection.id,
       pageId: doc.id,
     });
   }

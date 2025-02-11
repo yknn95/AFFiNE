@@ -18,8 +18,7 @@
     "@blocksuite/global": "workspace:*",
     "@blocksuite/inline": "workspace:*",
     "@blocksuite/presets": "workspace:*",
-    "@blocksuite/store": "workspace:*",
-    "@blocksuite/sync": "workspace:*"
+    "@blocksuite/store": "workspace:*"
   },
   "exports": {
     ".": "./src/index.ts",
@@ -33,14 +32,12 @@
     "./global/di": "./src/global/di.ts",
     "./global/types": "./src/global/types.ts",
     "./store": "./src/store/index.ts",
-    "./store/test": "./src/store/test.ts",
     "./inline": "./src/inline/index.ts",
     "./inline/consts": "./src/inline/consts.ts",
     "./inline/types": "./src/inline/types.ts",
     "./presets": "./src/presets/index.ts",
     "./blocks": "./src/blocks/index.ts",
-    "./blocks/schemas": "./src/blocks/schemas.ts",
-    "./sync": "./src/sync/index.ts"
+    "./blocks/schemas": "./src/blocks/schemas.ts"
   },
   "typesVersions": {
     "*": {
@@ -91,9 +88,6 @@
       ],
       "blocks/schemas": [
         "dist/blocks/schemas.d.ts"
-      ],
-      "sync": [
-        "dist/sync/index.d.ts"
       ]
     }
   },

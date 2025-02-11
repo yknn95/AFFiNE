@@ -1,35 +1,19 @@
 export class AsyncLock {
-  private _lock: Promise<void> | null = null;
+  private _lock = Promise.resolve();
 
   async acquire() {
-    let release: (() => void) | null = null;
+    // eslint-disable-next-line @typescript-eslint/no-non-null-assertion
+    let release: () => void = null!;
     const nextLock = new Promise<void>(resolve => {
-      release = () => {
-        this._lock = null;
-        resolve();
-      };
+      release = resolve;
     });
 
-    // Atomic check and set of lock state
-    const currentLock = this._lock;
+    await this._lock;
     this._lock = nextLock;
-
-    if (currentLock) {
-      await currentLock;
-    }
-
     return {
-      release: () => {
-        if (release) {
-          release();
-          release = null;
-        }
-      },
+      release,
       [Symbol.dispose]: () => {
-        if (release) {
-          release();
-          release = null;
-        }
+        release();
       },
     };
   }

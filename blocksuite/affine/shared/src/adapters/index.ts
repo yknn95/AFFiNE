@@ -20,7 +20,6 @@ export {
   BlockMarkdownAdapterExtension,
   type BlockMarkdownAdapterMatcher,
   BlockMarkdownAdapterMatcherIdentifier,
-  FOOTNOTE_DEFINITION_PREFIX,
   InlineDeltaToMarkdownAdapterExtension,
   type InlineDeltaToMarkdownAdapterMatcher,
   InlineDeltaToMarkdownAdapterMatcherIdentifier,
@@ -36,7 +35,6 @@ export {
   MarkdownDeltaConverter,
 } from './markdown';
 export * from './middlewares';
-export * from './mix-text';
 export {
   BlockNotionHtmlAdapterExtension,
   type BlockNotionHtmlAdapterMatcher,

@@ -3,11 +3,17 @@ import type {
   AffineAIPanelWidgetConfig,
   MindmapStyle,
 } from '@blocksuite/affine/blocks';
+import {
+  markdownToMindmap,
+  MiniMindmapPreview,
+} from '@blocksuite/affine/blocks';
+import { noop } from '@blocksuite/affine/global/utils';
 import { html, nothing } from 'lit';
 
-import { markdownToMindmap } from '../mini-mindmap';
 import { getAIPanelWidget } from '../utils/ai-widgets';
 import type { AIContext } from '../utils/context';
+
+noop(MiniMindmapPreview);
 
 export const createMindmapRenderer: (
   host: EditorHost,

@@ -93,7 +93,7 @@ export function addNote(
   });
 
   const gfx = std.get(GfxControllerIdentifier);
-  const doc = std.store;
+  const doc = std.doc;
 
   const blockId = doc.addBlock(
     options.childFlavour as BlockSuite.Flavour,

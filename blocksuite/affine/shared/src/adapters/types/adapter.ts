@@ -7,8 +7,8 @@ import {
   type BaseAdapter,
   type BlockSnapshot,
   BlockSnapshotSchema,
+  type Job,
   type NodeProps,
-  type Transformer,
 } from '@blocksuite/store';
 
 import type { AffineTextAttributes } from '../../types/index.js';
@@ -35,7 +35,7 @@ export type AdapterContext<
   walker: ASTWalker<ONode, TNode>;
   walkerContext: ASTWalkerContext<TNode>;
   configs: Map<string, string>;
-  job: Transformer;
+  job: Job;
   deltaConverter: TConverter;
   textBuffer: TextBuffer;
   provider?: ServiceProvider;
@@ -152,8 +152,7 @@ export type InlineDeltaMatcher<TNode extends object = never> = {
     context: {
       configs: Map<string, string>;
       current: TNode;
-    },
-    provider?: ServiceProvider
+    }
   ) => TNode;
 };
 
@@ -175,7 +174,7 @@ export type ASTToDeltaMatcher<AST> = {
 
 export type AdapterFactory = {
   // TODO(@chen): Make it return the specific adapter type
-  get: (job: Transformer) => BaseAdapter;
+  get: (job: Job) => BaseAdapter;
 };
 
 export const AdapterFactoryIdentifier =

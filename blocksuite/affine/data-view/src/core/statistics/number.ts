@@ -30,9 +30,7 @@ export const numberStatsFunctions: StatisticsConfig[] = [
       if (numbers.length === 0) {
         return 'None';
       }
-      return parseFloat(
-        (numbers.reduce((a, b) => a + b, 0) / numbers.length).toFixed(2)
-      ).toString();
+      return (numbers.reduce((a, b) => a + b, 0) / numbers.length).toString();
     },
   }),
   createStatisticConfig({
@@ -51,7 +49,7 @@ export const numberStatsFunctions: StatisticsConfig[] = [
         const a = arr[index];
         const b = arr[index - 1];
         if (a == null || b == null) return 'None';
-        result = parseFloat(((a + b) / 2).toFixed(2));
+        result = (a + b) / 2;
       }
       return result?.toString() ?? 'None';
     },
@@ -122,7 +120,7 @@ export const numberStatsFunctions: StatisticsConfig[] = [
       if (min == null || max == null) {
         return 'None';
       }
-      return parseFloat((max - min).toFixed(2)).toString();
+      return (max - min).toString();
     },
   }),
 ];

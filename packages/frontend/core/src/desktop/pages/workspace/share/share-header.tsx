@@ -6,6 +6,7 @@ import type { DocMode } from '@blocksuite/affine/blocks';
 import * as styles from './share-header.css';
 
 export function ShareHeader({
+  pageId,
   publishMode,
   isTemplate,
   templateName,
@@ -20,7 +21,7 @@ export function ShareHeader({
   return (
     <div className={styles.header}>
       <EditorModeSwitch />
-      <BlocksuiteHeaderTitle />
+      <BlocksuiteHeaderTitle docId={pageId} />
       <div className={styles.spacer} />
       <ShareHeaderRightItem
         publishMode={publishMode}

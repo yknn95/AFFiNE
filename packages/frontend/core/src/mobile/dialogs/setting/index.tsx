@@ -1,7 +1,7 @@
 import { AuthService } from '@affine/core/modules/cloud';
 import type {
   DialogComponentProps,
-  WORKSPACE_DIALOG_SCHEMA,
+  GLOBAL_DIALOG_SCHEMA,
 } from '@affine/core/modules/dialogs';
 import { useI18n } from '@affine/i18n';
 import { useService } from '@toeverything/infra';
@@ -34,7 +34,7 @@ const MobileSetting = () => {
 
 export const SettingDialog = ({
   close,
-}: DialogComponentProps<WORKSPACE_DIALOG_SCHEMA['setting']>) => {
+}: DialogComponentProps<GLOBAL_DIALOG_SCHEMA['setting']>) => {
   const t = useI18n();
 
   return (

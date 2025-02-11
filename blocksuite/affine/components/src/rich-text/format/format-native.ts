@@ -9,11 +9,15 @@ import { INLINE_ROOT_ATTR, type InlineRootElement } from '@blocksuite/inline';
 import { FORMAT_NATIVE_SUPPORT_FLAVOURS } from './consts.js';
 
 // for native range
-export const formatNativeCommand: Command<{
-  range?: Range;
-  styles: AffineTextAttributes;
-  mode?: 'replace' | 'merge';
-}> = (ctx, next) => {
+export const formatNativeCommand: Command<
+  never,
+  never,
+  {
+    range?: Range;
+    styles: AffineTextAttributes;
+    mode?: 'replace' | 'merge';
+  }
+> = (ctx, next) => {
   const { styles, mode = 'merge' } = ctx;
 
   let range = ctx.range;

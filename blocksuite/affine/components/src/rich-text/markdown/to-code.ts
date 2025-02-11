@@ -1,4 +1,3 @@
-import { ParagraphBlockModel } from '@blocksuite/affine-model';
 import { matchFlavours } from '@blocksuite/affine-shared/utils';
 import type { BlockStdScope } from '@blocksuite/block-std';
 import type { BlockModel } from '@blocksuite/store';
@@ -11,7 +10,7 @@ export function toCode(
   prefixText: string,
   language: string | null
 ) {
-  if (matchFlavours(model, [ParagraphBlockModel]) && model.type === 'quote') {
+  if (matchFlavours(model, ['affine:paragraph']) && model.type === 'quote') {
     return;
   }
 

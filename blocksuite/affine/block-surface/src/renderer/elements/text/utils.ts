@@ -10,7 +10,7 @@ import {
   rotatePoints,
 } from '@blocksuite/global/utils';
 import { deltaInsertsToChunks } from '@blocksuite/inline';
-import type * as Y from 'yjs';
+import type { Y } from '@blocksuite/store';
 
 import {
   getFontFacesByFontFamily,

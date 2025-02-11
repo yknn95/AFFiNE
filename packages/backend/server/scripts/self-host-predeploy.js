@@ -8,7 +8,7 @@ const SELF_HOST_CONFIG_DIR = '/root/.affine/config';
 function generateConfigFile() {
   const content = fs.readFileSync('./dist/config/affine.js', 'utf-8');
   return content.replace(
-    /(^\/\/#.*$)|(^\/\/\s+TODO.*$)|("use\sstrict";?)|(^.*lint-disable.*$)/gm,
+    /(^\/\/#.*$)|(^\/\/\s+TODO.*$)|("use\sstrict";?)|(^.*eslint-disable.*$)/gm,
     ''
   );
 }

@@ -1,8 +1,6 @@
-import { isNoteBlock } from '@blocksuite/affine-block-surface';
-
 import type { Connectable } from '../../../_common/utils/index.js';
 import type { EdgelessRootBlockComponent } from '../index.js';
-import { isConnectable } from './query.js';
+import { isConnectable, isNoteBlock } from './query.js';
 
 /**
  * Use deleteElementsV2 instead.

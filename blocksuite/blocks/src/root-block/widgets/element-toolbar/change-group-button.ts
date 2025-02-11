@@ -6,11 +6,7 @@ import {
 import { toast } from '@blocksuite/affine-components/toast';
 import { renderToolbarSeparator } from '@blocksuite/affine-components/toolbar';
 import type { GroupElementModel } from '@blocksuite/affine-model';
-import {
-  DEFAULT_NOTE_HEIGHT,
-  NoteBlockModel,
-  NoteDisplayMode,
-} from '@blocksuite/affine-model';
+import { DEFAULT_NOTE_HEIGHT, NoteDisplayMode } from '@blocksuite/affine-model';
 import { matchFlavours } from '@blocksuite/affine-shared/utils';
 import {
   deserializeXYWH,
@@ -31,7 +27,7 @@ export class EdgelessChangeGroupButton extends WithDisposable(LitElement) {
     const rootModel = this.edgeless.doc.root;
     const notes = rootModel.children.filter(
       model =>
-        matchFlavours(model, [NoteBlockModel]) &&
+        matchFlavours(model, ['affine:note']) &&
         model.displayMode !== NoteDisplayMode.EdgelessOnly
     );
     const lastNote = notes[notes.length - 1];

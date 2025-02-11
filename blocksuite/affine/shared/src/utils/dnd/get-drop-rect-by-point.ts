@@ -1,4 +1,3 @@
-import { DatabaseBlockModel } from '@blocksuite/affine-model';
 import { BLOCK_ID_ATTR } from '@blocksuite/block-std';
 import type { Point } from '@blocksuite/global/utils';
 import type { BlockModel } from '@blocksuite/store';
@@ -25,7 +24,7 @@ export function getDropRectByPoint(
     flag: DropFlags.Normal,
   };
 
-  const isDatabase = matchFlavours(model, [DatabaseBlockModel]);
+  const isDatabase = matchFlavours(model, ['affine:database']);
 
   if (isDatabase) {
     const table = getDatabaseBlockTableElement(element);
@@ -34,7 +33,7 @@ export function getDropRectByPoint(
     }
 
     let bounds = table.getBoundingClientRect();
-    if (model.children.length === 0) {
+    if (model.isEmpty.value) {
       result.flag = DropFlags.EmptyDatabase;
 
       if (point.y < bounds.top) return result;

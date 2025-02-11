@@ -2,11 +2,11 @@ import type {
   EmbedGithubBlockUrlData,
   EmbedGithubModel,
 } from '@blocksuite/affine-model';
-import type { LinkPreviewerService } from '@blocksuite/affine-shared/services';
 import { isAbortError } from '@blocksuite/affine-shared/utils';
 import { assertExists } from '@blocksuite/global/utils';
 import { nothing } from 'lit';
 
+import type { LinkPreviewer } from '../common/link-previewer.js';
 import type { EmbedGithubBlockComponent } from './embed-github-block.js';
 import {
   GithubIssueClosedFailureIcon,
@@ -20,7 +20,7 @@ import {
 
 export async function queryEmbedGithubData(
   embedGithubModel: EmbedGithubModel,
-  linkPreviewer: LinkPreviewerService,
+  linkPreviewer: LinkPreviewer,
   signal?: AbortSignal
 ): Promise<Partial<EmbedGithubBlockUrlData>> {
   const [githubApiData, openGraphData] = await Promise.all([

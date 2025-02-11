@@ -1,6 +1,5 @@
-import type { ExtensionType } from '@blocksuite/store';
-
 import { BlockFlavourIdentifier } from '../identifier.js';
+import type { ExtensionType } from './extension.js';
 
 /**
  * Create a flavour extension.

@@ -1,6 +1,6 @@
 import { html } from 'lit';
 
-export function getAttachmentFileIcon(filetype: string) {
+export function getAttachmentFileIcons(filetype: string) {
   switch (filetype) {
     case 'img':
       return IMGFileIcon;

@@ -7,12 +7,7 @@ import {
   EMBED_CARD_HEIGHT,
   EMBED_CARD_WIDTH,
 } from '@blocksuite/affine-shared/consts';
-import {
-  BlockSelection,
-  type BlockStdScope,
-  SurfaceSelection,
-  TextSelection,
-} from '@blocksuite/block-std';
+import type { BlockStdScope } from '@blocksuite/block-std';
 import { GfxControllerIdentifier } from '@blocksuite/block-std/gfx';
 import { Bound, Vec } from '@blocksuite/global/utils';
 
@@ -31,9 +26,9 @@ export function insertEmbedCard(
   const selectionManager = host.selection;
 
   let blockId: string | undefined;
-  const textSelection = selectionManager.find(TextSelection);
-  const blockSelection = selectionManager.find(BlockSelection);
-  const surfaceSelection = selectionManager.find(SurfaceSelection);
+  const textSelection = selectionManager.find('text');
+  const blockSelection = selectionManager.find('block');
+  const surfaceSelection = selectionManager.find('surface');
   if (textSelection) {
     blockId = textSelection.blockId;
   } else if (blockSelection) {
@@ -50,7 +45,7 @@ export function insertEmbedCard(
     const index = parent.children.indexOf(block.model);
     host.doc.addBlock(flavour as never, props, parent, index + 1);
   } else {
-    const rootId = std.store.root?.id;
+    const rootId = std.doc.root?.id;
     if (!rootId) return;
     const edgelessRoot = std.view.getBlock(rootId);
     if (!edgelessRoot) return;

@@ -1,5 +1,4 @@
 import type { EditorHost } from '@blocksuite/affine/block-std';
-import { GfxControllerIdentifier } from '@blocksuite/affine/block-std/gfx';
 import type {
   AffineAIPanelWidget,
   AIError,
@@ -7,7 +6,6 @@ import type {
 } from '@blocksuite/affine/blocks';
 import {
   BlocksUtils,
-  CodeBlockModel,
   EdgelessTextBlockModel,
   EmbedSyncedDocModel,
   ImageBlockModel,
@@ -17,6 +15,7 @@ import {
 } from '@blocksuite/affine/blocks';
 import { assertExists } from '@blocksuite/affine/global/utils';
 import { Slice } from '@blocksuite/affine/store';
+import { GfxControllerIdentifier } from '@blocksuite/block-std/gfx';
 import type { TemplateResult } from 'lit';
 
 import { AIChatBlockModel } from '../../../blocks';
@@ -190,7 +189,7 @@ function actionToStream<T extends keyof BlockSuitePresets.AIActions>(
             models,
             host,
             docId: host.doc.id,
-            workspaceId: host.doc.workspace.id,
+            workspaceId: host.doc.collection.id,
           } as Parameters<typeof action>[0];
 
           const content = ctx.get().content;
@@ -231,7 +230,7 @@ function actionToStream<T extends keyof BlockSuitePresets.AIActions>(
           control: 'format-bar',
           host,
           docId: host.doc.id,
-          workspaceId: host.doc.workspace.id,
+          workspaceId: host.doc.collection.id,
         } as Parameters<typeof action>[0];
 
         // @ts-expect-error TODO(@Peng): maybe fix this
@@ -486,7 +485,7 @@ export function noteWithCodeBlockShowWen(
   return (
     selected[0] instanceof NoteBlockModel &&
     selected[0].children.length === 1 &&
-    BlocksUtils.matchFlavours(selected[0].children[0], [CodeBlockModel])
+    BlocksUtils.matchFlavours(selected[0].children[0], ['affine:code'])
   );
 }
 

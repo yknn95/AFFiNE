@@ -1,11 +1,8 @@
-import { updateBlockType } from '@blocksuite/affine-block-note';
-import {
-  formatBlockCommand,
-  type TextConversionConfig,
-  type TextFormatConfig,
+import type {
+  TextConversionConfig,
+  TextFormatConfig,
 } from '@blocksuite/affine-components/rich-text';
 import { isInsideBlockByFlavour } from '@blocksuite/affine-shared/utils';
-import { BlockSelection } from '@blocksuite/block-std';
 import { assertType } from '@blocksuite/global/utils';
 import type { BlockModel } from '@blocksuite/store';
 
@@ -104,10 +101,13 @@ export function createConversionItem(
     tooltip: slashMenuToolTips[name],
     showWhen: ({ model }) => model.doc.schema.flavourSchemaMap.has(flavour),
     action: ({ rootComponent }) => {
-      rootComponent.std.command.exec(updateBlockType, {
-        flavour,
-        props: { type },
-      });
+      rootComponent.std.command
+        .chain()
+        .updateBlockType({
+          flavour,
+          props: { type },
+        })
+        .run();
     },
   };
 }
@@ -124,14 +124,17 @@ export function createTextFormatItem(
       const { std, host } = rootComponent;
 
       if (model.text?.length !== 0) {
-        std.command.exec(formatBlockCommand, {
-          blockSelections: [
-            std.selection.create(BlockSelection, {
-              blockId: model.id,
-            }),
-          ],
-          styles: { [id]: true },
-        });
+        std.command
+          .chain()
+          .formatBlock({
+            blockSelections: [
+              std.selection.create('block', {
+                blockId: model.id,
+              }),
+            ],
+            styles: { [id]: true },
+          })
+          .run();
       } else {
         // like format bar when the line is empty
         action(host);

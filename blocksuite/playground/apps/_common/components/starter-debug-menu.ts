@@ -15,6 +15,7 @@ import '@shoelace-style/shoelace/dist/components/tooltip/tooltip.js';
 import '@shoelace-style/shoelace/dist/themes/light.css';
 import '@shoelace-style/shoelace/dist/themes/dark.css';
 import './left-side-panel.js';
+import './side-panel.js';
 
 import { NotionHtmlAdapter } from '@blocksuite/affine-shared/adapters';
 import type { AffineTextAttributes } from '@blocksuite/affine-shared/types';
@@ -49,7 +50,7 @@ import { BlockSuiteError, ErrorCode } from '@blocksuite/global/exceptions';
 import type { SerializedXYWH } from '@blocksuite/global/utils';
 import type { DeltaInsert } from '@blocksuite/inline/types';
 import { AffineEditorContainer, type CommentPanel } from '@blocksuite/presets';
-import { Text, Transformer, type Workspace } from '@blocksuite/store';
+import { type DocCollection, Job, Text } from '@blocksuite/store';
 import type { SlDropdown } from '@shoelace-style/shoelace';
 import { setBasePath } from '@shoelace-style/shoelace/dist/utilities/base-path.js';
 import { css, html } from 'lit';
@@ -64,6 +65,7 @@ import type { CustomOutlinePanel } from './custom-outline-panel.js';
 import type { CustomOutlineViewer } from './custom-outline-viewer.js';
 import type { DocsPanel } from './docs-panel.js';
 import type { LeftSidePanel } from './left-side-panel.js';
+import type { SidePanel } from './side-panel.js';
 
 const basePath =
   'https://cdn.jsdelivr.net/npm/@shoelace-style/shoelace@2.11.2/dist';
@@ -239,18 +241,9 @@ export class StarterDebugMenu extends ShadowlessElement {
 
   private async _exportFile(config: AdapterConfig) {
     const doc = this.editor.doc;
-    const job = new Transformer({
-      schema: this.collection.schema,
-      blobCRUD: this.collection.blobSync,
-      docCRUD: {
-        create: (id: string) => this.collection.createDoc({ id }),
-        get: (id: string) => this.collection.getDoc(id),
-        delete: (id: string) => this.collection.removeDoc(id),
-      },
-      middlewares: [
-        docLinkBaseURLMiddleware(this.collection.id),
-        titleMiddleware(this.collection.meta.docMetas),
-      ],
+    const job = new Job({
+      collection: this.editor.doc.collection,
+      middlewares: [docLinkBaseURLMiddleware, titleMiddleware],
     });
 
     const adapterFactory = this.editor.std.provider.get(config.identifier);
@@ -327,9 +320,7 @@ export class StarterDebugMenu extends ShadowlessElement {
   private async _exportSnapshot() {
     await ZipTransformer.exportDocs(
       this.collection,
-      Array.from(this.collection.docs.values()).map(collection =>
-        collection.getStore()
-      )
+      [...this.collection.docs.values()].map(collection => collection.getDoc())
     );
   }
 
@@ -440,14 +431,8 @@ export class StarterDebugMenu extends ShadowlessElement {
         multiple: false,
       });
       if (!file) return;
-      const job = new Transformer({
-        schema: this.collection.schema,
-        blobCRUD: this.collection.blobSync,
-        docCRUD: {
-          create: (id: string) => this.collection.createDoc({ id }),
-          get: (id: string) => this.collection.getDoc(id),
-          delete: (id: string) => this.collection.removeDoc(id),
-        },
+      const job = new Job({
+        collection: this.collection,
         middlewares: [defaultImageProxyMiddleware],
       });
       const htmlAdapter = new NotionHtmlAdapter(job, this.editor.std.provider);
@@ -683,7 +668,7 @@ export class StarterDebugMenu extends ShadowlessElement {
 
   private _toggleReadonly() {
     const doc = this.doc;
-    doc.readonly = !doc.readonly;
+    doc.awarenessStore.setReadonly(doc.blockCollection, !doc.readonly);
   }
 
   private async _toggleStyleDebugMenu() {
@@ -1019,7 +1004,7 @@ export class StarterDebugMenu extends ShadowlessElement {
   accessor blockTypeDropdown!: SlDropdown;
 
   @property({ attribute: false })
-  accessor collection!: Workspace;
+  accessor collection!: DocCollection;
 
   @property({ attribute: false })
   accessor commentPanel!: CommentPanel;
@@ -1044,6 +1029,9 @@ export class StarterDebugMenu extends ShadowlessElement {
 
   @property({ attribute: false })
   accessor readonly = false;
+
+  @property({ attribute: false })
+  accessor sidePanel!: SidePanel;
 }
 
 declare global {

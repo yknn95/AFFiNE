@@ -1,11 +1,8 @@
 import { getSurfaceBlock } from '@blocksuite/affine-block-surface';
 import {
   type DocMode,
-  ImageBlockModel,
-  ListBlockModel,
-  NoteBlockModel,
+  type ImageBlockModel,
   NoteDisplayMode,
-  ParagraphBlockModel,
 } from '@blocksuite/affine-model';
 import { EMBED_CARD_HEIGHT } from '@blocksuite/affine-shared/consts';
 import { NotificationProvider } from '@blocksuite/affine-shared/services';
@@ -15,11 +12,11 @@ import { assertExists } from '@blocksuite/global/utils';
 import {
   type BlockModel,
   type BlockSnapshot,
+  BlockViewType,
+  type Doc,
   type DraftModel,
   type Query,
   Slice,
-  type Store,
-  Text,
 } from '@blocksuite/store';
 import { render, type TemplateResult } from 'lit';
 
@@ -71,7 +68,7 @@ async function renderPageAsBanner(card: EmbedSyncedDocCard) {
   }
 
   const target = notes.flatMap(note =>
-    note.children.filter(child => matchFlavours(child, [ImageBlockModel]))
+    note.children.filter(child => matchFlavours(child, ['affine:image']))
   )[0];
 
   if (target) {
@@ -138,7 +135,9 @@ async function renderNoteContent(
 
   const cardStyle = card.model.style;
   const isHorizontal = cardStyle === 'horizontal';
-  const allowFlavours = isHorizontal ? [] : [ImageBlockModel];
+  const allowFlavours: (keyof BlockSuite.BlockModels)[] = isHorizontal
+    ? []
+    : ['affine:image'];
 
   const noteChildren = notes.flatMap(note =>
     note.children.filter(model => {
@@ -189,17 +188,17 @@ async function renderNoteContent(
     let parent: string | null = block;
     while (parent && !ids.includes(parent)) {
       ids.push(parent);
-      parent = doc.getParent(parent)?.id ?? null;
+      parent = doc.blockCollection.crud.getParent(parent);
     }
   });
   const query: Query = {
     mode: 'strict',
-    match: ids.map(id => ({ id, viewType: 'display' })),
+    match: ids.map(id => ({ id, viewType: BlockViewType.Display })),
   };
-  const previewDoc = doc.doc.getStore({ query });
+  const previewDoc = doc.blockCollection.getDoc({ query });
   const previewSpec = SpecProvider.getInstance().getSpec('page:preview');
   const previewStd = new BlockStdScope({
-    store: previewDoc,
+    doc: previewDoc,
     extensions: previewSpec.value,
   });
   const previewTemplate = previewStd.render();
@@ -215,16 +214,16 @@ async function renderNoteContent(
 }
 
 function filterTextModel(model: BlockModel) {
-  if (matchFlavours(model, [ParagraphBlockModel, ListBlockModel])) {
+  if (matchFlavours(model, ['affine:paragraph', 'affine:list'])) {
     return !!model.text?.toString().length;
   }
   return false;
 }
 
-export function getNotesFromDoc(doc: Store) {
+export function getNotesFromDoc(doc: Doc) {
   const notes = doc.root?.children.filter(
     child =>
-      matchFlavours(child, [NoteBlockModel]) &&
+      matchFlavours(child, ['affine:note']) &&
       child.displayMode !== NoteDisplayMode.EdgelessOnly
   );
 
@@ -235,7 +234,7 @@ export function getNotesFromDoc(doc: Store) {
   return notes;
 }
 
-export function isEmptyDoc(doc: Store | null, mode: DocMode) {
+export function isEmptyDoc(doc: Doc | null, mode: DocMode) {
   if (!doc) {
     return true;
   }
@@ -267,7 +266,7 @@ export function isEmptyNote(note: BlockModel) {
 /**
  * Gets the document content with a max length.
  */
-export function getDocContentWithMaxLength(doc: Store, maxlength = 500) {
+export function getDocContentWithMaxLength(doc: Doc, maxlength = 500) {
   const notes = getNotesFromDoc(doc);
   if (!notes) return;
 
@@ -305,7 +304,7 @@ export function getDocContentWithMaxLength(doc: Store, maxlength = 500) {
 export function getTitleFromSelectedModels(selectedModels: DraftModel[]) {
   const firstBlock = selectedModels[0];
   if (
-    matchFlavours(firstBlock, [ParagraphBlockModel]) &&
+    matchFlavours(firstBlock, ['affine:paragraph']) &&
     firstBlock.type.startsWith('h')
   ) {
     return firstBlock.text.toString();
@@ -327,7 +326,7 @@ export function promptDocTitle(std: BlockStdScope, autofill?: string) {
   });
 }
 
-export function notifyDocCreated(std: BlockStdScope, doc: Store) {
+export function notifyDocCreated(std: BlockStdScope, doc: Doc) {
   const notification = std.getOptional(NotificationProvider);
   if (!notification) return;
 
@@ -366,7 +365,7 @@ export function notifyDocCreated(std: BlockStdScope, doc: Store) {
 
 export async function convertSelectedBlocksToLinkedDoc(
   std: BlockStdScope,
-  doc: Store,
+  doc: Doc,
   selectedModels: DraftModel[] | Promise<DraftModel[]>,
   docTitle?: string
 ) {
@@ -400,15 +399,15 @@ export async function convertSelectedBlocksToLinkedDoc(
 
 export function createLinkedDocFromSlice(
   std: BlockStdScope,
-  doc: Store,
+  doc: Doc,
   snapshots: BlockSnapshot[],
   docTitle?: string
 ) {
   // const modelsWithChildren = (list:BlockModel[]):BlockModel[]=>list.flatMap(model=>[model,...modelsWithChildren(model.children)])
-  const linkedDoc = doc.workspace.createDoc({});
+  const linkedDoc = doc.collection.createDoc({});
   linkedDoc.load(() => {
     const rootId = linkedDoc.addBlock('affine:page', {
-      title: new Text(docTitle),
+      title: new doc.Text(docTitle),
     });
     linkedDoc.addBlock('affine:surface', {}, rootId);
     const noteId = linkedDoc.addBlock('affine:note', {}, rootId);

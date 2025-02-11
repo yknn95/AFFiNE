@@ -5,7 +5,8 @@ import Stripe from 'stripe';
 import { z } from 'zod';
 
 import {
-  EventBus,
+  EventEmitter,
+  type EventPayload,
   OnEvent,
   SubscriptionAlreadyExists,
   SubscriptionPlanNotFound,
@@ -48,7 +49,7 @@ export class WorkspaceSubscriptionManager extends SubscriptionManager {
     stripe: Stripe,
     db: PrismaClient,
     private readonly url: URLHelper,
-    private readonly event: EventBus
+    private readonly event: EventEmitter
   ) {
     super(stripe, db);
   }
@@ -127,7 +128,7 @@ export class WorkspaceSubscriptionManager extends SubscriptionManager {
   }
 
   async saveStripeSubscription(subscription: KnownStripeSubscription) {
-    const { lookupKey, stripeSubscription } = subscription;
+    const { lookupKey, quantity, stripeSubscription } = subscription;
 
     const workspaceId = stripeSubscription.metadata.workspaceId;
 
@@ -137,30 +138,31 @@ export class WorkspaceSubscriptionManager extends SubscriptionManager {
       );
     }
 
-    const subscriptionData = this.transformSubscription(subscription);
-
     this.event.emit('workspace.subscription.activated', {
       workspaceId,
       plan: lookupKey.plan,
       recurring: lookupKey.recurring,
-      quantity: subscriptionData.quantity,
+      quantity,
     });
+
+    const subscriptionData = this.transformSubscription(subscription);
 
     return this.db.subscription.upsert({
       where: {
         stripeSubscriptionId: stripeSubscription.id,
       },
       update: {
+        quantity,
         ...pick(subscriptionData, [
           'status',
           'stripeScheduleId',
           'nextBillAt',
           'canceledAt',
-          'quantity',
         ]),
       },
       create: {
         targetId: workspaceId,
+        quantity,
         ...subscriptionData,
       },
     });
@@ -268,7 +270,7 @@ export class WorkspaceSubscriptionManager extends SubscriptionManager {
   async onMembersUpdated({
     workspaceId,
     count,
-  }: Events['workspace.members.updated']) {
+  }: EventPayload<'workspace.members.updated'>) {
     const subscription = await this.getSubscription({
       plan: SubscriptionPlan.Team,
       workspaceId,

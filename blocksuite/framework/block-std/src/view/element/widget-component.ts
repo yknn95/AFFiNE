@@ -1,5 +1,5 @@
 import { SignalWatcher, WithDisposable } from '@blocksuite/global/utils';
-import type { BlockModel, Store } from '@blocksuite/store';
+import type { BlockModel, Doc } from '@blocksuite/store';
 import { consume } from '@lit/context';
 import { LitElement } from 'lit';
 
@@ -94,7 +94,7 @@ export class WidgetComponent<
   }
 
   @consume({ context: docContext })
-  private accessor _doc!: Store;
+  private accessor _doc!: Doc;
 
   @consume({ context: modelContext })
   private accessor _model!: Model;

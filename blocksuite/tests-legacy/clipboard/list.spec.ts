@@ -1,4 +1,3 @@
-import type { BlockSnapshot } from '@blocksuite/store';
 import { expect } from '@playwright/test';
 import { lightThemeV2 } from '@toeverything/theme/v2';
 
@@ -54,6 +53,7 @@ import {
   assertExists,
   assertRichTextModelType,
   assertRichTexts,
+  assertStoreMatchJSX,
   assertText,
 } from '../utils/asserts.js';
 import { scoped, test } from '../utils/playwright.js';
@@ -437,17 +437,104 @@ test(scoped`should copy and paste of database work`, async ({ page }) => {
   await pasteByKeyboard(page);
   await page.waitForTimeout(100);
 
-  let pageJson = await getPageSnapshot(page, false);
-  let note = (pageJson as BlockSnapshot).children[0];
-  const database = note.children[0];
-  expect(database.flavour).toBe('affine:database');
+  await assertStoreMatchJSX(
+    page,
+    /*xml*/ `
+<affine:page>
+  <affine:note
+    prop:background={
+      Object {
+        "dark": "#000000",
+        "light": "#ffffff",
+      }
+    }
+    prop:displayMode="both"
+    prop:edgeless={
+      Object {
+        "style": Object {
+          "borderRadius": 8,
+          "borderSize": 4,
+          "borderStyle": "none",
+          "shadowType": "--affine-note-shadow-box",
+        },
+      }
+    }
+    prop:hidden={false}
+    prop:index="a0"
+    prop:lockedBySelf={false}
+  >
+    <affine:database
+      prop:columns="Array [2]"
+      prop:title="Database 1"
+      prop:views="Array [1]"
+    >
+      <affine:paragraph
+        prop:collapsed={false}
+        prop:type="text"
+      />
+    </affine:database>
+    <affine:database
+      prop:columns="Array [2]"
+      prop:title="Database 1"
+      prop:views="Array [1]"
+    >
+      <affine:paragraph
+        prop:collapsed={false}
+        prop:type="text"
+      />
+    </affine:database>
+    <affine:paragraph
+      prop:collapsed={false}
+      prop:type="text"
+    />
+  </affine:note>
+</affine:page>`
+  );
 
   await undoByKeyboard(page);
-
-  pageJson = await getPageSnapshot(page, false);
-  note = (pageJson as BlockSnapshot).children[0];
-  const db = note.children.find(child => child.flavour === 'affine:database');
-  expect(db).toBeDefined();
+  await assertStoreMatchJSX(
+    page,
+    /*xml*/ `
+<affine:page>
+  <affine:note
+    prop:background={
+      Object {
+        "dark": "#000000",
+        "light": "#ffffff",
+      }
+    }
+    prop:displayMode="both"
+    prop:edgeless={
+      Object {
+        "style": Object {
+          "borderRadius": 8,
+          "borderSize": 4,
+          "borderStyle": "none",
+          "shadowType": "--affine-note-shadow-box",
+        },
+      }
+    }
+    prop:hidden={false}
+    prop:index="a0"
+    prop:lockedBySelf={false}
+  >
+    <affine:database
+      prop:columns="Array [2]"
+      prop:title="Database 1"
+      prop:views="Array [1]"
+    >
+      <affine:paragraph
+        prop:collapsed={false}
+        prop:type="text"
+      />
+    </affine:database>
+    <affine:paragraph
+      prop:collapsed={false}
+      prop:type="text"
+    />
+  </affine:note>
+</affine:page>`
+  );
 });
 
 test(`copy canvas element and text note in edgeless mode`, async ({ page }) => {

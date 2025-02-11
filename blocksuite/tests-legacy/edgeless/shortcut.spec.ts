@@ -15,11 +15,9 @@ import {
   zoomInByKeyboard,
   zoomOutByKeyboard,
   zoomResetByKeyboard,
-  zoomToSelection,
 } from '../utils/actions/edgeless.js';
 import {
   clickView,
-  dragBetweenCoords,
   enterPlaygroundRoom,
   focusRichText,
   initEmptyEdgelessState,
@@ -134,8 +132,8 @@ test('should not switch shapes in editing', async ({ page }) => {
 
   await type(page, 'hello');
   await page.keyboard.press('Shift+s');
-  await pressEscape(page);
-  await waitNextFrame(page, 200);
+  await page.keyboard.press('Escape');
+  await waitNextFrame(page);
   await setEdgelessTool(page, 'shape');
   await assertEdgelessShapeType(page, 'rect');
 
@@ -143,9 +141,8 @@ test('should not switch shapes in editing', async ({ page }) => {
   await page.mouse.dblclick(250, 200);
   await waitNextFrame(page);
   await page.keyboard.press('Shift+S');
-  await pressEscape(page);
+  await page.keyboard.press('Escape');
   await waitNextFrame(page);
-  await waitNextFrame(page, 200);
   await setEdgelessTool(page, 'shape');
   await assertEdgelessShapeType(page, 'rect');
 });
@@ -238,45 +235,6 @@ test.describe('zooming', () => {
 
     zoom = await getZoomLevel(page);
     expect(zoom).toBe(150);
-  });
-
-  test('zoom to selection', async ({ page }) => {
-    await enterPlaygroundRoom(page);
-    await initEmptyEdgelessState(page);
-    await switchEditorMode(page);
-    await zoomToSelection(page);
-
-    const start = { x: 0, y: 0 };
-    const end = { x: 900, y: 200 };
-    await addBasicRectShapeElement(page, start, end);
-    await page.keyboard.down('Space');
-    await dragBetweenCoords(
-      page,
-      {
-        x: 200,
-        y: 200,
-      },
-      {
-        x: 200 - 50,
-        y: 200 - 50,
-      }
-    );
-    await page.keyboard.up('Space');
-
-    await zoomFitByKeyboard(page);
-    const shapeContained = await page.evaluate(() => {
-      const edgelessBlock = document.querySelector('affine-edgeless-root');
-      if (!edgelessBlock) {
-        throw new Error('edgeless block not found');
-      }
-
-      const gfx = edgelessBlock.gfx;
-      const element = gfx.selection.selectedElements[0];
-
-      return gfx.viewport.viewportBounds.contains(element.elementBound);
-    });
-
-    expect(shapeContained).toBe(true);
   });
 });
 

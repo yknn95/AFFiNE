@@ -1,4 +1,4 @@
-import { NoteBlockModel, RootBlockModel } from '@blocksuite/affine-model';
+import type { RootBlockModel } from '@blocksuite/affine-model';
 import {
   autoScroll,
   getScrollContainer,
@@ -7,7 +7,6 @@ import {
 import {
   BLOCK_ID_ATTR,
   BlockComponent,
-  BlockSelection,
   type PointerEventState,
   WidgetComponent,
 } from '@blocksuite/block-std';
@@ -189,7 +188,7 @@ export class AffinePageDraggingAreaWidget extends WidgetComponent<
       this._allBlocksWithRect,
       userRect
     ).map(blockPath => {
-      return this.host.selection.create(BlockSelection, {
+      return this.host.selection.create('block', {
         blockId: blockPath,
       });
     });
@@ -199,6 +198,35 @@ export class AffinePageDraggingAreaWidget extends WidgetComponent<
 
   override connectedCallback() {
     super.connectedCallback();
+
+    this.handleEvent(
+      'pointerDown',
+      ctx => {
+        const container = this.block.rootElementContainer;
+        if (!container) return;
+
+        const containerRect = container.getBoundingClientRect();
+        const containerStyles = window.getComputedStyle(container);
+        const paddingLeft = parseFloat(containerStyles.paddingLeft);
+        const paddingRight = parseFloat(containerStyles.paddingRight);
+        const state = ctx.get('pointerState');
+        const raw = state.raw;
+
+        if (
+          raw.clientX > containerRect.left + paddingLeft &&
+          raw.clientX < containerRect.right - paddingRight &&
+          raw.clientY > containerRect.top &&
+          raw.clientY < containerRect.bottom
+        ) {
+          return;
+        }
+
+        state.raw.preventDefault();
+      },
+      {
+        global: true,
+      }
+    );
 
     this.handleEvent(
       'dragStart',
@@ -445,7 +473,7 @@ function isDragArea(e: PointerEventState) {
   const el = e.raw.target;
   assertInstanceOf(el, Element);
   const block = el.closest<BlockComponent>(`[${BLOCK_ID_ATTR}]`);
-  return block && matchFlavours(block.model, [RootBlockModel, NoteBlockModel]);
+  return block && matchFlavours(block.model, ['affine:page', 'affine:note']);
 }
 
 declare global {

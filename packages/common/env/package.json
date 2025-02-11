@@ -3,7 +3,8 @@
   "private": true,
   "type": "module",
   "devDependencies": {
-    "vitest": "3.0.5"
+    "@blocksuite/affine": "workspace:*",
+    "vitest": "2.1.8"
   },
   "exports": {
     "./automation": "./src/automation.ts",
@@ -15,8 +16,7 @@
     "./blocksuite": "./src/blocksuite/index.ts"
   },
   "peerDependencies": {
-    "@affine/templates": "workspace:*",
-    "@blocksuite/affine": "workspace:*"
+    "@affine/templates": "workspace:*"
   },
   "dependencies": {
     "zod": "^3.24.1"

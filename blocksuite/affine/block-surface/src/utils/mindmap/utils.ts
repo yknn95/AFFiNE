@@ -14,7 +14,7 @@ import {
   type SurfaceBlockModel,
 } from '@blocksuite/block-std/gfx';
 import { assertType, isEqual, type IVec, last } from '@blocksuite/global/utils';
-import * as Y from 'yjs';
+import { DocCollection } from '@blocksuite/store';
 
 import { fitContent } from '../../renderer/elements/shape/utils.js';
 import { layout } from './layout.js';
@@ -360,7 +360,7 @@ export function createFromTree(
   layoutType: LayoutType,
   surface: SurfaceBlockModel
 ) {
-  const children = new Y.Map();
+  const children = new DocCollection.Y.Map();
   const traverse = (subtree: MindmapNode, parent?: string) => {
     const value: NodeDetail = {
       ...subtree.detail,

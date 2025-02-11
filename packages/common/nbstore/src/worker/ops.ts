@@ -1,4 +1,3 @@
-import type { AvailableStorageImplementations } from '../impls';
 import type {
   BlobRecord,
   DocClock,
@@ -7,25 +6,23 @@ import type {
   DocRecord,
   DocUpdate,
   ListedBlobRecord,
-  StorageType,
+  StorageOptions,
 } from '../storage';
 import type { AwarenessRecord } from '../storage/awareness';
-import type { BlobSyncState } from '../sync/blob';
 import type { DocSyncDocState, DocSyncState } from '../sync/doc';
 
-type StorageInitOptions = Values<{
-  [key in keyof AvailableStorageImplementations]: {
-    name: key;
-    opts: ConstructorParameters<AvailableStorageImplementations[key]>[0];
-  };
-}>;
-
-export interface StoreInitOptions {
-  local: { [key in StorageType]?: StorageInitOptions };
-  remotes: Record<string, { [key in StorageType]?: StorageInitOptions }>;
-}
-
 interface GroupedWorkerOps {
+  worker: {
+    init: [
+      {
+        local: { name: string; opts: StorageOptions }[];
+        remotes: { name: string; opts: StorageOptions }[][];
+      },
+      void,
+    ];
+    destroy: [void, void];
+  };
+
   docStorage: {
     getDoc: [string, DocRecord | null];
     getDocDiff: [{ docId: string; state?: Uint8Array }, DocDiff | null];
@@ -86,10 +83,6 @@ interface GroupedWorkerOps {
   blobSync: {
     downloadBlob: [string, BlobRecord | null];
     uploadBlob: [BlobRecord, void];
-    fullSync: [void, boolean];
-    setMaxBlobSize: [number, void];
-    onReachedMaxBlobSize: [void, number];
-    state: [void, BlobSyncState];
   };
 
   awarenessSync: {
@@ -127,16 +120,3 @@ export type WorkerOps = UnionToIntersection<
     }>
   >
 >;
-
-export type WorkerManagerOps = {
-  open: [
-    {
-      port: MessagePort;
-      key: string;
-      closeKey: string;
-      options: StoreInitOptions;
-    },
-    string,
-  ];
-  close: [string, void];
-};

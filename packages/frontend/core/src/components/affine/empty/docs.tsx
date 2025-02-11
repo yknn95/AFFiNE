@@ -1,6 +1,6 @@
 import { TagService } from '@affine/core/modules/tag';
 import { WorkspaceService } from '@affine/core/modules/workspace';
-import { inferOpenMode } from '@affine/core/utils';
+import { isNewTabTrigger } from '@affine/core/utils';
 import { useI18n } from '@affine/i18n';
 import { AllDocsIcon } from '@blocksuite/icons/rc';
 import { useLiveData, useService } from '@toeverything/infra';
@@ -36,9 +36,10 @@ export const EmptyDocs = ({
 
   const onCreate = useCallback(
     (e: MouseEvent) => {
-      const doc = pageHelper.createPage(undefined, {
-        at: inferOpenMode(e),
-      });
+      const doc = pageHelper.createPage(
+        undefined,
+        isNewTabTrigger(e) ? 'new-tab' : true
+      );
 
       if (tag) tag.tag(doc.id);
     },

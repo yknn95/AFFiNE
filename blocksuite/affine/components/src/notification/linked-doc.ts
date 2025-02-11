@@ -5,7 +5,7 @@ import { toast } from '../toast/toast.js';
 
 function notify(std: BlockStdScope, title: string, message: string) {
   const notification = std.getOptional(NotificationProvider);
-  const { store: doc, host } = std;
+  const { doc, host } = std;
 
   if (!notification) {
     toast(host, title);

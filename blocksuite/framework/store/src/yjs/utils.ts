@@ -5,7 +5,3 @@ export type SubdocEvent = {
   removed: Set<YDoc>;
   added: Set<YDoc>;
 };
-
-export interface StackItem {
-  meta: Map<'selection-state', unknown>;
-}

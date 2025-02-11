@@ -1,51 +1,13 @@
 import { addSiblingAttachmentBlocks } from '@blocksuite/affine-block-attachment';
-import { insertDatabaseBlockCommand } from '@blocksuite/affine-block-database';
-import { insertImagesCommand } from '@blocksuite/affine-block-image';
-import { insertLatexBlockCommand } from '@blocksuite/affine-block-latex';
-import {
-  canDedentListCommand,
-  canIndentListCommand,
-  dedentListCommand,
-  indentListCommand,
-} from '@blocksuite/affine-block-list';
-import { updateBlockType } from '@blocksuite/affine-block-note';
-import {
-  canDedentParagraphCommand,
-  canIndentParagraphCommand,
-  dedentParagraphCommand,
-  indentParagraphCommand,
-} from '@blocksuite/affine-block-paragraph';
+import { toggleEmbedCardCreateModal } from '@blocksuite/affine-block-bookmark';
 import { getSurfaceBlock } from '@blocksuite/affine-block-surface';
-import { insertSurfaceRefBlockCommand } from '@blocksuite/affine-block-surface-ref';
-import { toggleEmbedCardCreateModal } from '@blocksuite/affine-components/embed-card-modal';
 import {
-  formatBlockCommand,
-  formatNativeCommand,
-  formatTextCommand,
   getInlineEditorByModel,
-  getTextStyle,
   insertContent,
-  insertInlineLatex,
-  toggleBold,
-  toggleCode,
-  toggleItalic,
-  toggleLink,
-  toggleStrike,
-  toggleUnderline,
 } from '@blocksuite/affine-components/rich-text';
 import { toast } from '@blocksuite/affine-components/toast';
 import type { FrameBlockModel } from '@blocksuite/affine-model';
-import {
-  copySelectedModelsCommand,
-  deleteSelectedModelsCommand,
-  draftSelectedModelsCommand,
-  duplicateSelectedModelsCommand,
-  getBlockSelectionsCommand,
-  getSelectedModelsCommand,
-  getTextSelectionCommand,
-} from '@blocksuite/affine-shared/commands';
 import { REFERENCE_NODE } from '@blocksuite/affine-shared/consts';
-import { FileSizeLimitService } from '@blocksuite/affine-shared/services';
 import type { AffineTextAttributes } from '@blocksuite/affine-shared/types';
 import {
   createDefaultDoc,
@@ -193,9 +155,9 @@ const textToolActionItems: KeyboardToolbarActionItem[] = [
     name: 'Text',
     icon: TextIcon(),
     showWhen: ({ std }) =>
-      std.store.schema.flavourSchemaMap.has('affine:paragraph'),
+      std.doc.schema.flavourSchemaMap.has('affine:paragraph'),
     action: ({ std }) => {
-      std.command.exec(updateBlockType, {
+      std.command.exec('updateBlockType', {
         flavour: 'affine:paragraph',
         props: { type: 'text' },
       });
@@ -205,9 +167,9 @@ const textToolActionItems: KeyboardToolbarActionItem[] = [
     name: `Heading ${i}`,
     icon: HeadingIcon(i),
     showWhen: ({ std }: KeyboardToolbarContext) =>
-      std.store.schema.flavourSchemaMap.has('affine:paragraph'),
+      std.doc.schema.flavourSchemaMap.has('affine:paragraph'),
     action: ({ std }: KeyboardToolbarContext) => {
-      std.command.exec(updateBlockType, {
+      std.command.exec('updateBlockType', {
         flavour: 'affine:paragraph',
         props: { type: `h${i}` },
       });
@@ -215,10 +177,10 @@ const textToolActionItems: KeyboardToolbarActionItem[] = [
   })),
   {
     name: 'CodeBlock',
-    showWhen: ({ std }) => std.store.schema.flavourSchemaMap.has('affine:code'),
+    showWhen: ({ std }) => std.doc.schema.flavourSchemaMap.has('affine:code'),
     icon: CodeBlockIcon(),
     action: ({ std }) => {
-      std.command.exec(updateBlockType, {
+      std.command.exec('updateBlockType', {
         flavour: 'affine:code',
       });
     },
@@ -226,10 +188,10 @@ const textToolActionItems: KeyboardToolbarActionItem[] = [
   {
     name: 'Quote',
     showWhen: ({ std }) =>
-      std.store.schema.flavourSchemaMap.has('affine:paragraph'),
+      std.doc.schema.flavourSchemaMap.has('affine:paragraph'),
     icon: QuoteIcon(),
     action: ({ std }) => {
-      std.command.exec(updateBlockType, {
+      std.command.exec('updateBlockType', {
         flavour: 'affine:paragraph',
         props: { type: 'quote' },
       });
@@ -239,9 +201,9 @@ const textToolActionItems: KeyboardToolbarActionItem[] = [
     name: 'Divider',
     icon: DividerIcon(),
     showWhen: ({ std }) =>
-      std.store.schema.flavourSchemaMap.has('affine:divider'),
+      std.doc.schema.flavourSchemaMap.has('affine:divider'),
     action: ({ std }) => {
-      std.command.exec(updateBlockType, {
+      std.command.exec('updateBlockType', {
         flavour: 'affine:divider',
         props: { type: 'divider' },
       });
@@ -251,13 +213,9 @@ const textToolActionItems: KeyboardToolbarActionItem[] = [
     name: 'Inline equation',
     icon: TeXIcon(),
     showWhen: ({ std }) =>
-      std.store.schema.flavourSchemaMap.has('affine:paragraph'),
+      std.doc.schema.flavourSchemaMap.has('affine:paragraph'),
     action: ({ std }) => {
-      std.command
-        .chain()
-        .pipe(getTextSelectionCommand)
-        .pipe(insertInlineLatex)
-        .run();
+      std.command.chain().getTextSelection().insertInlineLatex().run();
     },
   },
 ];
@@ -266,9 +224,9 @@ const listToolActionItems: KeyboardToolbarActionItem[] = [
   {
     name: 'BulletedList',
     icon: BulletedListIcon(),
-    showWhen: ({ std }) => std.store.schema.flavourSchemaMap.has('affine:list'),
+    showWhen: ({ std }) => std.doc.schema.flavourSchemaMap.has('affine:list'),
     action: ({ std }) => {
-      std.command.exec(updateBlockType, {
+      std.command.exec('updateBlockType', {
         flavour: 'affine:list',
         props: {
           type: 'bulleted',
@@ -279,9 +237,9 @@ const listToolActionItems: KeyboardToolbarActionItem[] = [
   {
     name: 'NumberedList',
     icon: NumberedListIcon(),
-    showWhen: ({ std }) => std.store.schema.flavourSchemaMap.has('affine:list'),
+    showWhen: ({ std }) => std.doc.schema.flavourSchemaMap.has('affine:list'),
     action: ({ std }) => {
-      std.command.exec(updateBlockType, {
+      std.command.exec('updateBlockType', {
         flavour: 'affine:list',
         props: {
           type: 'numbered',
@@ -292,9 +250,9 @@ const listToolActionItems: KeyboardToolbarActionItem[] = [
   {
     name: 'CheckBox',
     icon: CheckBoxCheckLinearIcon(),
-    showWhen: ({ std }) => std.store.schema.flavourSchemaMap.has('affine:list'),
+    showWhen: ({ std }) => std.doc.schema.flavourSchemaMap.has('affine:list'),
     action: ({ std }) => {
-      std.command.exec(updateBlockType, {
+      std.command.exec('updateBlockType', {
         flavour: 'affine:list',
         props: {
           type: 'todo',
@@ -311,13 +269,13 @@ const pageToolGroup: KeyboardToolPanelGroup = {
       name: 'NewPage',
       icon: NewPageIcon(),
       showWhen: ({ std }) =>
-        std.store.schema.flavourSchemaMap.has('affine:embed-linked-doc'),
+        std.doc.schema.flavourSchemaMap.has('affine:embed-linked-doc'),
       action: ({ std }) => {
         std.command
           .chain()
-          .pipe(getSelectedModelsCommand)
-          .pipe(({ selectedModels }) => {
-            const newDoc = createDefaultDoc(std.store.workspace);
+          .getSelectedModels()
+          .inline(({ selectedModels }) => {
+            const newDoc = createDefaultDoc(std.doc.collection);
             if (!selectedModels?.length) return;
             insertContent(std.host, selectedModels[0], REFERENCE_NODE, {
               reference: {
@@ -339,7 +297,7 @@ const pageToolGroup: KeyboardToolPanelGroup = {
         );
         if (!linkedDocWidget) return false;
 
-        return std.store.schema.flavourSchemaMap.has('affine:embed-linked-doc');
+        return std.doc.schema.flavourSchemaMap.has('affine:embed-linked-doc');
       },
       action: ({ rootComponent, closeToolPanel }) => {
         const { std } = rootComponent;
@@ -355,8 +313,8 @@ const pageToolGroup: KeyboardToolPanelGroup = {
 
         std.command
           .chain()
-          .pipe(getSelectedModelsCommand)
-          .pipe(ctx => {
+          .getSelectedModels()
+          .inline(ctx => {
             const { selectedModels } = ctx;
             if (!selectedModels?.length) return;
 
@@ -366,10 +324,7 @@ const pageToolGroup: KeyboardToolPanelGroup = {
             const inlineEditor = getInlineEditorByModel(std.host, currentModel);
             // Wait for range to be updated
             inlineEditor?.slots.inlineRangeSync.once(() => {
-              linkedDocWidget.show({
-                mode: 'mobile',
-                addTriggerKey: true,
-              });
+              linkedDocWidget.show('mobile');
               closeToolPanel();
             });
           })
@@ -386,12 +341,12 @@ const contentMediaToolGroup: KeyboardToolPanelGroup = {
       name: 'Image',
       icon: ImageIcon(),
       showWhen: ({ std }) =>
-        std.store.schema.flavourSchemaMap.has('affine:image'),
+        std.doc.schema.flavourSchemaMap.has('affine:image'),
       action: ({ std }) => {
         std.command
           .chain()
-          .pipe(getSelectedModelsCommand)
-          .pipe(insertImagesCommand, { removeEmptyLine: true })
+          .getSelectedModels()
+          .insertImages({ removeEmptyLine: true })
           .run();
       },
     },
@@ -399,15 +354,13 @@ const contentMediaToolGroup: KeyboardToolPanelGroup = {
       name: 'Link',
       icon: LinkIcon(),
       showWhen: ({ std }) =>
-        std.store.schema.flavourSchemaMap.has('affine:bookmark'),
+        std.doc.schema.flavourSchemaMap.has('affine:bookmark'),
       action: async ({ std }) => {
-        const [_, { selectedModels }] = std.command.exec(
-          getSelectedModelsCommand
-        );
+        const { selectedModels } = std.command.exec('getSelectedModels');
         const model = selectedModels?.[0];
         if (!model) return;
 
-        const parentModel = std.store.getParent(model);
+        const parentModel = std.doc.getParent(model);
         if (!parentModel) return;
 
         const index = parentModel.children.indexOf(model) + 1;
@@ -418,7 +371,7 @@ const contentMediaToolGroup: KeyboardToolPanelGroup = {
           { mode: 'page', parentModel, index }
         );
         if (model.text?.length === 0) {
-          std.store.deleteBlock(model);
+          std.doc.deleteBlock(model);
         }
       },
     },
@@ -426,22 +379,22 @@ const contentMediaToolGroup: KeyboardToolPanelGroup = {
       name: 'Attachment',
       icon: AttachmentIcon(),
       showWhen: ({ std }) =>
-        std.store.schema.flavourSchemaMap.has('affine:attachment'),
+        std.doc.schema.flavourSchemaMap.has('affine:attachment'),
       action: async ({ std }) => {
-        const [_, { selectedModels }] = std.command.exec(
-          getSelectedModelsCommand
-        );
+        const { selectedModels } = std.command.exec('getSelectedModels');
         const model = selectedModels?.[0];
         if (!model) return;
 
         const file = await openFileOrFiles();
         if (!file) return;
 
-        const maxFileSize = std.store.get(FileSizeLimitService).maxFileSize;
+        const attachmentService = std.getService('affine:attachment');
+        if (!attachmentService) return;
+        const maxFileSize = attachmentService.maxFileSize;
 
         await addSiblingAttachmentBlocks(std.host, [file], maxFileSize, model);
         if (model.text?.length === 0) {
-          std.store.deleteBlock(model);
+          std.doc.deleteBlock(model);
         }
       },
     },
@@ -451,15 +404,13 @@ const contentMediaToolGroup: KeyboardToolPanelGroup = {
         style: `color: white`,
       }),
       showWhen: ({ std }) =>
-        std.store.schema.flavourSchemaMap.has('affine:embed-youtube'),
+        std.doc.schema.flavourSchemaMap.has('affine:embed-youtube'),
       action: async ({ std }) => {
-        const [_, { selectedModels }] = std.command.exec(
-          getSelectedModelsCommand
-        );
+        const { selectedModels } = std.command.exec('getSelectedModels');
         const model = selectedModels?.[0];
         if (!model) return;
 
-        const parentModel = std.store.getParent(model);
+        const parentModel = std.doc.getParent(model);
         if (!parentModel) return;
 
         const index = parentModel.children.indexOf(model) + 1;
@@ -470,7 +421,7 @@ const contentMediaToolGroup: KeyboardToolPanelGroup = {
           { mode: 'page', parentModel, index }
         );
         if (model.text?.length === 0) {
-          std.store.deleteBlock(model);
+          std.doc.deleteBlock(model);
         }
       },
     },
@@ -478,15 +429,13 @@ const contentMediaToolGroup: KeyboardToolPanelGroup = {
       name: 'Github',
       icon: GithubIcon({ style: `color: black` }),
       showWhen: ({ std }) =>
-        std.store.schema.flavourSchemaMap.has('affine:embed-github'),
+        std.doc.schema.flavourSchemaMap.has('affine:embed-github'),
       action: async ({ std }) => {
-        const [_, { selectedModels }] = std.command.exec(
-          getSelectedModelsCommand
-        );
+        const { selectedModels } = std.command.exec('getSelectedModels');
         const model = selectedModels?.[0];
         if (!model) return;
 
-        const parentModel = std.store.getParent(model);
+        const parentModel = std.doc.getParent(model);
         if (!parentModel) return;
 
         const index = parentModel.children.indexOf(model) + 1;
@@ -497,7 +446,7 @@ const contentMediaToolGroup: KeyboardToolPanelGroup = {
           { mode: 'page', parentModel, index }
         );
         if (model.text?.length === 0) {
-          std.store.deleteBlock(model);
+          std.doc.deleteBlock(model);
         }
       },
     },
@@ -505,15 +454,13 @@ const contentMediaToolGroup: KeyboardToolPanelGroup = {
       name: 'Figma',
       icon: FigmaDuotoneIcon,
       showWhen: ({ std }) =>
-        std.store.schema.flavourSchemaMap.has('affine:embed-figma'),
+        std.doc.schema.flavourSchemaMap.has('affine:embed-figma'),
       action: async ({ std }) => {
-        const [_, { selectedModels }] = std.command.exec(
-          getSelectedModelsCommand
-        );
+        const { selectedModels } = std.command.exec('getSelectedModels');
         const model = selectedModels?.[0];
         if (!model) return;
 
-        const parentModel = std.store.getParent(model);
+        const parentModel = std.doc.getParent(model);
         if (!parentModel) {
           return;
         }
@@ -525,7 +472,7 @@ const contentMediaToolGroup: KeyboardToolPanelGroup = {
           { mode: 'page', parentModel, index }
         );
         if (model.text?.length === 0) {
-          std.store.deleteBlock(model);
+          std.doc.deleteBlock(model);
         }
       },
     },
@@ -533,15 +480,13 @@ const contentMediaToolGroup: KeyboardToolPanelGroup = {
       name: 'Loom',
       icon: LoomLogoIcon({ style: `color: #625DF5` }),
       showWhen: ({ std }) =>
-        std.store.schema.flavourSchemaMap.has('affine:embed-loom'),
+        std.doc.schema.flavourSchemaMap.has('affine:embed-loom'),
       action: async ({ std }) => {
-        const [_, { selectedModels }] = std.command.exec(
-          getSelectedModelsCommand
-        );
+        const { selectedModels } = std.command.exec('getSelectedModels');
         const model = selectedModels?.[0];
         if (!model) return;
 
-        const parentModel = std.store.getParent(model);
+        const parentModel = std.doc.getParent(model);
         if (!parentModel) return;
 
         const index = parentModel.children.indexOf(model) + 1;
@@ -552,7 +497,7 @@ const contentMediaToolGroup: KeyboardToolPanelGroup = {
           { mode: 'page', parentModel, index }
         );
         if (model.text?.length === 0) {
-          std.store.deleteBlock(model);
+          std.doc.deleteBlock(model);
         }
       },
     },
@@ -560,12 +505,12 @@ const contentMediaToolGroup: KeyboardToolPanelGroup = {
       name: 'Equation',
       icon: TeXIcon(),
       showWhen: ({ std }) =>
-        std.store.schema.flavourSchemaMap.has('affine:latex'),
+        std.doc.schema.flavourSchemaMap.has('affine:latex'),
       action: ({ std }) => {
         std.command
           .chain()
-          .pipe(getSelectedModelsCommand)
-          .pipe(insertLatexBlockCommand, {
+          .getSelectedModels()
+          .insertLatexBlock({
             place: 'after',
             removeEmptyLine: true,
           })
@@ -578,9 +523,9 @@ const contentMediaToolGroup: KeyboardToolPanelGroup = {
 const documentGroupFrameToolGroup: DynamicKeyboardToolPanelGroup = ({
   std,
 }) => {
-  const { store } = std;
+  const { doc } = std;
 
-  const frameModels = store
+  const frameModels = doc
     .getBlocksByFlavour('affine:frame')
     .map(block => block.model) as FrameBlockModel[];
 
@@ -590,8 +535,8 @@ const documentGroupFrameToolGroup: DynamicKeyboardToolPanelGroup = ({
     action: ({ std }) => {
       std.command
         .chain()
-        .pipe(getSelectedModelsCommand)
-        .pipe(insertSurfaceRefBlockCommand, {
+        .getSelectedModels()
+        .insertSurfaceRefBlock({
           reference: frameModel.id,
           place: 'after',
           removeEmptyLine: true,
@@ -600,7 +545,7 @@ const documentGroupFrameToolGroup: DynamicKeyboardToolPanelGroup = ({
     },
   }));
 
-  const surfaceModel = getSurfaceBlock(store);
+  const surfaceModel = getSurfaceBlock(doc);
 
   const groupElements = surfaceModel
     ? surfaceModel.getElementsByType('group')
@@ -612,8 +557,8 @@ const documentGroupFrameToolGroup: DynamicKeyboardToolPanelGroup = ({
     action: ({ std }) => {
       std.command
         .chain()
-        .pipe(getSelectedModelsCommand)
-        .pipe(insertSurfaceRefBlockCommand, {
+        .getSelectedModels()
+        .insertSurfaceRefBlock({
           reference: group.id,
           place: 'after',
           removeEmptyLine: true,
@@ -639,9 +584,7 @@ const dateToolGroup: KeyboardToolPanelGroup = {
       name: 'Today',
       icon: TodayIcon(),
       action: ({ std }) => {
-        const [_, { selectedModels }] = std.command.exec(
-          getSelectedModelsCommand
-        );
+        const { selectedModels } = std.command.exec('getSelectedModels');
         const model = selectedModels?.[0];
         if (!model) return;
 
@@ -652,9 +595,7 @@ const dateToolGroup: KeyboardToolPanelGroup = {
       name: 'Tomorrow',
       icon: TomorrowIcon(),
       action: ({ std }) => {
-        const [_, { selectedModels }] = std.command.exec(
-          getSelectedModelsCommand
-        );
+        const { selectedModels } = std.command.exec('getSelectedModels');
         const model = selectedModels?.[0];
         if (!model) return;
 
@@ -667,9 +608,7 @@ const dateToolGroup: KeyboardToolPanelGroup = {
       name: 'Yesterday',
       icon: YesterdayIcon(),
       action: ({ std }) => {
-        const [_, { selectedModels }] = std.command.exec(
-          getSelectedModelsCommand
-        );
+        const { selectedModels } = std.command.exec('getSelectedModels');
         const model = selectedModels?.[0];
         if (!model) return;
 
@@ -682,9 +621,7 @@ const dateToolGroup: KeyboardToolPanelGroup = {
       name: 'Now',
       icon: NowIcon(),
       action: ({ std }) => {
-        const [_, { selectedModels }] = std.command.exec(
-          getSelectedModelsCommand
-        );
+        const { selectedModels } = std.command.exec('getSelectedModels');
         const model = selectedModels?.[0];
         if (!model) return;
 
@@ -701,12 +638,12 @@ const databaseToolGroup: KeyboardToolPanelGroup = {
       name: 'Table view',
       icon: DatabaseTableViewIcon(),
       showWhen: ({ std }) =>
-        std.store.schema.flavourSchemaMap.has('affine:database'),
+        std.doc.schema.flavourSchemaMap.has('affine:database'),
       action: ({ std }) => {
         std.command
           .chain()
-          .pipe(getSelectedModelsCommand)
-          .pipe(insertDatabaseBlockCommand, {
+          .getSelectedModels()
+          .insertDatabaseBlock({
             viewType: viewPresets.tableViewMeta.type,
             place: 'after',
             removeEmptyLine: true,
@@ -718,12 +655,12 @@ const databaseToolGroup: KeyboardToolPanelGroup = {
       name: 'Kanban view',
       icon: DatabaseKanbanViewIcon(),
       showWhen: ({ std }) =>
-        std.store.schema.flavourSchemaMap.has('affine:database'),
+        std.doc.schema.flavourSchemaMap.has('affine:database'),
       action: ({ std }) => {
         std.command
           .chain()
-          .pipe(getSelectedModelsCommand)
-          .pipe(insertDatabaseBlockCommand, {
+          .getSelectedModels()
+          .insertDatabaseBlock({
             viewType: viewPresets.kanbanViewMeta.type,
             place: 'after',
             removeEmptyLine: true,
@@ -766,73 +703,73 @@ const textStyleToolItems: KeyboardToolbarItem[] = [
     name: 'Bold',
     icon: BoldIcon(),
     background: ({ std }) => {
-      const [_, { textStyle }] = std.command.exec(getTextStyle);
+      const { textStyle } = std.command.exec('getTextStyle');
       return textStyle?.bold ? '#00000012' : '';
     },
     action: ({ std }) => {
-      std.command.exec(toggleBold);
+      std.command.exec('toggleBold');
     },
   },
   {
     name: 'Italic',
     icon: ItalicIcon(),
     background: ({ std }) => {
-      const [_, { textStyle }] = std.command.exec(getTextStyle);
+      const { textStyle } = std.command.exec('getTextStyle');
       return textStyle?.italic ? '#00000012' : '';
     },
     action: ({ std }) => {
-      std.command.exec(toggleItalic);
+      std.command.exec('toggleItalic');
     },
   },
   {
     name: 'UnderLine',
     icon: UnderLineIcon(),
     background: ({ std }) => {
-      const [_, { textStyle }] = std.command.exec(getTextStyle);
+      const { textStyle } = std.command.exec('getTextStyle');
       return textStyle?.underline ? '#00000012' : '';
     },
     action: ({ std }) => {
-      std.command.exec(toggleUnderline);
+      std.command.exec('toggleUnderline');
     },
   },
   {
     name: 'StrikeThrough',
     icon: StrikeThroughIcon(),
     background: ({ std }) => {
-      const [_, { textStyle }] = std.command.exec(getTextStyle);
+      const { textStyle } = std.command.exec('getTextStyle');
       return textStyle?.strike ? '#00000012' : '';
     },
     action: ({ std }) => {
-      std.command.exec(toggleStrike);
+      std.command.exec('toggleStrike');
     },
   },
   {
     name: 'Code',
     icon: CodeIcon(),
     background: ({ std }) => {
-      const [_, { textStyle }] = std.command.exec(getTextStyle);
+      const { textStyle } = std.command.exec('getTextStyle');
       return textStyle?.code ? '#00000012' : '';
     },
     action: ({ std }) => {
-      std.command.exec(toggleCode);
+      std.command.exec('toggleCode');
     },
   },
   {
     name: 'Link',
     icon: LinkIcon(),
     background: ({ std }) => {
-      const [_, { textStyle }] = std.command.exec(getTextStyle);
+      const { textStyle } = std.command.exec('getTextStyle');
       return textStyle?.link ? '#00000012' : '';
     },
     action: ({ std }) => {
-      std.command.exec(toggleLink);
+      std.command.exec('toggleLink');
     },
   },
 ];
 
 const highlightToolPanel: KeyboardToolPanelConfig = {
   icon: ({ std }) => {
-    const [_, { textStyle }] = std.command.exec(getTextStyle);
+    const { textStyle } = std.command.exec('getTextStyle');
     if (textStyle?.color) {
       return HighLightDuotoneIcon(textStyle.color);
     } else {
@@ -870,13 +807,9 @@ const highlightToolPanel: KeyboardToolPanelConfig = {
             std.command
               .chain()
               .try(chain => [
-                chain
-                  .pipe(getTextSelectionCommand)
-                  .pipe(formatTextCommand, payload),
-                chain
-                  .pipe(getBlockSelectionsCommand)
-                  .pipe(formatBlockCommand, payload),
-                chain.pipe(formatNativeCommand, payload),
+                chain.getTextSelection().formatText(payload),
+                chain.getBlockSelections().formatBlock(payload),
+                chain.formatNative(payload),
               ])
               .run();
           },
@@ -915,13 +848,9 @@ const highlightToolPanel: KeyboardToolPanelConfig = {
             std.command
               .chain()
               .try(chain => [
-                chain
-                  .pipe(getTextSelectionCommand)
-                  .pipe(formatTextCommand, payload),
-                chain
-                  .pipe(getBlockSelectionsCommand)
-                  .pipe(formatBlockCommand, payload),
-                chain.pipe(formatNativeCommand, payload),
+                chain.getTextSelection().formatText(payload),
+                chain.getBlockSelections().formatBlock(payload),
+                chain.formatNative(payload),
               ])
               .run();
           },
@@ -940,20 +869,15 @@ const textSubToolbarConfig: KeyboardSubToolbarConfig = {
       name: 'InlineTex',
       icon: TeXIcon(),
       action: ({ std }) => {
-        std.command
-          .chain()
-          .pipe(getTextSelectionCommand)
-          .pipe(insertInlineLatex)
-          .run();
+        std.command.chain().getTextSelection().insertInlineLatex().run();
       },
     },
     highlightToolPanel,
   ],
   autoShow: ({ std }) => {
     return computed(() => {
-      const [_, { currentTextSelection: selection }] = std.command.exec(
-        getTextSelectionCommand
-      );
+      const selection =
+        std.command.exec('getTextSelection').currentTextSelection;
       return selection ? !selection.isCollapsed() : false;
     });
   },
@@ -969,12 +893,12 @@ export const defaultKeyboardToolbarConfig: KeyboardToolbarConfig = {
       name: 'Image',
       icon: ImageIcon(),
       showWhen: ({ std }) =>
-        std.store.schema.flavourSchemaMap.has('affine:image'),
+        std.doc.schema.flavourSchemaMap.has('affine:image'),
       action: ({ std }) => {
         std.command
           .chain()
-          .pipe(getSelectedModelsCommand)
-          .pipe(insertImagesCommand, { removeEmptyLine: true })
+          .getSelectedModels()
+          .insertImages({ removeEmptyLine: true })
           .run();
       },
     },
@@ -982,39 +906,39 @@ export const defaultKeyboardToolbarConfig: KeyboardToolbarConfig = {
       name: 'Attachment',
       icon: AttachmentIcon(),
       showWhen: ({ std }) =>
-        std.store.schema.flavourSchemaMap.has('affine:attachment'),
+        std.doc.schema.flavourSchemaMap.has('affine:attachment'),
       action: async ({ std }) => {
-        const [_, { selectedModels }] = std.command.exec(
-          getSelectedModelsCommand
-        );
+        const { selectedModels } = std.command.exec('getSelectedModels');
         const model = selectedModels?.[0];
         if (!model) return;
 
         const file = await openFileOrFiles();
         if (!file) return;
 
-        const maxFileSize = std.store.get(FileSizeLimitService).maxFileSize;
+        const attachmentService = std.getService('affine:attachment');
+        if (!attachmentService) return;
+        const maxFileSize = attachmentService.maxFileSize;
 
         await addSiblingAttachmentBlocks(std.host, [file], maxFileSize, model);
         if (model.text?.length === 0) {
-          std.store.deleteBlock(model);
+          std.doc.deleteBlock(model);
         }
       },
     },
     {
       name: 'Undo',
       icon: UndoIcon(),
-      disableWhen: ({ std }) => !std.store.canUndo,
+      disableWhen: ({ std }) => !std.doc.canUndo,
       action: ({ std }) => {
-        std.store.undo();
+        std.doc.undo();
       },
     },
     {
       name: 'Redo',
       icon: RedoIcon(),
-      disableWhen: ({ std }) => !std.store.canRedo,
+      disableWhen: ({ std }) => !std.doc.canRedo,
       action: ({ std }) => {
-        std.store.redo();
+        std.doc.redo();
       },
     },
     {
@@ -1023,10 +947,7 @@ export const defaultKeyboardToolbarConfig: KeyboardToolbarConfig = {
       disableWhen: ({ std }) => {
         const [success] = std.command
           .chain()
-          .tryAll(chain => [
-            chain.pipe(canIndentParagraphCommand),
-            chain.pipe(canIndentListCommand),
-          ])
+          .tryAll(chain => [chain.canIndentParagraph(), chain.canIndentList()])
           .run();
         return !success;
       },
@@ -1034,8 +955,8 @@ export const defaultKeyboardToolbarConfig: KeyboardToolbarConfig = {
         std.command
           .chain()
           .tryAll(chain => [
-            chain.pipe(canIndentParagraphCommand).pipe(indentParagraphCommand),
-            chain.pipe(canIndentListCommand).pipe(indentListCommand),
+            chain.canIndentParagraph().indentParagraph(),
+            chain.canIndentList().indentList(),
           ])
           .run();
       },
@@ -1048,10 +969,7 @@ export const defaultKeyboardToolbarConfig: KeyboardToolbarConfig = {
       disableWhen: ({ std }) => {
         const [success] = std.command
           .chain()
-          .tryAll(chain => [
-            chain.pipe(canDedentParagraphCommand),
-            chain.pipe(canDedentListCommand),
-          ])
+          .tryAll(chain => [chain.canDedentParagraph(), chain.canDedentList()])
           .run();
         return !success;
       },
@@ -1059,8 +977,8 @@ export const defaultKeyboardToolbarConfig: KeyboardToolbarConfig = {
         std.command
           .chain()
           .tryAll(chain => [
-            chain.pipe(canDedentParagraphCommand).pipe(dedentParagraphCommand),
-            chain.pipe(canDedentListCommand).pipe(dedentListCommand),
+            chain.canDedentParagraph().dedentParagraph(),
+            chain.canDedentList().dedentList(),
           ])
           .run();
       },
@@ -1071,14 +989,14 @@ export const defaultKeyboardToolbarConfig: KeyboardToolbarConfig = {
       action: ({ std }) => {
         std.command
           .chain()
-          .pipe(getSelectedModelsCommand)
+          .getSelectedModels()
           .with({
             onCopy: () => {
               toast(std.host, 'Copied to clipboard');
             },
           })
-          .pipe(draftSelectedModelsCommand)
-          .pipe(copySelectedModelsCommand)
+          .draftSelectedModels()
+          .copySelectedModels()
           .run();
       },
     },
@@ -1088,9 +1006,9 @@ export const defaultKeyboardToolbarConfig: KeyboardToolbarConfig = {
       action: ({ std }) => {
         std.command
           .chain()
-          .pipe(getSelectedModelsCommand)
-          .pipe(draftSelectedModelsCommand)
-          .pipe(duplicateSelectedModelsCommand)
+          .getSelectedModels()
+          .draftSelectedModels()
+          .duplicateSelectedModels()
           .run();
       },
     },
@@ -1098,11 +1016,7 @@ export const defaultKeyboardToolbarConfig: KeyboardToolbarConfig = {
       name: 'Delete',
       icon: DeleteIcon(),
       action: ({ std }) => {
-        std.command
-          .chain()
-          .pipe(getSelectedModelsCommand)
-          .pipe(deleteSelectedModelsCommand)
-          .run();
+        std.command.chain().getSelectedModels().deleteSelectedModels().run();
       },
     },
   ],

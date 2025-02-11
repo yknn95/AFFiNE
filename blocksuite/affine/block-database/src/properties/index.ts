@@ -21,12 +21,18 @@ export const databaseBlockColumns = {
   numberColumnConfig: numberPropertyConfig,
   progressColumnConfig: progressPropertyConfig,
   selectColumnConfig: selectPropertyConfig,
-  imageColumnConfig: propertyPresets.imagePropertyConfig,
   linkColumnConfig,
   richTextColumnConfig,
-  titleColumnConfig,
 };
 export const databaseBlockPropertyList = Object.values(databaseBlockColumns);
+export const databaseBlockHiddenColumns = [
+  propertyPresets.imagePropertyConfig,
+  titleColumnConfig,
+];
+const databaseBlockAllColumns = [
+  ...databaseBlockPropertyList,
+  ...databaseBlockHiddenColumns,
+];
 export const databaseBlockAllPropertyMap = Object.fromEntries(
-  databaseBlockPropertyList.map(v => [v.type, v as PropertyMetaConfig])
+  databaseBlockAllColumns.map(v => [v.type, v as PropertyMetaConfig])
 );

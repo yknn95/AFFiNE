@@ -20,7 +20,7 @@ function getPredefinedAFFiNEConfig(): PreDefinedAFFiNEConfig {
     'production',
     'script',
   ]);
-  const AFFINE_ENV = readEnv<AFFINE_ENV>('AFFINE_ENV', 'production', [
+  const AFFINE_ENV = readEnv<AFFINE_ENV>('AFFINE_ENV', 'dev', [
     'dev',
     'beta',
     'production',
@@ -30,7 +30,6 @@ function getPredefinedAFFiNEConfig(): PreDefinedAFFiNEConfig {
     'graphql',
     'sync',
     'renderer',
-    'doc',
   ]);
   const deploymentType = readEnv<DeploymentType>(
     'DEPLOYMENT_TYPE',
@@ -67,7 +66,6 @@ function getPredefinedAFFiNEConfig(): PreDefinedAFFiNEConfig {
       graphql: flavor === 'graphql' || flavor === 'allinone',
       sync: flavor === 'sync' || flavor === 'allinone',
       renderer: flavor === 'renderer' || flavor === 'allinone',
-      doc: flavor === 'doc' || flavor === 'allinone',
     },
     affine,
     node,

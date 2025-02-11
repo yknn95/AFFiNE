@@ -2,9 +2,12 @@ import {
   type AffineInlineEditor,
   getInlineEditorByModel,
 } from '@blocksuite/affine-components/rich-text';
-import { getCurrentNativeRange } from '@blocksuite/affine-shared/utils';
+import {
+  getCurrentNativeRange,
+  matchFlavours,
+} from '@blocksuite/affine-shared/utils';
 import type { UIEventStateContext } from '@blocksuite/block-std';
-import { TextSelection, WidgetComponent } from '@blocksuite/block-std';
+import { WidgetComponent } from '@blocksuite/block-std';
 import {
   assertExists,
   assertType,
@@ -119,7 +122,7 @@ export class AffineSlashMenuWidget extends WidgetComponent {
       }
     }
 
-    const textSelection = this.host.selection.find(TextSelection);
+    const textSelection = this.host.selection.find('text');
     if (!textSelection) return;
 
     const model = this.host.doc.getBlock(textSelection.blockId)?.model;
@@ -146,13 +149,13 @@ export class AffineSlashMenuWidget extends WidgetComponent {
     assertType<RootBlockComponent>(rootComponent);
 
     inlineRangeApplyCallback(() => {
-      const textSelection = this.host.selection.find(TextSelection);
+      const textSelection = this.host.selection.find('text');
       if (!textSelection) return;
 
       const model = this.host.doc.getBlock(textSelection.blockId)?.model;
       if (!model) return;
 
-      if (this.config.ignoreBlockTypes.includes(model.flavour)) return;
+      if (matchFlavours(model, this.config.ignoreBlockTypes)) return;
 
       const inlineRange = inlineEditor.getInlineRange();
       if (!inlineRange) return;

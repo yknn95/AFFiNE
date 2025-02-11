@@ -16,15 +16,13 @@ export const useMenuItem = <T extends MenuItemProps>({
   checked,
   selected,
   block,
-  disabled,
   ...otherProps
 }: T) => {
   const className = clsx(
     styles.menuItem,
     {
-      danger: disabled ? false : type === 'danger',
-      warning: disabled ? false : type === 'warning',
-      disabled,
+      danger: type === 'danger',
+      warning: type === 'warning',
       checked,
       selected,
       block,

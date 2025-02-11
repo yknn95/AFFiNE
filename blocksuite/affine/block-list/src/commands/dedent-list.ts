@@ -1,21 +1,19 @@
-import { ListBlockModel } from '@blocksuite/affine-model';
 import type { IndentContext } from '@blocksuite/affine-shared/types';
 import { matchFlavours } from '@blocksuite/affine-shared/utils';
-import { type Command, TextSelection } from '@blocksuite/block-std';
+import type { Command } from '@blocksuite/block-std';
 
 import { correctNumberedListsOrderToPrev } from './utils.js';
 
 export const canDedentListCommand: Command<
-  Partial<Omit<IndentContext, 'flavour' | 'type'>>,
-  {
-    indentContext: IndentContext;
-  }
+  never,
+  'indentContext',
+  Partial<Omit<IndentContext, 'flavour' | 'type'>>
 > = (ctx, next) => {
   let { blockId, inlineIndex } = ctx;
   const { std } = ctx;
-  const { selection, store } = std;
+  const { selection, doc } = std;
   if (!blockId) {
-    const text = selection.find(TextSelection);
+    const text = selection.find('text');
     /**
      * Do nothing if the selection:
      * - is not a text selection
@@ -53,25 +51,25 @@ export const canDedentListCommand: Command<
   /**
    * ccc
    */
-  const model = store.getBlock(blockId)?.model;
-  if (!model || !matchFlavours(model, [ListBlockModel])) {
+  const model = doc.getBlock(blockId)?.model;
+  if (!model || !matchFlavours(model, ['affine:list'])) {
     return;
   }
   /**
    * bbb
    */
-  const parent = store.getParent(model);
+  const parent = doc.getParent(model);
   if (!parent) {
     return;
   }
-  if (store.readonly || parent.role !== 'content') {
+  if (doc.readonly || parent.role !== 'content') {
     // Top most list cannot be unindent
     return;
   }
   /**
    * aaa
    */
-  const grandParent = store.getParent(parent);
+  const grandParent = doc.getParent(parent);
   if (!grandParent) {
     return;
   }
@@ -93,11 +91,9 @@ export const canDedentListCommand: Command<
   });
 };
 
-export const dedentListCommand: Command<{
-  indentContext: IndentContext;
-}> = (ctx, next) => {
+export const dedentListCommand: Command<'indentContext'> = (ctx, next) => {
   const { indentContext: dedentContext, std } = ctx;
-  const { store, selection, range, host } = std;
+  const { doc, selection, range, host } = std;
 
   if (
     !dedentContext ||
@@ -112,16 +108,16 @@ export const dedentListCommand: Command<{
 
   const { blockId } = dedentContext;
 
-  const model = store.getBlock(blockId)?.model;
+  const model = doc.getBlock(blockId)?.model;
   if (!model) return;
 
-  const parent = store.getParent(model);
+  const parent = doc.getParent(model);
   if (!parent) return;
 
-  const grandParent = store.getParent(parent);
+  const grandParent = doc.getParent(parent);
   if (!grandParent) return;
 
-  store.captureSync();
+  doc.captureSync();
 
   /**
    * step 1:
@@ -132,13 +128,13 @@ export const dedentListCommand: Command<{
    *       - eee <- make eee as ccc's child
    *   - fff
    */
-  const nextSiblings = store.getNexts(model); // [eee]
-  store.moveBlocks(nextSiblings, model);
+  const nextSiblings = doc.getNexts(model); // [eee]
+  doc.moveBlocks(nextSiblings, model);
   /**
    * eee
    */
   const nextSibling = nextSiblings.at(0);
-  if (nextSibling) correctNumberedListsOrderToPrev(store, nextSibling);
+  if (nextSibling) correctNumberedListsOrderToPrev(doc, nextSibling);
 
   /**
    * step 2:
@@ -149,10 +145,10 @@ export const dedentListCommand: Command<{
    *     - eee
    *   - fff
    */
-  store.moveBlocks([model], grandParent, parent, false);
-  correctNumberedListsOrderToPrev(store, model);
+  doc.moveBlocks([model], grandParent, parent, false);
+  correctNumberedListsOrderToPrev(doc, model);
 
-  const textSelection = selection.find(TextSelection);
+  const textSelection = selection.find('text');
   if (textSelection) {
     host.updateComplete
       .then(() => {

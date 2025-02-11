@@ -11,9 +11,7 @@ import {
   CustomerPortalCreateFailed,
   InternalServerError,
   InvalidCheckoutParameters,
-  InvalidLicenseSessionId,
   InvalidSubscriptionParameters,
-  LicenseRevealed,
   Mutex,
   OnEvent,
   SameSubscriptionRecurring,
@@ -26,8 +24,8 @@ import {
   UserNotFound,
 } from '../../base';
 import { CurrentUser } from '../../core/auth';
-import { FeatureService } from '../../core/features';
-import { Models } from '../../models';
+import { FeatureManagementService } from '../../core/features';
+import { UserService } from '../../core/user';
 import {
   CheckoutParams,
   Invoice,
@@ -40,11 +38,6 @@ import {
   WorkspaceSubscriptionIdentity,
   WorkspaceSubscriptionManager,
 } from './manager';
-import {
-  SelfhostTeamCheckoutArgs,
-  SelfhostTeamSubscriptionIdentity,
-  SelfhostTeamSubscriptionManager,
-} from './manager/selfhost';
 import { ScheduleManager } from './schedule';
 import {
   decodeLookupKey,
@@ -63,13 +56,11 @@ import {
 export const CheckoutExtraArgs = z.union([
   UserSubscriptionCheckoutArgs,
   WorkspaceSubscriptionCheckoutArgs,
-  SelfhostTeamCheckoutArgs,
 ]);
 
 export const SubscriptionIdentity = z.union([
   UserSubscriptionIdentity,
   WorkspaceSubscriptionIdentity,
-  SelfhostTeamSubscriptionIdentity,
 ]);
 
 export { CheckoutParams };
@@ -83,11 +74,10 @@ export class SubscriptionService implements OnApplicationBootstrap {
     private readonly config: Config,
     private readonly stripe: Stripe,
     private readonly db: PrismaClient,
-    private readonly feature: FeatureService,
-    private readonly models: Models,
+    private readonly feature: FeatureManagementService,
+    private readonly user: UserService,
     private readonly userManager: UserSubscriptionManager,
     private readonly workspaceManager: WorkspaceSubscriptionManager,
-    private readonly selfhostManager: SelfhostTeamSubscriptionManager,
     private readonly mutex: Mutex
   ) {}
 
@@ -102,8 +92,6 @@ export class SubscriptionService implements OnApplicationBootstrap {
       case SubscriptionPlan.Pro:
       case SubscriptionPlan.AI:
         return this.userManager;
-      case SubscriptionPlan.SelfHostedTeam:
-        return this.selfhostManager;
       default:
         throw new UnsupportedSubscriptionPlan({ plan });
     }
@@ -134,7 +122,7 @@ export class SubscriptionService implements OnApplicationBootstrap {
     if (
       this.config.deploy &&
       this.config.affine.canary &&
-      (!('user' in args) || !this.feature.isStaff(args.user.email))
+      !this.feature.isStaff(args.user.email)
     ) {
       throw new ActionForbidden();
     }
@@ -303,133 +291,10 @@ export class SubscriptionService implements OnApplicationBootstrap {
     return newSubscription;
   }
 
-  async updateSubscriptionQuantity(
-    identity: z.infer<typeof SubscriptionIdentity>,
-    count: number
-  ) {
-    this.assertSubscriptionIdentity(identity);
-
-    const subscription = await this.select(identity.plan).getSubscription(
-      identity
-    );
-
-    if (!subscription) {
-      throw new SubscriptionNotExists({ plan: identity.plan });
-    }
-
-    if (!subscription.stripeSubscriptionId) {
-      throw new CantUpdateOnetimePaymentSubscription();
-    }
-
-    const stripeSubscription = await this.stripe.subscriptions.retrieve(
-      subscription.stripeSubscriptionId
-    );
-
-    const lookupKey =
-      retriveLookupKeyFromStripeSubscription(stripeSubscription);
-
-    await this.stripe.subscriptions.update(stripeSubscription.id, {
-      items: [
-        {
-          id: stripeSubscription.items.data[0].id,
-          quantity: count,
-        },
-      ],
-      payment_behavior: 'pending_if_incomplete',
-      proration_behavior:
-        lookupKey?.recurring === SubscriptionRecurring.Yearly
-          ? 'always_invoice'
-          : 'none',
-    });
-
-    if (subscription.stripeScheduleId) {
-      const schedule = await this.scheduleManager.fromSchedule(
-        subscription.stripeScheduleId
-      );
-      await schedule.updateQuantity(count);
-    }
-  }
-
-  async generateLicenseKey(stripeCheckoutSessionId: string) {
-    if (!stripeCheckoutSessionId) {
-      throw new InvalidLicenseSessionId();
-    }
-
-    let session: Stripe.Checkout.Session;
-    try {
-      session = await this.stripe.checkout.sessions.retrieve(
-        stripeCheckoutSessionId
-      );
-    } catch {
-      throw new InvalidLicenseSessionId();
-    }
-
-    // session should be complete and have a subscription
-    if (session.status !== 'complete' || !session.subscription) {
-      throw new InvalidLicenseSessionId();
-    }
-
-    const subscription =
-      typeof session.subscription === 'string'
-        ? await this.stripe.subscriptions.retrieve(session.subscription)
-        : session.subscription;
-
-    const knownSubscription = await this.parseStripeSubscription(subscription);
-
-    // invalid subscription triple
-    if (
-      !knownSubscription ||
-      knownSubscription.lookupKey.plan !== SubscriptionPlan.SelfHostedTeam
-    ) {
-      throw new InvalidLicenseSessionId();
-    }
-
-    let subInDB = await this.db.subscription.findUnique({
-      where: {
-        stripeSubscriptionId: subscription.id,
-      },
-    });
-
-    // subscription not found in db
-    if (!subInDB) {
-      subInDB =
-        await this.selfhostManager.saveStripeSubscription(knownSubscription);
-    }
-
-    const license = await this.db.license.findUnique({
-      where: {
-        key: subInDB.targetId,
-      },
-    });
-
-    // subscription and license are created in a transaction
-    // there is no way a sub exist but the license is not created
-    if (!license) {
-      throw new Error(
-        'unaccessible path. if you see this error, there must be a bug in the codebase.'
-      );
-    }
-
-    if (!license.revealedAt) {
-      await this.db.license.update({
-        where: {
-          key: license.key,
-        },
-        data: {
-          revealedAt: new Date(),
-        },
-      });
-
-      return license.key;
-    }
-
-    throw new LicenseRevealed();
-  }
-
-  async createCustomerPortal(userId: string) {
+  async createCustomerPortal(id: string) {
     const user = await this.db.userStripeCustomer.findUnique({
       where: {
-        userId: userId,
+        userId: id,
       },
     });
 
@@ -551,18 +416,15 @@ export class SubscriptionService implements OnApplicationBootstrap {
 
   private async retrieveUserFromCustomer(
     customer: string | Stripe.Customer | Stripe.DeletedCustomer
-  ): Promise<{ id?: string; email: string } | null> {
+  ) {
     const userStripeCustomer = await this.db.userStripeCustomer.findUnique({
       where: {
         stripeCustomerId: typeof customer === 'string' ? customer : customer.id,
       },
-      select: {
-        user: true,
-      },
     });
 
     if (userStripeCustomer) {
-      return userStripeCustomer.user;
+      return userStripeCustomer.userId;
     }
 
     if (typeof customer === 'string') {
@@ -573,16 +435,20 @@ export class SubscriptionService implements OnApplicationBootstrap {
       return null;
     }
 
-    const user = await this.models.user.getPublicUserByEmail(customer.email);
+    const user = await this.user.findUserByEmail(customer.email);
 
     if (!user) {
-      return {
-        id: undefined,
-        email: customer.email,
-      };
+      return null;
     }
 
-    return user;
+    await this.db.userStripeCustomer.create({
+      data: {
+        userId: user.id,
+        stripeCustomerId: customer.id,
+      },
+    });
+
+    return user.id;
   }
 
   private async listStripePrices(): Promise<KnownStripePrice[]> {
@@ -619,13 +485,16 @@ export class SubscriptionService implements OnApplicationBootstrap {
       return null;
     }
 
-    const user = await this.models.user.getPublicUserByEmail(
-      invoice.customer_email
-    );
+    const user = await this.user.findUserByEmail(invoice.customer_email);
+
+    // TODO(@forehalo): the email may actually not appear to be AFFiNE user
+    // There is coming feature that allow anonymous user with only email provided to buy selfhost licenses
+    if (!user) {
+      return null;
+    }
 
     return {
-      userId: user?.id,
-      userEmail: invoice.customer_email,
+      userId: user.id,
       stripeInvoice: invoice,
       lookupKey,
       metadata: invoice.subscription_details?.metadata ?? {},
@@ -641,18 +510,14 @@ export class SubscriptionService implements OnApplicationBootstrap {
       return null;
     }
 
-    const user = await this.retrieveUserFromCustomer(subscription.customer);
+    const userId = await this.retrieveUserFromCustomer(subscription.customer);
 
-    // stripe customer got deleted or customer email is null
-    // it's an invalid status
-    // maybe we need to check stripe dashboard
-    if (!user) {
+    if (!userId) {
       return null;
     }
 
     return {
-      userId: user.id,
-      userEmail: user.email,
+      userId,
       lookupKey,
       stripeSubscription: subscription,
       quantity: subscription.items.data[0]?.quantity ?? 1,

@@ -39,9 +39,6 @@ global:
       secretAccessKey: ''
   gke:
     enabled: true
-  docService:
-    name: 'affine-doc'
-    port: 3020
 
 graphql:
   service:
@@ -61,12 +58,6 @@ renderer:
   service:
     type: ClusterIP
     port: 3000
-    annotations:
-      cloud.google.com/backend-config: '{"default": "affine-api-backendconfig"}'
-
-doc:
-  service:
-    type: ClusterIP
     annotations:
       cloud.google.com/backend-config: '{"default": "affine-api-backendconfig"}'
 

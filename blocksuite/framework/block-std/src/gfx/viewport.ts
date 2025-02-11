@@ -15,10 +15,6 @@ function cutoff(value: number, ref: number, sign: number) {
 
 export const ZOOM_MAX = 6.0;
 export const ZOOM_MIN = 0.1;
-export const ZOOM_STEP = 0.25;
-export const ZOOM_INITIAL = 1.0;
-
-export const FIT_TO_SCREEN_PADDING = 100;
 
 export class Viewport {
   private _cachedBoundingClientRect: DOMRect | null = null;
@@ -102,7 +98,7 @@ export class Viewport {
    * The editor itself may be scaled by outer container which is common in nested editor scenarios.
    * This property is used to calculate the scale of the editor.
    */
-  get viewScale() {
+  get scale() {
     if (!this._el || this._cachedOffsetWidth === null) return 1;
     return this.boundingClientRect.width / this._cachedOffsetWidth;
   }
@@ -282,47 +278,17 @@ export class Viewport {
     }
   }
 
-  /**
-   * Set the viewport to fit the bound with padding.
-   * @param bound The bound will be zoomed to fit the viewport.
-   * @param padding The padding will be applied to the bound after zooming, default is [0, 0, 0, 0],
-   *                the value may be reduced if there is not enough space for the padding.
-   *                Use decimal less than 1 to represent percentage padding. e.g. [0.1, 0.1, 0.1, 0.1] means 10% padding.
-   * @param smooth whether to animate the zooming
-   */
   setViewportByBound(
     bound: Bound,
     padding: [number, number, number, number] = [0, 0, 0, 0],
     smooth = false
   ) {
-    let [pt, pr, pb, pl] = padding;
-
-    // Convert percentage padding to absolute values if they are between 0 and 1
-    if (pt > 0 && pt < 1) pt *= this.height;
-    if (pr > 0 && pr < 1) pr *= this.width;
-    if (pb > 0 && pb < 1) pb *= this.height;
-    if (pl > 0 && pl < 1) pl *= this.width;
-
-    // Calculate zoom
-    let zoom = Math.min(
+    const [pt, pr, pb, pl] = padding;
+    const zoom = clamp(
       (this.width - (pr + pl)) / bound.w,
+      this.ZOOM_MIN,
       (this.height - (pt + pb)) / bound.h
     );
-
-    // Adjust padding if space is not enough
-    if (zoom < this.ZOOM_MIN) {
-      zoom = this.ZOOM_MIN;
-      const totalPaddingWidth = this.width - bound.w * zoom;
-      const totalPaddingHeight = this.height - bound.h * zoom;
-      pr = pl = Math.max(totalPaddingWidth / 2, 1);
-      pt = pb = Math.max(totalPaddingHeight / 2, 1);
-    }
-
-    // Ensure zoom does not exceed ZOOM_MAX
-    if (zoom > this.ZOOM_MAX) {
-      zoom = this.ZOOM_MAX;
-    }
-
     const center = [
       bound.x + (bound.w + pr / zoom) / 2 - pl / zoom / 2,
       bound.y + (bound.h + pb / zoom) / 2 - pt / zoom / 2,
@@ -365,13 +331,14 @@ export class Viewport {
     });
   }
 
-  smoothTranslate(x: number, y: number, numSteps = 10) {
+  smoothTranslate(x: number, y: number) {
     const { center } = this;
     const delta = { x: x - center.x, y: y - center.y };
     const innerSmoothTranslate = () => {
       if (this._rafId) cancelAnimationFrame(this._rafId);
       this._rafId = requestAnimationFrame(() => {
-        const step = { x: delta.x / numSteps, y: delta.y / numSteps };
+        const rate = 10;
+        const step = { x: delta.x / rate, y: delta.y / rate };
         const nextCenter = {
           x: this.centerX + step.x,
           y: this.centerY + step.y,
@@ -388,14 +355,15 @@ export class Viewport {
     innerSmoothTranslate();
   }
 
-  smoothZoom(zoom: number, focusPoint?: IPoint, numSteps = 10) {
+  smoothZoom(zoom: number, focusPoint?: IPoint) {
     const delta = zoom - this.zoom;
     if (this._rafId) cancelAnimationFrame(this._rafId);
 
     const innerSmoothZoom = () => {
       this._rafId = requestAnimationFrame(() => {
         const sign = delta > 0 ? 1 : -1;
-        const step = delta / numSteps;
+        const total = 10;
+        const step = delta / total;
         const nextZoom = cutoff(this.zoom + step, zoom, sign);
 
         this.setZoom(nextZoom, focusPoint);
@@ -414,11 +382,8 @@ export class Viewport {
   }
 
   toModelCoord(viewX: number, viewY: number): IVec {
-    const { viewportX, viewportY, zoom, viewScale } = this;
-    return [
-      viewportX + viewX / zoom / viewScale,
-      viewportY + viewY / zoom / viewScale,
-    ];
+    const { viewportX, viewportY, zoom, scale } = this;
+    return [viewportX + viewX / zoom / scale, viewportY + viewY / zoom / scale];
   }
 
   toModelCoordFromClientCoord([x, y]: IVec): IVec {
@@ -434,10 +399,10 @@ export class Viewport {
   }
 
   toViewCoord(modelX: number, modelY: number): IVec {
-    const { viewportX, viewportY, zoom, viewScale } = this;
+    const { viewportX, viewportY, zoom, scale } = this;
     return [
-      (modelX - viewportX) * zoom * viewScale,
-      (modelY - viewportY) * zoom * viewScale,
+      (modelX - viewportX) * zoom * scale,
+      (modelY - viewportY) * zoom * scale,
     ];
   }
 

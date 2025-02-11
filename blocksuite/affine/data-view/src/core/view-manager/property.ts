@@ -23,10 +23,7 @@ export interface Property<
   readonly icon?: UniComponent;
 
   readonly delete?: () => void;
-  get canDelete(): boolean;
-
   readonly duplicate?: () => void;
-  get canDuplicate(): boolean;
 
   cellGet(rowId: string): Cell<Value>;
 
@@ -35,14 +32,12 @@ export interface Property<
 
   readonly type$: ReadonlySignal<string>;
   readonly typeSet?: (type: string) => void;
-  get typeCanSet(): boolean;
 
   readonly name$: ReadonlySignal<string>;
   nameSet(name: string): void;
 
   readonly hide$: ReadonlySignal<boolean>;
   hideSet(hide: boolean): void;
-  get hideCanSet(): boolean;
 
   valueGet(rowId: string): Value | undefined;
   valueSet(rowId: string, value: Value | undefined): void;
@@ -128,18 +123,6 @@ export abstract class PropertyBase<
     public view: SingleView,
     public propertyId: string
   ) {}
-  get canDelete(): boolean {
-    return this.view.propertyCanDelete(this.id);
-  }
-  get canDuplicate(): boolean {
-    return this.view.propertyCanDuplicate(this.id);
-  }
-  get typeCanSet(): boolean {
-    return this.view.propertyTypeCanSet(this.id);
-  }
-  get hideCanSet(): boolean {
-    return this.view.propertyCanHide(this.id);
-  }
 
   cellGet(rowId: string): Cell<Value> {
     return this.view.cellGet(rowId, this.id) as Cell<Value>;

@@ -24,8 +24,11 @@ import { updateXYWH } from '../utils/update-xywh.js';
 /**
  * Automatically arrange elements according to fixed row and column rules
  */
-export const autoArrangeElementsCommand: Command = (ctx, next) => {
-  const { updateBlock } = ctx.std.store;
+export const autoArrangeElementsCommand: Command<never, never, {}> = (
+  ctx,
+  next
+) => {
+  const { updateBlock } = ctx.std.doc;
   const gfx = ctx.std.get(GfxControllerIdentifier);
 
   const elements = gfx.selection.selectedElements;
@@ -39,8 +42,11 @@ export const autoArrangeElementsCommand: Command = (ctx, next) => {
 /**
  * Adjust the height of the selected element to a fixed value and arrange the elements
  */
-export const autoResizeElementsCommand: Command = (ctx, next) => {
-  const { updateBlock } = ctx.std.store;
+export const autoResizeElementsCommand: Command<never, never, {}> = (
+  ctx,
+  next
+) => {
+  const { updateBlock } = ctx.std.doc;
   const gfx = ctx.std.get(GfxControllerIdentifier);
 
   const elements = gfx.selection.selectedElements;

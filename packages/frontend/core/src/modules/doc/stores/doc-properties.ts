@@ -137,28 +137,6 @@ export class DocPropertiesStore extends Store {
     };
   }
 
-  watchAllDocProperties() {
-    const allDocProperties$ = this.dbService.db.docProperties.find$();
-    const allLegacyDocProperties$ = this.watchAllLegacyDocProperties();
-
-    return combineLatest([allDocProperties$, allLegacyDocProperties$]).pipe(
-      map(([db, legacy]) => {
-        const map = new Map(db.map(i => [i.id, i]));
-        const allIds = new Set([...map.keys(), ...Object.keys(legacy ?? {})]);
-
-        const result = {} as Record<string, Record<string, any>>;
-
-        for (const id of allIds) {
-          result[id] = {
-            ...this.upgradeLegacyDocProperties(legacy?.[id]),
-            ...omitBy(map.get(id), isNil),
-          };
-        }
-        return result;
-      })
-    );
-  }
-
   watchDocProperties(id: string) {
     return combineLatest([
       this.watchLegacyDocProperties(id).pipe(
@@ -223,23 +201,6 @@ export class DocPropertiesStore extends Store {
       .get('pageProperties')
       ?.get(id)
       ?.toJSON() as LegacyDocProperties | undefined;
-  }
-
-  private watchAllLegacyDocProperties() {
-    return yjsObserveByPath(
-      this.workspaceService.workspace.rootYDoc.getMap<any>(
-        'affine:workspace-properties'
-      ),
-      `pageProperties`
-    ).pipe(
-      switchMap(yjsObserveDeep),
-      map(
-        p =>
-          (p instanceof YAbstractType ? p.toJSON() : p) as
-            | { [docId: string]: LegacyDocProperties }
-            | undefined
-      )
-    );
   }
 
   private watchLegacyDocProperties(id: string) {

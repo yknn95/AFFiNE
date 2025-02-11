@@ -1,30 +1,35 @@
 import {
   deleteBlobMutation,
+  gqlFetcherFactory,
   listBlobsQuery,
   releaseDeletedBlobsMutation,
   setBlobMutation,
 } from '@affine/graphql';
 
-import { type BlobRecord, BlobStorageBase } from '../../storage';
-import { HttpConnection } from './http';
+import { DummyConnection } from '../../connection';
+import {
+  type BlobRecord,
+  BlobStorageBase,
+  type BlobStorageOptions,
+} from '../../storage';
 
-interface CloudBlobStorageOptions {
-  serverBaseUrl: string;
-  id: string;
+interface CloudBlobStorageOptions extends BlobStorageOptions {
+  apiBaseUrl: string;
 }
 
-export class CloudBlobStorage extends BlobStorageBase {
-  static readonly identifier = 'CloudBlobStorage';
-
-  constructor(private readonly options: CloudBlobStorageOptions) {
-    super();
-  }
-
-  readonly connection = new HttpConnection(this.options.serverBaseUrl);
+export class CloudBlobStorage extends BlobStorageBase<CloudBlobStorageOptions> {
+  private readonly gql = gqlFetcherFactory(
+    this.options.apiBaseUrl + '/graphql'
+  );
+  override connection = new DummyConnection();
 
   override async get(key: string) {
-    const res = await this.connection.fetch(
-      '/api/workspaces/' + this.options.id + '/blobs/' + key,
+    const res = await fetch(
+      this.options.apiBaseUrl +
+        '/api/workspaces/' +
+        this.spaceId +
+        '/blobs/' +
+        key,
       {
         cache: 'default',
         headers: {
@@ -33,53 +38,49 @@ export class CloudBlobStorage extends BlobStorageBase {
       }
     );
 
-    if (res.status === 404) {
+    if (!res.ok) {
       return null;
     }
 
-    try {
-      const blob = await res.blob();
+    const data = await res.arrayBuffer();
 
-      return {
-        key,
-        data: new Uint8Array(await blob.arrayBuffer()),
-        mime: blob.type,
-        size: blob.size,
-        createdAt: new Date(res.headers.get('last-modified') || Date.now()),
-      };
-    } catch (err) {
-      throw new Error('blob download error: ' + err);
-    }
+    return {
+      key,
+      data: new Uint8Array(data),
+      mime: res.headers.get('content-type') || '',
+      size: data.byteLength,
+      createdAt: new Date(res.headers.get('last-modified') || Date.now()),
+    };
   }
 
   override async set(blob: BlobRecord) {
-    await this.connection.gql({
+    await this.gql({
       query: setBlobMutation,
       variables: {
-        workspaceId: this.options.id,
+        workspaceId: this.spaceId,
         blob: new File([blob.data], blob.key, { type: blob.mime }),
       },
     });
   }
 
   override async delete(key: string, permanently: boolean) {
-    await this.connection.gql({
+    await this.gql({
       query: deleteBlobMutation,
-      variables: { workspaceId: this.options.id, key, permanently },
+      variables: { workspaceId: this.spaceId, key, permanently },
     });
   }
 
   override async release() {
-    await this.connection.gql({
+    await this.gql({
       query: releaseDeletedBlobsMutation,
-      variables: { workspaceId: this.options.id },
+      variables: { workspaceId: this.spaceId },
     });
   }
 
   override async list() {
-    const res = await this.connection.gql({
+    const res = await this.gql({
       query: listBlobsQuery,
-      variables: { workspaceId: this.options.id },
+      variables: { workspaceId: this.spaceId },
     });
 
     return res.workspace.blobs.map(blob => ({

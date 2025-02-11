@@ -1,7 +1,6 @@
 import { CaptionedBlockComponent } from '@blocksuite/affine-components/caption';
 import type { DividerBlockModel } from '@blocksuite/affine-model';
 import { BLOCK_CHILDREN_CONTAINER_PADDING_LEFT } from '@blocksuite/affine-shared/consts';
-import { BlockSelection } from '@blocksuite/block-std';
 import { html } from 'lit';
 
 import { dividerBlockStyles } from './styles.js';
@@ -16,7 +15,7 @@ export class DividerBlockComponent extends CaptionedBlockComponent<DividerBlockM
 
     this.handleEvent('click', () => {
       this.host.selection.setGroup('note', [
-        this.host.selection.create(BlockSelection, {
+        this.host.selection.create('block', {
           blockId: this.blockId,
         }),
       ]);

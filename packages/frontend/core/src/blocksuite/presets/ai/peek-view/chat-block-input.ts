@@ -403,7 +403,7 @@ export class ChatBlockInput extends LitElement {
       let chatSessionId = currentSessionId;
       if (!chatSessionId) {
         const forkSessionId = await AIProvider.forkChat?.({
-          workspaceId: doc.workspace.id,
+          workspaceId: doc.collection.id,
           docId: doc.id,
           sessionId: this.parentSessionId,
           latestMessageId: this.latestMessageId,
@@ -421,7 +421,7 @@ export class ChatBlockInput extends LitElement {
         sessionId: chatSessionId,
         docId: doc.id,
         attachments: images,
-        workspaceId: doc.workspace.id,
+        workspaceId: doc.collection.id,
         host: this.host,
         stream: true,
         signal: abortController.signal,

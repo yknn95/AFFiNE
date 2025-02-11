@@ -1,4 +1,4 @@
-import { type EditorHost, TextSelection } from '@blocksuite/affine/block-std';
+import type { EditorHost } from '@blocksuite/affine/block-std';
 import {
   GfxBlockElementModel,
   type GfxModel,
@@ -16,8 +16,7 @@ import {
   uploadBlobForImage,
 } from '@blocksuite/affine/blocks';
 import { Bound, getCommonBound } from '@blocksuite/affine/global/utils';
-import { type BlockProps, Text } from '@blocksuite/affine/store';
-import * as Y from 'yjs';
+import { type BlockProps, DocCollection, Text } from '@blocksuite/affine/store';
 
 import { getAIPanelWidget } from '../utils/ai-widgets';
 import type { AffineNode, AIContext } from '../utils/context';
@@ -214,7 +213,7 @@ async function insertMarkdownAbove(host: EditorHost) {
 }
 
 function getSelection(host: EditorHost) {
-  const textSelection = host.selection.find(TextSelection);
+  const textSelection = host.selection.find('text');
   const mode = textSelection ? 'flat' : 'highest';
   const { selectedBlocks } = getSelections(host, mode);
   if (!selectedBlocks) return;
@@ -236,7 +235,7 @@ function getEdgelessContentBound(host: EditorHost) {
 
   const elements = (
     host.doc
-      .getStore()
+      .getBlocks()
       .filter(
         model =>
           model instanceof GfxBlockElementModel &&
@@ -263,7 +262,7 @@ function addSurfaceRefBlock(host: EditorHost, bound: Bound, place: Place) {
   const frame = host.doc.addBlock(
     'affine:frame',
     {
-      title: new Text(new Y.Text('Frame')),
+      title: new Text(new DocCollection.Y.Text('Frame')),
       xywh: bound.serialize(),
       index: LayerManager.INITIAL_INDEX,
     },

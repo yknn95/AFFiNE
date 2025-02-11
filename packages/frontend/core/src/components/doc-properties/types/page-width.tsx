@@ -8,7 +8,7 @@ import { useCallback, useMemo } from 'react';
 import { container } from './page-width.css';
 import type { PageLayoutMode, PropertyValueProps } from './types';
 
-export const PageWidthValue = ({ readonly }: PropertyValueProps) => {
+export const PageWidthValue = ({ onChange }: PropertyValueProps) => {
   const t = useI18n();
   const editorSetting = useService(EditorSettingService).editorSetting;
   const defaultPageWidth = useLiveData(editorSetting.settings$).fullWidthLayout;
@@ -45,18 +45,18 @@ export const PageWidthValue = ({ readonly }: PropertyValueProps) => {
   const handleChange = useCallback(
     (value: PageLayoutMode) => {
       doc.record.setProperty('pageWidth', value);
+      onChange?.(value, true);
     },
-    [doc]
+    [doc, onChange]
   );
   return (
-    <PropertyValue className={container} hoverable={false} readonly={readonly}>
+    <PropertyValue className={container} hoverable={false}>
       <RadioGroup
         width={BUILD_CONFIG.isMobileEdition ? '100%' : 194}
         itemHeight={24}
         value={radioValue}
         onChange={handleChange}
         items={radioItems}
-        disabled={readonly}
       />
     </PropertyValue>
   );

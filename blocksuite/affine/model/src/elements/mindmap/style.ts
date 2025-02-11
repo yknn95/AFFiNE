@@ -49,7 +49,7 @@ export type NodeStyle = {
     blur: number;
     offsetX: number;
     offsetY: number;
-    color: Color;
+    color: string;
   };
 };
 
@@ -91,7 +91,7 @@ export class StyleOne extends MindmapStyleGetter {
     textResizing: TextResizing.AUTO_WIDTH_AND_HEIGHT,
 
     strokeWidth: 4,
-    strokeColor: '#53b2ef',
+    strokeColor: '#84cfff',
 
     fontFamily: FontFamily.Poppins,
     fontSize: 20,
@@ -199,7 +199,7 @@ export class StyleTwo extends MindmapStyleGetter {
     textResizing: TextResizing.AUTO_WIDTH_AND_HEIGHT,
 
     strokeWidth: 3,
-    strokeColor: DefaultTheme.black,
+    strokeColor: DefaultTheme.pureBlack,
 
     fontFamily: FontFamily.Poppins,
     fontSize: 18,
@@ -215,7 +215,7 @@ export class StyleTwo extends MindmapStyleGetter {
       blur: 0,
       offsetX: 3,
       offsetY: 3,
-      color: DefaultTheme.black,
+      color: DefaultTheme.pureBlack,
     },
   };
 
@@ -231,7 +231,7 @@ export class StyleTwo extends MindmapStyleGetter {
     return {
       connector: {
         strokeStyle: StrokeStyle.Solid,
-        stroke: DefaultTheme.black,
+        stroke: DefaultTheme.pureBlack,
         strokeWidth: 3,
 
         mode: ConnectorMode.Orthogonal,
@@ -242,9 +242,9 @@ export class StyleTwo extends MindmapStyleGetter {
         radius: 0.5,
 
         filled: true,
-        fillColor: DefaultTheme.white,
+        fillColor: DefaultTheme.pureWhite,
 
-        strokeColor: DefaultTheme.black,
+        strokeColor: DefaultTheme.pureBlack,
         strokeWidth: 3,
       },
       expandButton: {
@@ -253,14 +253,14 @@ export class StyleTwo extends MindmapStyleGetter {
         radius: 2,
 
         filled: true,
-        fillColor: DefaultTheme.black,
+        fillColor: DefaultTheme.pureBlack,
 
         padding: [4, 0],
 
-        strokeColor: DefaultTheme.black,
+        strokeColor: DefaultTheme.pureBlack,
         strokeWidth: 0,
 
-        color: DefaultTheme.white,
+        color: DefaultTheme.pureWhite,
 
         fontFamily: FontFamily.Inter,
         fontWeight: FontWeight.Bold,
@@ -272,7 +272,7 @@ export class StyleTwo extends MindmapStyleGetter {
         textResizing: TextResizing.AUTO_WIDTH_AND_HEIGHT,
 
         strokeWidth: 3,
-        strokeColor: DefaultTheme.black,
+        strokeColor: DefaultTheme.pureBlack,
 
         fontFamily: FontFamily.Poppins,
         fontSize: 16,
@@ -288,7 +288,7 @@ export class StyleTwo extends MindmapStyleGetter {
           blur: 0,
           offsetX: 3,
           offsetY: 3,
-          color: DefaultTheme.black,
+          color: DefaultTheme.pureBlack,
         },
       },
     };
@@ -300,7 +300,7 @@ export class StyleThree extends MindmapStyleGetter {
   private readonly _strokeColor = [
     DefaultTheme.StrokeColorMap.Yellow,
     DefaultTheme.StrokeColorMap.Green,
-    '#5cc7ba',
+    DefaultTheme.StrokeColorMap.Teal,
   ];
 
   readonly root = {
@@ -335,7 +335,6 @@ export class StyleThree extends MindmapStyleGetter {
 
   override getNodeStyle(_: MindmapNode, path: number[]) {
     const strokeColor = this._getColor(path.length - 2);
-    const dotColor = this._getColor(path.length - 1);
 
     return {
       node: {
@@ -344,7 +343,7 @@ export class StyleThree extends MindmapStyleGetter {
         textResizing: TextResizing.AUTO_WIDTH_AND_HEIGHT,
 
         strokeWidth: 2,
-        strokeColor,
+        strokeColor: strokeColor,
 
         fontFamily: FontFamily.Poppins,
         fontSize: 16,
@@ -371,7 +370,7 @@ export class StyleThree extends MindmapStyleGetter {
         filled: true,
         fillColor: DefaultTheme.pureWhite,
 
-        strokeColor: dotColor,
+        strokeColor: '#3cbc36',
         strokeWidth: 3,
       },
       expandButton: {
@@ -380,14 +379,14 @@ export class StyleThree extends MindmapStyleGetter {
         radius: 8,
 
         filled: true,
-        fillColor: dotColor,
+        fillColor: '#3cbc36',
 
         padding: [4, 0],
 
-        strokeColor: dotColor,
+        strokeColor: '#3cbc36',
         strokeWidth: 0,
 
-        color: DefaultTheme.pureWhite,
+        color: '#fff',
 
         fontFamily: FontFamily.Inter,
         fontWeight: FontWeight.Bold,

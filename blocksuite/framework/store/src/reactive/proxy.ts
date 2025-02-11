@@ -2,12 +2,16 @@ import { BlockSuiteError, ErrorCode } from '@blocksuite/global/exceptions';
 import type { YArrayEvent, YMapEvent } from 'yjs';
 import { Array as YArray, Map as YMap } from 'yjs';
 
-import { BaseReactiveYData } from './base-reactive-data.js';
 import { Boxed, type OnBoxedChange } from './boxed.js';
-import { proxies } from './memory.js';
-import { native2Y, y2Native } from './native-y.js';
 import { type OnTextChange, Text } from './text.js';
-import type { ProxyOptions, TransformOptions, UnRecord } from './types.js';
+import type { UnRecord } from './utils.js';
+import { BaseReactiveYData, native2Y, y2Native } from './utils.js';
+
+export type ProxyOptions<T> = {
+  onChange?: (data: T) => void;
+};
+
+const proxies = new WeakMap<any, BaseReactiveYData<any, any>>();
 
 export class ReactiveYArray extends BaseReactiveYData<
   unknown[],
@@ -294,34 +298,60 @@ export function createYProxy<Data>(
     return proxies.get(yAbstract)!.proxy as Data;
   }
 
-  const transform: TransformOptions['transform'] = (value, origin) => {
-    if (value instanceof Text) {
-      value.bind(options.onChange as OnTextChange);
-      return value;
-    }
-    if (Boxed.is(origin)) {
-      (value as Boxed).bind(options.onChange as OnBoxedChange);
-      return value;
-    }
-    if (origin instanceof YArray) {
-      const data = new ReactiveYArray(
-        value as unknown[],
-        origin,
-        options as ProxyOptions<unknown[]>
-      );
-      return data.proxy;
-    }
-    if (origin instanceof YMap) {
-      const data = new ReactiveYMap(
-        value as UnRecord,
-        origin,
-        options as ProxyOptions<UnRecord>
-      );
-      return data.proxy;
-    }
+  return y2Native(yAbstract, {
+    transform: (value, origin) => {
+      if (value instanceof Text) {
+        value.bind(options.onChange as OnTextChange);
+        return value;
+      }
+      if (Boxed.is(origin)) {
+        (value as Boxed).bind(options.onChange as OnBoxedChange);
+        return value;
+      }
+      if (origin instanceof YArray) {
+        const data = new ReactiveYArray(
+          value as unknown[],
+          origin,
+          options as ProxyOptions<unknown[]>
+        );
+        return data.proxy;
+      }
+      if (origin instanceof YMap) {
+        const data = new ReactiveYMap(
+          value as UnRecord,
+          origin,
+          options as ProxyOptions<UnRecord>
+        );
+        return data.proxy;
+      }
 
-    return value;
-  };
+      return value;
+    },
+  }) as Data;
+}
 
-  return y2Native(yAbstract, { transform }) as Data;
+export function stashProp(yMap: YMap<unknown>, prop: string): void;
+export function stashProp(yMap: YArray<unknown>, prop: number): void;
+export function stashProp(yAbstract: unknown, prop: string | number) {
+  const proxy = proxies.get(yAbstract);
+  if (!proxy) {
+    throw new BlockSuiteError(
+      ErrorCode.ReactiveProxyError,
+      'YData is not subscribed before changes'
+    );
+  }
+  proxy.stash(prop);
+}
+
+export function popProp(yMap: YMap<unknown>, prop: string): void;
+export function popProp(yMap: YArray<unknown>, prop: number): void;
+export function popProp(yAbstract: unknown, prop: string | number) {
+  const proxy = proxies.get(yAbstract);
+  if (!proxy) {
+    throw new BlockSuiteError(
+      ErrorCode.ReactiveProxyError,
+      'YData is not subscribed before changes'
+    );
+  }
+  proxy.pop(prop);
 }

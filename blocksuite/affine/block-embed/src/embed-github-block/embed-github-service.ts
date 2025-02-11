@@ -3,17 +3,20 @@ import {
   type EmbedGithubModel,
   EmbedGithubStyles,
 } from '@blocksuite/affine-model';
-import {
-  EmbedOptionProvider,
-  LinkPreviewerService,
-} from '@blocksuite/affine-shared/services';
+import { EmbedOptionProvider } from '@blocksuite/affine-shared/services';
 import { BlockService } from '@blocksuite/block-std';
 
+import { LinkPreviewer } from '../common/link-previewer.js';
 import { githubUrlRegex } from './embed-github-model.js';
 import { queryEmbedGithubApiData, queryEmbedGithubData } from './utils.js';
 
 export class EmbedGithubBlockService extends BlockService {
   static override readonly flavour = EmbedGithubBlockSchema.model.flavour;
+
+  private static readonly linkPreviewer = new LinkPreviewer();
+
+  static setLinkPreviewEndpoint =
+    EmbedGithubBlockService.linkPreviewer.setEndpoint;
 
   queryApiData = (embedGithubModel: EmbedGithubModel, signal?: AbortSignal) => {
     return queryEmbedGithubApiData(embedGithubModel, signal);
@@ -22,7 +25,7 @@ export class EmbedGithubBlockService extends BlockService {
   queryUrlData = (embedGithubModel: EmbedGithubModel, signal?: AbortSignal) => {
     return queryEmbedGithubData(
       embedGithubModel,
-      this.doc.get(LinkPreviewerService),
+      EmbedGithubBlockService.linkPreviewer,
       signal
     );
   };

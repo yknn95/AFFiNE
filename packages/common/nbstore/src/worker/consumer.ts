@@ -1,30 +1,27 @@
-import { MANUALLY_STOP } from '@toeverything/infra';
-import { OpConsumer } from '@toeverything/infra/op';
+import type { OpConsumer } from '@toeverything/infra/op';
 import { Observable } from 'rxjs';
 
-import { type StorageConstructor } from '../impls';
-import { SpaceStorage } from '../storage';
+import { getAvailableStorageImplementations } from '../impls';
+import { SpaceStorage, type StorageOptions } from '../storage';
 import type { AwarenessRecord } from '../storage/awareness';
 import { Sync } from '../sync';
-import type { PeerStorageOptions } from '../sync/types';
-import type { StoreInitOptions, WorkerManagerOps, WorkerOps } from './ops';
+import type { WorkerOps } from './ops';
 
-export type { WorkerManagerOps };
-
-class StoreConsumer {
-  private readonly storages: PeerStorageOptions<SpaceStorage>;
-  private readonly sync: Sync;
+export class WorkerConsumer {
+  private remotes: SpaceStorage[] = [];
+  private local: SpaceStorage | null = null;
+  private sync: Sync | null = null;
 
   get ensureLocal() {
-    if (!this.storages) {
+    if (!this.local) {
       throw new Error('Not initialized');
     }
-    return this.storages.local;
+    return this.local;
   }
 
   get ensureSync() {
     if (!this.sync) {
-      throw new Error('Sync not initialized');
+      throw new Error('Not initialized');
     }
     return this.sync;
   }
@@ -34,7 +31,11 @@ class StoreConsumer {
   }
 
   get docSync() {
-    return this.ensureSync.doc;
+    const docSync = this.ensureSync.doc;
+    if (!docSync) {
+      throw new Error('Doc sync not initialized');
+    }
+    return docSync;
   }
 
   get blobStorage() {
@@ -42,7 +43,11 @@ class StoreConsumer {
   }
 
   get blobSync() {
-    return this.ensureSync.blob;
+    const blobSync = this.ensureSync.blob;
+    if (!blobSync) {
+      throw new Error('Blob sync not initialized');
+    }
+    return blobSync;
   }
 
   get syncStorage() {
@@ -54,85 +59,65 @@ class StoreConsumer {
   }
 
   get awarenessSync() {
-    return this.ensureSync.awareness;
+    const awarenessSync = this.ensureSync.awareness;
+    if (!awarenessSync) {
+      throw new Error('Awareness sync not initialized');
+    }
+    return awarenessSync;
   }
 
-  constructor(
-    private readonly availableStorageImplementations: StorageConstructor[],
-    init: StoreInitOptions
-  ) {
-    this.storages = {
-      local: new SpaceStorage(
-        Object.fromEntries(
-          Object.entries(init.local).map(([type, opt]) => {
-            if (opt === undefined) {
-              return [type, undefined];
-            }
-            const Storage = this.availableStorageImplementations.find(
-              impl => impl.identifier === opt.name
-            );
-            if (!Storage) {
-              throw new Error(`Storage implementation ${opt.name} not found`);
-            }
-            return [type, new Storage(opt.opts as any)];
-          })
-        )
-      ),
-      remotes: Object.fromEntries(
-        Object.entries(init.remotes).map(([peer, opts]) => {
-          return [
-            peer,
-            new SpaceStorage(
-              Object.fromEntries(
-                Object.entries(opts).map(([type, opt]) => {
-                  if (opt === undefined) {
-                    return [type, undefined];
-                  }
-                  const Storage = this.availableStorageImplementations.find(
-                    impl => impl.identifier === opt.name
-                  );
-                  if (!Storage) {
-                    throw new Error(
-                      `Storage implementation ${opt.name} not found`
-                    );
-                  }
-                  return [type, new Storage(opt.opts as any)];
-                })
-              )
-            ),
-          ];
+  constructor(private readonly consumer: OpConsumer<WorkerOps>) {}
+
+  listen() {
+    this.registerHandlers();
+    this.consumer.listen();
+  }
+
+  async init(init: {
+    local: { name: string; opts: StorageOptions }[];
+    remotes: { name: string; opts: StorageOptions }[][];
+  }) {
+    this.local = new SpaceStorage(
+      init.local.map(opt => {
+        const Storage = getAvailableStorageImplementations(opt.name);
+        return new Storage(opt.opts);
+      })
+    );
+    this.remotes = init.remotes.map(opts => {
+      return new SpaceStorage(
+        opts.map(opt => {
+          const Storage = getAvailableStorageImplementations(opt.name);
+          return new Storage(opt.opts);
         })
-      ),
-    };
-    this.sync = new Sync(this.storages);
-    this.storages.local.connect();
-    for (const remote of Object.values(this.storages.remotes)) {
+      );
+    });
+    this.sync = new Sync(this.local, this.remotes);
+    this.local.connect();
+    for (const remote of this.remotes) {
       remote.connect();
     }
     this.sync.start();
   }
 
-  bindConsumer(consumer: OpConsumer<WorkerOps>) {
-    this.registerHandlers(consumer);
-  }
-
   async destroy() {
     this.sync?.stop();
-    this.storages?.local.disconnect();
-    await this.storages?.local.destroy();
-    for (const remote of Object.values(this.storages?.remotes ?? {})) {
+    this.local?.disconnect();
+    await this.local?.destroy();
+    for (const remote of this.remotes) {
       remote.disconnect();
       await remote.destroy();
     }
   }
 
-  private registerHandlers(consumer: OpConsumer<WorkerOps>) {
+  private registerHandlers() {
     const collectJobs = new Map<
       string,
       (awareness: AwarenessRecord | null) => void
     >();
     let collectId = 0;
-    consumer.registerAll({
+    this.consumer.registerAll({
+      'worker.init': this.init.bind(this),
+      'worker.destroy': this.destroy.bind(this),
       'docStorage.getDoc': (docId: string) => this.docStorage.getDoc(docId),
       'docStorage.getDocDiff': ({ docId, state }) =>
         this.docStorage.getDocDiff(docId, state),
@@ -159,10 +144,10 @@ class StoreConsumer {
               subscriber.next(true);
               subscriber.complete();
             })
-            .catch((error: any) => {
+            .catch(error => {
               subscriber.error(error);
             });
-          return () => abortController.abort(MANUALLY_STOP);
+          return () => abortController.abort();
         }),
       'blobStorage.getBlob': key => this.blobStorage.get(key),
       'blobStorage.setBlob': blob => this.blobStorage.set(blob),
@@ -216,7 +201,13 @@ class StoreConsumer {
         }),
       'awarenessStorage.collect': ({ collectId, awareness }) =>
         collectJobs.get(collectId)?.(awareness),
-      'docSync.state': () => this.docSync.state$,
+      'docSync.state': () =>
+        new Observable(subscriber => {
+          const subscription = this.docSync.state$.subscribe(state => {
+            subscriber.next(state);
+          });
+          return () => subscription.unsubscribe();
+        }),
       'docSync.docState': docId =>
         new Observable(subscriber => {
           const subscription = this.docSync
@@ -233,34 +224,11 @@ class StoreConsumer {
         }),
       'blobSync.downloadBlob': key => this.blobSync.downloadBlob(key),
       'blobSync.uploadBlob': blob => this.blobSync.uploadBlob(blob),
-      'blobSync.fullSync': () =>
-        new Observable(subscriber => {
-          const abortController = new AbortController();
-          this.blobSync
-            .fullSync(abortController.signal)
-            .then(() => {
-              subscriber.next(true);
-              subscriber.complete();
-            })
-            .catch(error => {
-              subscriber.error(error);
-            });
-          return () => abortController.abort(MANUALLY_STOP);
-        }),
-      'blobSync.state': () => this.blobSync.state$,
-      'blobSync.setMaxBlobSize': size => this.blobSync.setMaxBlobSize(size),
-      'blobSync.onReachedMaxBlobSize': () =>
-        new Observable(subscriber => {
-          const undo = this.blobSync.onReachedMaxBlobSize(byteSize => {
-            subscriber.next(byteSize);
-          });
-          return () => undo();
-        }),
       'awarenessSync.update': ({ awareness, origin }) =>
         this.awarenessSync.update(awareness, origin),
       'awarenessSync.subscribeUpdate': docId =>
         new Observable(subscriber => {
-          return this.awarenessSync.subscribeUpdate(
+          return this.awarenessStorage.subscribeUpdate(
             docId,
             (update, origin) => {
               subscriber.next({
@@ -277,74 +245,12 @@ class StoreConsumer {
                   collectJobs.delete(currentCollectId.toString());
                 });
               });
-              subscriber.next({
-                type: 'awareness-collect',
-                collectId: currentCollectId.toString(),
-              });
               return promise;
             }
           );
         }),
       'awarenessSync.collect': ({ collectId, awareness }) =>
         collectJobs.get(collectId)?.(awareness),
-    });
-  }
-}
-
-export class StoreManagerConsumer {
-  private readonly storeDisposers = new Map<string, () => void>();
-  private readonly storePool = new Map<
-    string,
-    { store: StoreConsumer; refCount: number }
-  >();
-
-  constructor(
-    private readonly availableStorageImplementations: StorageConstructor[]
-  ) {}
-
-  bindConsumer(consumer: OpConsumer<WorkerManagerOps>) {
-    this.registerHandlers(consumer);
-  }
-
-  private registerHandlers(consumer: OpConsumer<WorkerManagerOps>) {
-    consumer.registerAll({
-      open: ({ port, key, closeKey, options }) => {
-        console.debug('open store', key, closeKey);
-        let storeRef = this.storePool.get(key);
-
-        if (!storeRef) {
-          const store = new StoreConsumer(
-            this.availableStorageImplementations,
-            options
-          );
-          storeRef = { store, refCount: 0 };
-        }
-        storeRef.refCount++;
-
-        const workerConsumer = new OpConsumer<WorkerOps>(port);
-        storeRef.store.bindConsumer(workerConsumer);
-
-        this.storeDisposers.set(closeKey, () => {
-          storeRef.refCount--;
-          if (storeRef.refCount === 0) {
-            storeRef.store.destroy().catch(error => {
-              console.error(error);
-            });
-            this.storePool.delete(key);
-          }
-        });
-        this.storePool.set(key, storeRef);
-        return closeKey;
-      },
-      close: key => {
-        console.debug('close store', key);
-        const workerDisposer = this.storeDisposers.get(key);
-        if (!workerDisposer) {
-          throw new Error('Worker not found');
-        }
-        workerDisposer();
-        this.storeDisposers.delete(key);
-      },
     });
   }
 }

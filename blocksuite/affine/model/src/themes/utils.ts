@@ -4,8 +4,8 @@ import {
   lightThemeV2,
 } from '@toeverything/theme/v2';
 
-import type { Color } from './color';
-import type { Palette } from './types';
+import type { Color } from './color.js';
+import type { Palette } from './types.js';
 
 // Converts a color map to color list.
 export function buildPalettes(

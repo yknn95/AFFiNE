@@ -1,10 +1,10 @@
 import { DebugLogger } from '@affine/debug';
-import type { WorkerInitOptions } from '@affine/nbstore/worker/client';
 import { ObjectPool, Service } from '@toeverything/infra';
 
 import type { Workspace } from '../entities/workspace';
 import { WorkspaceInitialized } from '../events';
 import type { WorkspaceOpenOptions } from '../open-options';
+import type { WorkspaceEngineProvider } from '../providers/flavour';
 import { WorkspaceScope } from '../scopes/workspace';
 import type { WorkspaceFlavoursService } from './flavours';
 import type { WorkspaceListService } from './list';
@@ -40,16 +40,13 @@ export class WorkspaceRepositoryService extends Service {
    */
   open = (
     options: WorkspaceOpenOptions,
-    customEngineWorkerInitOptions?: WorkerInitOptions
+    customProvider?: WorkspaceEngineProvider
   ): {
     workspace: Workspace;
     dispose: () => void;
   } => {
     if (options.isSharedMode) {
-      const workspace = this.instantiate(
-        options,
-        customEngineWorkerInitOptions
-      );
+      const workspace = this.instantiate(options, customProvider);
       return {
         workspace,
         dispose: () => {
@@ -66,7 +63,9 @@ export class WorkspaceRepositoryService extends Service {
       };
     }
 
-    const workspace = this.instantiate(options, customEngineWorkerInitOptions);
+    const workspace = this.instantiate(options, customProvider);
+    // sync information with workspace list, when workspace's avatar and name changed, information will be updated
+    // this.list.getInformation(metadata).syncWithWorkspace(workspace);
 
     const ref = this.pool.put(workspace.meta.id, workspace);
 
@@ -84,7 +83,7 @@ export class WorkspaceRepositoryService extends Service {
 
   instantiate(
     openOptions: WorkspaceOpenOptions,
-    customEngineWorkerInitOptions?: WorkerInitOptions
+    customProvider?: WorkspaceEngineProvider
   ) {
     logger.info(
       `open workspace [${openOptions.metadata.flavour}] ${openOptions.metadata.id} `
@@ -92,10 +91,10 @@ export class WorkspaceRepositoryService extends Service {
     const flavourProvider = this.flavoursService.flavours$.value.find(
       p => p.flavour === openOptions.metadata.flavour
     );
-    const engineWorkerInitOptions =
-      customEngineWorkerInitOptions ??
-      flavourProvider?.getEngineWorkerInitOptions(openOptions.metadata.id);
-    if (!engineWorkerInitOptions) {
+    const provider =
+      customProvider ??
+      flavourProvider?.getEngineProvider(openOptions.metadata.id);
+    if (!provider) {
       throw new Error(
         `Unknown workspace flavour: ${openOptions.metadata.flavour}`
       );
@@ -103,11 +102,12 @@ export class WorkspaceRepositoryService extends Service {
 
     const workspaceScope = this.framework.createScope(WorkspaceScope, {
       openOptions,
-      engineWorkerInitOptions,
+      engineProvider: provider,
     });
 
     const workspace = workspaceScope.get(WorkspaceService).workspace;
 
+    workspace.engine.setRootDoc(workspace.docCollection.doc);
     workspace.engine.start();
 
     this.framework.emitEvent(WorkspaceInitialized, workspace);

@@ -1,4 +1,5 @@
 import { DefaultTheme, NoteDisplayMode } from '@blocksuite/affine-model';
+import type { ExtensionType } from '@blocksuite/block-std';
 import type { ServiceProvider } from '@blocksuite/global/di';
 import {
   type AssetsManager,
@@ -7,18 +8,17 @@ import {
   type BlockSnapshot,
   BlockSnapshotSchema,
   type DocSnapshot,
-  type ExtensionType,
   type FromBlockSnapshotPayload,
   type FromBlockSnapshotResult,
   type FromDocSnapshotPayload,
   type FromDocSnapshotResult,
   type FromSliceSnapshotPayload,
   type FromSliceSnapshotResult,
+  type Job,
   nanoid,
   type SliceSnapshot,
   type ToBlockSnapshotPayload,
   type ToDocSnapshotPayload,
-  type Transformer,
 } from '@blocksuite/store';
 import type { Root } from 'mdast';
 import remarkMath from 'remark-math';
@@ -72,7 +72,6 @@ export class MarkdownAdapter extends BaseAdapter<Markdown> {
             configs: this.configs,
             job: this.job,
             deltaConverter: this.deltaConverter,
-            provider: this.provider,
             textBuffer: { content: '' },
             assets,
           };
@@ -93,7 +92,6 @@ export class MarkdownAdapter extends BaseAdapter<Markdown> {
             configs: this.configs,
             job: this.job,
             deltaConverter: this.deltaConverter,
-            provider: this.provider,
             textBuffer: { content: '' },
             assets,
           };
@@ -128,7 +126,6 @@ export class MarkdownAdapter extends BaseAdapter<Markdown> {
             configs: this.configs,
             job: this.job,
             deltaConverter: this.deltaConverter,
-            provider: this.provider,
             textBuffer: { content: '' },
             assets,
             updateAssetIds: (assetsId: string) => {
@@ -152,7 +149,6 @@ export class MarkdownAdapter extends BaseAdapter<Markdown> {
             configs: this.configs,
             job: this.job,
             deltaConverter: this.deltaConverter,
-            provider: this.provider,
             textBuffer: { content: '' },
             assets,
           };
@@ -170,10 +166,7 @@ export class MarkdownAdapter extends BaseAdapter<Markdown> {
 
   readonly blockMatchers: BlockMarkdownAdapterMatcher[];
 
-  constructor(
-    job: Transformer,
-    readonly provider: ServiceProvider
-  ) {
+  constructor(job: Job, provider: ServiceProvider) {
     super(job);
     const blockMatchers = Array.from(
       provider.getAll(BlockMarkdownAdapterMatcherIdentifier).values()
@@ -456,7 +449,7 @@ export const MarkdownAdapterFactoryIdentifier =
 export const MarkdownAdapterFactoryExtension: ExtensionType = {
   setup: di => {
     di.addImpl(MarkdownAdapterFactoryIdentifier, provider => ({
-      get: (job: Transformer) => new MarkdownAdapter(job, provider),
+      get: (job: Job) => new MarkdownAdapter(job, provider),
     }));
   },
 };

@@ -2,13 +2,12 @@ import { toNumberedList } from '@blocksuite/affine-shared/utils';
 import type { Command, EditorHost } from '@blocksuite/block-std';
 
 export const convertToNumberedListCommand: Command<
+  never,
+  'listConvertedId',
   {
     id: string;
     order: number; // This parameter may not correspond to the final order.
     stopCapturing?: boolean;
-  },
-  {
-    listConvertedId: string;
   }
 > = (ctx, next) => {
   const { std, id, order, stopCapturing = true } = ctx;

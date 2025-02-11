@@ -1,9 +1,9 @@
 import type { DocMode } from '@blocksuite/affine-model';
+import type { ExtensionType } from '@blocksuite/block-std';
+import { Extension } from '@blocksuite/block-std';
 import type { Container } from '@blocksuite/global/di';
 import { createIdentifier } from '@blocksuite/global/di';
 import { type Disposable, noop, Slot } from '@blocksuite/global/utils';
-import type { ExtensionType } from '@blocksuite/store';
-import { Extension } from '@blocksuite/store';
 
 const DEFAULT_MODE: DocMode = 'page';
 

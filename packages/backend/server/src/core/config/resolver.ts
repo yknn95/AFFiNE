@@ -13,10 +13,10 @@ import { RuntimeConfig, RuntimeConfigType } from '@prisma/client';
 import { GraphQLJSON, GraphQLJSONObject } from 'graphql-scalars';
 
 import { Config, Runtime, URLHelper } from '../../base';
-import { Feature } from '../../models';
 import { Public } from '../auth';
 import { Admin } from '../common';
-import { AvailableUserFeatureConfig } from '../features';
+import { FeatureType } from '../features';
+import { AvailableUserFeatureConfig } from '../features/resolver';
 import { ServerFlags } from './config';
 import { ENABLED_FEATURES } from './server-feature';
 import { ServerService } from './service';
@@ -139,7 +139,11 @@ export class ServerConfigResolver {
 
 @Resolver(() => ServerConfigType)
 export class ServerFeatureConfigResolver extends AvailableUserFeatureConfig {
-  @ResolveField(() => [Feature], {
+  constructor(config: Config) {
+    super(config);
+  }
+
+  @ResolveField(() => [FeatureType], {
     description: 'Features for user that can be configured',
   })
   override availableUserFeatures() {

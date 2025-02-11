@@ -1,5 +1,5 @@
 import { ConnectionOverlay } from '@blocksuite/affine-block-surface';
-import type { ExtensionType } from '@blocksuite/store';
+import type { ExtensionType } from '@blocksuite/block-std';
 
 import { EdgelessRootBlockSpec } from '../../root-block/edgeless/edgeless-root-spec.js';
 import {

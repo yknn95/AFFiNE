@@ -1,4 +1,4 @@
-import { ParagraphBlockModel } from '@blocksuite/affine-model';
+import type { ParagraphBlockModel } from '@blocksuite/affine-model';
 import type { BlockModel } from '@blocksuite/store';
 
 import { matchFlavours } from '../model/checker.js';
@@ -15,7 +15,7 @@ export function calculateCollapsedSiblings(
   const collapsedEdgeIndex = children.findIndex((child, i) => {
     if (
       i > index &&
-      matchFlavours(child, [ParagraphBlockModel]) &&
+      matchFlavours(child, ['affine:paragraph']) &&
       child.type.startsWith('h')
     ) {
       const modelLevel = parseInt(model.type.slice(1));
@@ -46,7 +46,7 @@ export function getNearestHeadingBefore(
   for (let i = index - 1; i >= 0; i--) {
     const sibling = parent.children[i];
     if (
-      matchFlavours(sibling, [ParagraphBlockModel]) &&
+      matchFlavours(sibling, ['affine:paragraph']) &&
       sibling.type.startsWith('h')
     ) {
       return sibling;

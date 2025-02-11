@@ -5,7 +5,6 @@ import {
 
 import { getMindMapNodeMap } from '../utils/mindmap.js';
 import { MarkdownElementModelAdapter } from './element-adapter/index.js';
-import { ElementToMarkdownAdapterMatcherIdentifier } from './element-adapter/type.js';
 
 export const surfaceBlockMarkdownAdapterMatcher: BlockMarkdownAdapterMatcher = {
   flavour: 'affine:surface',
@@ -30,18 +29,8 @@ export const edgelessSurfaceBlockMarkdownAdapterMatcher: BlockMarkdownAdapterMat
     toBlockSnapshot: {},
     fromBlockSnapshot: {
       enter: (o, context) => {
-        const { walkerContext, provider } = context;
-        if (!provider) {
-          context.walkerContext.skipAllChildren();
-          return;
-        }
-
-        const elementModelMatchers = Array.from(
-          provider.getAll(ElementToMarkdownAdapterMatcherIdentifier).values()
-        );
-        const markdownElementModelAdapter = new MarkdownElementModelAdapter(
-          elementModelMatchers
-        );
+        const { walkerContext } = context;
+        const markdownElementModelAdapter = new MarkdownElementModelAdapter();
         if ('elements' in o.node.props) {
           const elements = o.node.props.elements as Record<
             string,

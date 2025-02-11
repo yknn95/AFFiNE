@@ -17,7 +17,6 @@ export class PromptService implements OnModuleInit {
   constructor(private readonly db: PrismaClient) {}
 
   async onModuleInit() {
-    this.cache.clear();
     await refreshPrompts(this.db);
   }
 

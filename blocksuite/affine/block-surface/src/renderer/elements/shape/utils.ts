@@ -4,7 +4,6 @@ import type {
   TextAlign,
   TextVerticalAlign,
 } from '@blocksuite/affine-model';
-import { FeatureFlagService } from '@blocksuite/affine-shared/services';
 import type { Bound, SerializedXYWH } from '@blocksuite/global/utils';
 import { deltaInsertsToChunks } from '@blocksuite/inline';
 
@@ -69,9 +68,9 @@ export function drawGeneralShape(
     const { blur, offsetX, offsetY, color } = shapeModel.shadow;
     const scale = ctx.getTransform().a;
 
-    const enableShadowBlur = shapeModel.surface.doc
-      .get(FeatureFlagService)
-      .getFlag('enable_shape_shadow_blur');
+    const enableShadowBlur = shapeModel.surface.doc.awarenessStore.getFlag(
+      'enable_shape_shadow_blur'
+    );
 
     // hard shadow, or soft shadow if `enable_shape_shadow_blur` is true
     // see comment of `shape.shadow` in `ShapeElementModel`
@@ -81,7 +80,7 @@ export function drawGeneralShape(
       ctx.shadowOffsetY = offsetY * scale;
     }
 
-    ctx.shadowColor = renderer.getColorValue(color, undefined, true);
+    ctx.shadowColor = renderer.getPropertyValue(color);
   }
 
   ctx.stroke();

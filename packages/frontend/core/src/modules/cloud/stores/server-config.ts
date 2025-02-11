@@ -8,11 +8,13 @@ import {
 } from '@affine/graphql';
 import { Store } from '@toeverything/infra';
 
+import type { RawFetchProvider } from '../provider/fetch';
+
 export type ServerConfigType = ServerConfigQuery['serverConfig'] &
   OauthProvidersQuery['serverConfig'];
 
 export class ServerConfigStore extends Store {
-  constructor() {
+  constructor(private readonly fetcher: RawFetchProvider) {
     super();
   }
 
@@ -20,7 +22,10 @@ export class ServerConfigStore extends Store {
     serverBaseUrl: string,
     abortSignal?: AbortSignal
   ): Promise<ServerConfigType> {
-    const gql = gqlFetcherFactory(`${serverBaseUrl}/graphql`, globalThis.fetch);
+    const gql = gqlFetcherFactory(
+      `${serverBaseUrl}/graphql`,
+      this.fetcher.fetch
+    );
     const serverConfigData = await gql({
       query: serverConfigQuery,
       context: {

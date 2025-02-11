@@ -1,14 +1,12 @@
-import {
-  HtmlInlineToDeltaAdapterExtensions,
-  InlineDeltaToHtmlAdapterExtensions,
-} from '@blocksuite/affine-components/rich-text';
 import { HtmlAdapter } from '@blocksuite/affine-shared/adapters';
 import { Container } from '@blocksuite/global/di';
 import { sha } from '@blocksuite/global/utils';
-import type { Store, Workspace } from '@blocksuite/store';
-import { extMimeMap, Transformer } from '@blocksuite/store';
+import type { Doc, DocCollection } from '@blocksuite/store';
+import { extMimeMap, Job } from '@blocksuite/store';
 
 import { defaultBlockHtmlAdapterMatchers } from '../adapters/html/block-matcher.js';
+import { htmlInlineToDeltaMatchers } from '../adapters/html/delta-converter/html-inline.js';
+import { inlineDeltaToHtmlAdapterMatchers } from '../adapters/html/delta-converter/inline-delta.js';
 import {
   defaultImageProxyMiddleware,
   docLinkBaseURLMiddleware,
@@ -18,21 +16,21 @@ import {
 import { createAssetsArchive, download, Unzip } from './utils.js';
 
 type ImportHTMLToDocOptions = {
-  collection: Workspace;
+  collection: DocCollection;
   html: string;
   fileName?: string;
 };
 
 type ImportHTMLZipOptions = {
-  collection: Workspace;
+  collection: DocCollection;
   imported: Blob;
 };
 
 const container = new Container();
 [
-  ...HtmlInlineToDeltaAdapterExtensions,
+  ...htmlInlineToDeltaMatchers,
   ...defaultBlockHtmlAdapterMatchers,
-  ...InlineDeltaToHtmlAdapterExtensions,
+  ...inlineDeltaToHtmlAdapterMatchers,
 ].forEach(ext => {
   ext.setup(container);
 });
@@ -45,19 +43,10 @@ const provider = container.provider();
  * @param doc - The doc to be exported.
  * @returns A Promise that resolves when the export is complete.
  */
-async function exportDoc(doc: Store) {
-  const job = new Transformer({
-    schema: doc.schema,
-    blobCRUD: doc.blobSync,
-    docCRUD: {
-      create: (id: string) => doc.workspace.createDoc({ id }),
-      get: (id: string) => doc.workspace.getDoc(id),
-      delete: (id: string) => doc.workspace.removeDoc(id),
-    },
-    middlewares: [
-      docLinkBaseURLMiddleware(doc.workspace.id),
-      titleMiddleware(doc.workspace.meta.docMetas),
-    ],
+async function exportDoc(doc: Doc) {
+  const job = new Job({
+    collection: doc.collection,
+    middlewares: [docLinkBaseURLMiddleware, titleMiddleware],
   });
   const snapshot = job.docToSnapshot(doc);
   const adapter = new HtmlAdapter(job, provider);
@@ -101,18 +90,12 @@ async function importHTMLToDoc({
   html,
   fileName,
 }: ImportHTMLToDocOptions) {
-  const job = new Transformer({
-    schema: collection.schema,
-    blobCRUD: collection.blobSync,
-    docCRUD: {
-      create: (id: string) => collection.createDoc({ id }),
-      get: (id: string) => collection.getDoc(id),
-      delete: (id: string) => collection.removeDoc(id),
-    },
+  const job = new Job({
+    collection,
     middlewares: [
       defaultImageProxyMiddleware,
       fileNameMiddleware(fileName),
-      docLinkBaseURLMiddleware(collection.id),
+      docLinkBaseURLMiddleware,
     ],
   });
   const htmlAdapter = new HtmlAdapter(job, provider);
@@ -163,18 +146,12 @@ async function importHTMLZip({ collection, imported }: ImportHTMLZipOptions) {
   await Promise.all(
     htmlBlobs.map(async ([fileName, blob]) => {
       const fileNameWithoutExt = fileName.replace(/\.[^/.]+$/, '');
-      const job = new Transformer({
-        schema: collection.schema,
-        blobCRUD: collection.blobSync,
-        docCRUD: {
-          create: (id: string) => collection.createDoc({ id }),
-          get: (id: string) => collection.getDoc(id),
-          delete: (id: string) => collection.removeDoc(id),
-        },
+      const job = new Job({
+        collection,
         middlewares: [
           defaultImageProxyMiddleware,
           fileNameMiddleware(fileNameWithoutExt),
-          docLinkBaseURLMiddleware(collection.id),
+          docLinkBaseURLMiddleware,
         ],
       });
       const assets = job.assets;

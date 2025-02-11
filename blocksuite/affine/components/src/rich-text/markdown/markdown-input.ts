@@ -1,9 +1,8 @@
-import { CodeBlockModel, ParagraphBlockModel } from '@blocksuite/affine-model';
 import {
   isMarkdownPrefix,
   matchFlavours,
 } from '@blocksuite/affine-shared/utils';
-import { type BlockStdScope, TextSelection } from '@blocksuite/block-std';
+import type { BlockStdScope } from '@blocksuite/block-std';
 
 import { getInlineEditorByModel } from '../dom.js';
 import { toDivider } from './divider.js';
@@ -18,11 +17,11 @@ export function markdownInput(
 ): string | undefined {
   if (!id) {
     const selection = std.selection;
-    const text = selection.find(TextSelection);
+    const text = selection.find('text');
     id = text?.from.blockId;
   }
   if (!id) return;
-  const model = std.store.getBlock(id)?.model;
+  const model = std.doc.getBlock(id)?.model;
   if (!model) return;
   const inline = getInlineEditorByModel(std.host, model);
   if (!inline) return;
@@ -32,10 +31,10 @@ export function markdownInput(
   const prefixText = getPrefixText(inline);
   if (!isMarkdownPrefix(prefixText)) return;
 
-  const isParagraph = matchFlavours(model, [ParagraphBlockModel]);
+  const isParagraph = matchFlavours(model, ['affine:paragraph']);
   const isHeading = isParagraph && model.type.startsWith('h');
   const isParagraphQuoteBlock = isParagraph && model.type === 'quote';
-  const isCodeBlock = matchFlavours(model, [CodeBlockModel]);
+  const isCodeBlock = matchFlavours(model, ['affine:code']);
   if (isHeading || isParagraphQuoteBlock || isCodeBlock) return;
 
   const lineInfo = inline.getLine(range.index);

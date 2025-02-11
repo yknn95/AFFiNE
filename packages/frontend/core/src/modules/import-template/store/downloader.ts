@@ -1,12 +1,14 @@
 import { Store } from '@toeverything/infra';
 
+import type { RawFetchProvider } from '../../cloud';
+
 export class TemplateDownloaderStore extends Store {
-  constructor() {
+  constructor(private readonly fetchProvider: RawFetchProvider) {
     super();
   }
 
   async download(snapshotUrl: string) {
-    const response = await globalThis.fetch(snapshotUrl, {
+    const response = await this.fetchProvider.fetch(snapshotUrl, {
       priority: 'high',
     } as any);
     const arrayBuffer = await response.arrayBuffer();

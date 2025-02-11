@@ -8,16 +8,12 @@ import { SyncAwareness } from '@affine/core/components/affine/awareness';
 import { useRegisterFindInPageCommands } from '@affine/core/components/hooks/affine/use-register-find-in-page-commands';
 import { useRegisterWorkspaceCommands } from '@affine/core/components/hooks/use-register-workspace-commands';
 import { OverCapacityNotification } from '@affine/core/components/over-capacity';
-import { AINetworkSearchService } from '@affine/core/modules/ai-button/services/network-search';
 import {
   EventSourceService,
   FetchService,
   GraphQLService,
 } from '@affine/core/modules/cloud';
-import {
-  GlobalDialogService,
-  WorkspaceDialogService,
-} from '@affine/core/modules/dialogs';
+import { GlobalDialogService } from '@affine/core/modules/dialogs';
 import { DocsService } from '@affine/core/modules/doc';
 import { EditorSettingService } from '@affine/core/modules/editor-setting';
 import { useRegisterNavigationCommands } from '@affine/core/modules/navigation/view/use-register-navigation-commands';
@@ -126,12 +122,11 @@ export const WorkspaceSideEffects = () => {
     workbench,
   ]);
 
-  const workspaceDialogService = useService(WorkspaceDialogService);
   const globalDialogService = useService(GlobalDialogService);
 
   useEffect(() => {
     const disposable = AIProvider.slots.requestUpgradePlan.on(() => {
-      workspaceDialogService.open('setting', {
+      globalDialogService.open('setting', {
         activeTab: 'billing',
       });
       track.$.paywall.aiAction.viewPlans();
@@ -139,12 +134,11 @@ export const WorkspaceSideEffects = () => {
     return () => {
       disposable.dispose();
     };
-  }, [workspaceDialogService]);
+  }, [globalDialogService]);
 
   const graphqlService = useService(GraphQLService);
   const eventSourceService = useService(EventSourceService);
   const fetchService = useService(FetchService);
-  const networkSearchService = useService(AINetworkSearchService);
 
   useEffect(() => {
     const dispose = setupAIProvider(
@@ -153,20 +147,12 @@ export const WorkspaceSideEffects = () => {
         fetchService.fetch,
         eventSourceService.eventSource
       ),
-      globalDialogService,
-      networkSearchService
+      globalDialogService
     );
     return () => {
       dispose();
     };
-  }, [
-    eventSourceService,
-    fetchService,
-    workspaceDialogService,
-    graphqlService,
-    networkSearchService,
-    globalDialogService,
-  ]);
+  }, [eventSourceService, fetchService, globalDialogService, graphqlService]);
 
   useRegisterWorkspaceCommands();
   useRegisterNavigationCommands();

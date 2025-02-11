@@ -6,7 +6,6 @@ import {
   Get,
   Header,
   HttpStatus,
-  Logger,
   Post,
   Query,
   Req,
@@ -15,9 +14,7 @@ import {
 import type { Request, Response } from 'express';
 
 import {
-  Cache,
   Config,
-  CryptoHelper,
   EarlyAccessRequired,
   EmailTokenNotFound,
   InternalServerError,
@@ -29,11 +26,12 @@ import {
   URLHelper,
   UseNamedGuard,
 } from '../../base';
-import { Models, TokenType } from '../../models';
+import { UserService } from '../user';
 import { validators } from '../utils/validators';
 import { Public } from './guard';
 import { AuthService } from './service';
 import { CurrentUser, Session } from './session';
+import { TokenService, TokenType } from './token';
 
 interface PreflightResponse {
   registered: boolean;
@@ -52,21 +50,16 @@ interface MagicLinkCredential {
   token: string;
 }
 
-const OTP_CACHE_KEY = (otp: string) => `magic-link-otp:${otp}`;
-
 @Throttle('strict')
 @Controller('/api/auth')
 export class AuthController {
-  private readonly logger = new Logger(AuthController.name);
-
   constructor(
     private readonly url: URLHelper,
     private readonly auth: AuthService,
-    private readonly models: Models,
+    private readonly user: UserService,
+    private readonly token: TokenService,
     private readonly config: Config,
-    private readonly runtime: Runtime,
-    private readonly cache: Cache,
-    private readonly crypto: CryptoHelper
+    private readonly runtime: Runtime
   ) {
     if (config.node.dev) {
       // set DNS servers in dev mode
@@ -88,7 +81,9 @@ export class AuthController {
     }
     validators.assertValidEmail(params.email);
 
-    const user = await this.models.user.getUserByEmail(params.email);
+    const user = await this.user.findUserWithHashedPasswordByEmail(
+      params.email
+    );
 
     const magicLinkAvailable = !!this.config.mailer.host;
 
@@ -164,7 +159,7 @@ export class AuthController {
     redirectUrl?: string
   ) {
     // send email magic link
-    const user = await this.models.user.getUserByEmail(email);
+    const user = await this.user.findUserByEmail(email);
     if (!user) {
       const allowSignup = await this.runtime.fetch('auth/allowSignup');
       if (!allowSignup) {
@@ -199,20 +194,10 @@ export class AuthController {
       }
     }
 
-    const ttlInSec = 30 * 60;
-    const token = await this.models.verificationToken.create(
-      TokenType.SignIn,
-      email,
-      ttlInSec
-    );
-
-    const otp = this.crypto.otp();
-    // TODO(@forehalo): this is a temporary solution, we should not rely on cache to store the otp
-    const cacheKey = OTP_CACHE_KEY(otp);
-    await this.cache.set(cacheKey, token, { ttl: ttlInSec * 1000 });
+    const token = await this.token.createToken(TokenType.SignIn, email);
 
     const magicLink = this.url.link(callbackUrl, {
-      token: otp,
+      token,
       email,
       ...(redirectUrl
         ? {
@@ -220,17 +205,8 @@ export class AuthController {
           }
         : {}),
     });
-    if (this.config.node.dev) {
-      // make it easier to test in dev mode
-      this.logger.debug(`Magic link: ${magicLink}`);
-    }
 
-    const result = await this.auth.sendSignInEmail(
-      email,
-      magicLink,
-      otp,
-      !user
-    );
+    const result = await this.auth.sendSignInEmail(email, magicLink, !user);
 
     if (result.rejected.length) {
       throw new InternalServerError('Failed to send sign-in email.');
@@ -272,26 +248,18 @@ export class AuthController {
 
     validators.assertValidEmail(email);
 
-    const cacheKey = OTP_CACHE_KEY(token);
-    const cachedToken = await this.cache.get<string>(cacheKey);
-
-    if (!cachedToken) {
-      throw new InvalidEmailToken();
-    }
-
-    const tokenRecord = await this.models.verificationToken.verify(
-      TokenType.SignIn,
-      cachedToken,
-      {
-        credential: email,
-      }
-    );
+    const tokenRecord = await this.token.verifyToken(TokenType.SignIn, token, {
+      credential: email,
+    });
 
     if (!tokenRecord) {
       throw new InvalidEmailToken();
     }
 
-    const user = await this.models.user.fulfill(email);
+    const user = await this.user.fulfillUser(email, {
+      emailVerifiedAt: new Date(),
+      registered: true,
+    });
 
     await this.auth.setCookies(req, res, user.id);
     res.send({ id: user.id });

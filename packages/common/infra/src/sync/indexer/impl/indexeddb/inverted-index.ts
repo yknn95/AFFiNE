@@ -64,7 +64,7 @@ export class StringInvertedIndex implements InvertedIndex {
 
   async insert(trx: DataStructRWTransaction, id: number, terms: string[]) {
     for (const term of terms) {
-      await trx.objectStore('invertedIndex').put({
+      await trx.objectStore('invertedIndex').add({
         key: InvertedIndexKey.forString(this.fieldKey, term).buffer(),
         nid: id,
       });
@@ -117,7 +117,7 @@ export class IntegerInvertedIndex implements InvertedIndex {
 
   async insert(trx: DataStructRWTransaction, id: number, terms: string[]) {
     for (const term of terms) {
-      await trx.objectStore('invertedIndex').put({
+      await trx.objectStore('invertedIndex').add({
         key: InvertedIndexKey.forInt64(this.fieldKey, BigInt(term)).buffer(),
         nid: id,
       });
@@ -172,7 +172,7 @@ export class BooleanInvertedIndex implements InvertedIndex {
 
   async insert(trx: DataStructRWTransaction, id: number, terms: string[]) {
     for (const term of terms) {
-      await trx.objectStore('invertedIndex').put({
+      await trx.objectStore('invertedIndex').add({
         key: InvertedIndexKey.forBoolean(
           this.fieldKey,
           term === 'true'
@@ -347,7 +347,7 @@ export class FullTextInvertedIndex implements InvertedIndex {
       }
 
       for (const [term, tokens] of tokenMap) {
-        await trx.objectStore('invertedIndex').put({
+        await trx.objectStore('invertedIndex').add({
           key: InvertedIndexKey.forString(this.fieldKey, term).buffer(),
           nid: id,
           pos: {

@@ -27,13 +27,13 @@ export class DesktopWorkbenchNewTabHandler
   constructor(private readonly electronApi: DesktopApiService) {
     super();
   }
-  handle({ basename, to, show }: { basename: string; to: To; show: boolean }) {
+  handle({ basename, to }: { basename: string; to: To }) {
     const path = typeof to === 'string' ? parsePath(to) : to;
     this.electronApi.api.handler.ui
       .addTab({
         basename,
         view: { path },
-        show: show,
+        show: false,
       })
       .catch(console.error);
   }

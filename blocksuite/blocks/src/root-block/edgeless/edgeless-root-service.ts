@@ -27,9 +27,6 @@ import {
   GfxControllerIdentifier,
   GfxExtensionIdentifier,
   isGfxGroupCompatibleModel,
-  ZOOM_MAX,
-  ZOOM_MIN,
-  ZOOM_STEP,
 } from '@blocksuite/block-std/gfx';
 import { BlockSuiteError, ErrorCode } from '@blocksuite/global/exceptions';
 import { Bound, getCommonBound } from '@blocksuite/global/utils';
@@ -44,7 +41,15 @@ import {
   createStickerMiddleware,
   replaceIdMiddleware,
 } from './services/template-middlewares.js';
+import { FIT_TO_SCREEN_PADDING } from './utils/consts.js';
 import { getCursorMode } from './utils/query.js';
+import {
+  ZOOM_INITIAL,
+  ZOOM_MAX,
+  ZOOM_MIN,
+  ZOOM_STEP,
+  type ZoomAction,
+} from './utils/zoom.js';
 
 export class EdgelessRootService extends RootService implements SurfaceContext {
   static override readonly flavour = RootBlockSchema.model.flavour;
@@ -149,7 +154,7 @@ export class EdgelessRootService extends RootService implements SurfaceContext {
 
     let readonly = doc.readonly;
     this.disposables.add(
-      effect(() => {
+      doc.awarenessStore.slots.update.on(() => {
         if (readonly !== doc.readonly) {
           readonly = doc.readonly;
           slots.readonlyUpdated.emit(readonly);
@@ -283,6 +288,34 @@ export class EdgelessRootService extends RootService implements SurfaceContext {
     return this.surface.getConnectors(id) as ConnectorElementModel[];
   }
 
+  getFitToScreenData(
+    padding: [number, number, number, number] = [0, 0, 0, 0],
+    inputBounds?: Bound[]
+  ) {
+    let bounds = [];
+    if (inputBounds && inputBounds.length) {
+      bounds = inputBounds;
+    } else {
+      this.blocks.forEach(block => {
+        bounds.push(Bound.deserialize(block.xywh));
+      });
+
+      const surfaceElementsBound = getCommonBound(this.elements);
+      if (surfaceElementsBound) {
+        bounds.push(surfaceElementsBound);
+      }
+    }
+
+    const bound = getCommonBound(bounds);
+
+    return this.viewport.getFitToScreenData(
+      bound,
+      padding,
+      ZOOM_INITIAL,
+      FIT_TO_SCREEN_PADDING
+    );
+  }
+
   override mounted() {
     super.mounted();
     this._initSlotEffects();
@@ -339,12 +372,12 @@ export class EdgelessRootService extends RootService implements SurfaceContext {
     }
   }
 
-  setZoomByAction(action: 'fit' | 'out' | 'reset' | 'in') {
+  setZoomByAction(action: ZoomAction) {
     if (this.locked) return;
 
     switch (action) {
       case 'fit':
-        this.gfx.fitToScreen();
+        this.zoomToFit();
         break;
       case 'reset':
         this.viewport.smoothZoom(1.0);
@@ -405,5 +438,10 @@ export class EdgelessRootService extends RootService implements SurfaceContext {
     this.viewport?.dispose();
     this.selectionManager.set([]);
     this.disposables.dispose();
+  }
+
+  zoomToFit() {
+    const { centerX, centerY, zoom } = this.getFitToScreenData();
+    this.viewport.setViewport(zoom, [centerX, centerY], true);
   }
 }

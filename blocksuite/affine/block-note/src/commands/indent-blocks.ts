@@ -1,21 +1,22 @@
-import { ParagraphBlockModel } from '@blocksuite/affine-model';
 import {
   calculateCollapsedSiblings,
   getNearestHeadingBefore,
   matchFlavours,
 } from '@blocksuite/affine-shared/utils';
-import { type Command, TextSelection } from '@blocksuite/block-std';
+import type { Command } from '@blocksuite/block-std';
 
-import { indentBlock } from './indent-block';
-
-export const indentBlocks: Command<{
-  blockIds?: string[];
-  stopCapture?: boolean;
-}> = (ctx, next) => {
+export const indentBlocks: Command<
+  never,
+  never,
+  {
+    blockIds?: string[];
+    stopCapture?: boolean;
+  }
+> = (ctx, next) => {
   let { blockIds } = ctx;
   const { std, stopCapture = true } = ctx;
-  const { store, selection, range, host } = std;
-  const { schema } = store;
+  const { doc, selection, range, host } = std;
+  const { schema } = doc;
 
   if (!blockIds || !blockIds.length) {
     const nativeRange = range.value;
@@ -32,13 +33,13 @@ export const indentBlocks: Command<{
     }
   }
 
-  if (!blockIds || !blockIds.length || store.readonly) return;
+  if (!blockIds || !blockIds.length || doc.readonly) return;
 
   // Find the first model that can be indented
   let firstIndentIndex = -1;
   for (let i = 0; i < blockIds.length; i++) {
-    const previousSibling = store.getPrev(blockIds[i]);
-    const model = store.getBlock(blockIds[i])?.model;
+    const previousSibling = doc.getPrev(blockIds[i]);
+    const model = doc.getBlock(blockIds[i])?.model;
     if (
       model &&
       previousSibling &&
@@ -52,14 +53,14 @@ export const indentBlocks: Command<{
   // No model can be indented
   if (firstIndentIndex === -1) return;
 
-  if (stopCapture) store.captureSync();
+  if (stopCapture) doc.captureSync();
 
   const collapsedIds: string[] = [];
   blockIds.slice(firstIndentIndex).forEach(id => {
-    const model = store.getBlock(id)?.model;
+    const model = doc.getBlock(id)?.model;
     if (!model) return;
     if (
-      matchFlavours(model, [ParagraphBlockModel]) &&
+      matchFlavours(model, ['affine:paragraph']) &&
       model.type.startsWith('h') &&
       model.collapsed
     ) {
@@ -71,7 +72,7 @@ export const indentBlocks: Command<{
   const indentIds = blockIds
     .slice(firstIndentIndex)
     .filter(id => !collapsedIds.includes(id));
-  const firstModel = store.getBlock(indentIds[0])?.model;
+  const firstModel = doc.getBlock(indentIds[0])?.model;
   if (!firstModel) return;
 
   {
@@ -84,15 +85,17 @@ export const indentBlocks: Command<{
     const nearestHeading = getNearestHeadingBefore(firstModel);
     if (
       nearestHeading &&
-      matchFlavours(nearestHeading, [ParagraphBlockModel]) &&
+      matchFlavours(nearestHeading, ['affine:paragraph']) &&
       nearestHeading.collapsed
     ) {
-      store.updateBlock(nearestHeading, { collapsed: false });
+      doc.updateBlock(nearestHeading, {
+        collapsed: false,
+      });
     }
   }
 
   indentIds.forEach(id => {
-    std.command.exec(indentBlock, { blockId: id, stopCapture: false });
+    std.command.exec('indentBlock', { blockId: id, stopCapture: false });
   });
 
   {
@@ -105,14 +108,16 @@ export const indentBlocks: Command<{
     const nearestHeading = getNearestHeadingBefore(firstModel);
     if (
       nearestHeading &&
-      matchFlavours(nearestHeading, [ParagraphBlockModel]) &&
+      matchFlavours(nearestHeading, ['affine:paragraph']) &&
       nearestHeading.collapsed
     ) {
-      store.updateBlock(nearestHeading, { collapsed: false });
+      doc.updateBlock(nearestHeading, {
+        collapsed: false,
+      });
     }
   }
 
-  const textSelection = selection.find(TextSelection);
+  const textSelection = selection.find('text');
   if (textSelection) {
     host.updateComplete
       .then(() => {

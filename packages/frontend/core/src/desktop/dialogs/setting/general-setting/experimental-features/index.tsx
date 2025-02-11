@@ -105,13 +105,7 @@ const feedbackLink: Record<NonNullable<Flag['feedbackType']>, string> = {
   github: 'https://github.com/toeverything/AFFiNE/issues',
 };
 
-const ExperimentalFeaturesItem = ({
-  flag,
-  flagKey,
-}: {
-  flag: Flag;
-  flagKey: string;
-}) => {
+const ExperimentalFeaturesItem = ({ flag }: { flag: Flag }) => {
   const value = useLiveData(flag.$);
   const t = useI18n();
   const onChange = useCallback(
@@ -134,7 +128,7 @@ const ExperimentalFeaturesItem = ({
     <div className={styles.rowContainer}>
       <div className={styles.switchRow}>
         {t[flag.displayName]()}
-        <Switch data-testid={flagKey} checked={value} onChange={onChange} />
+        <Switch checked={value} onChange={onChange} />
       </div>
       {!!flag.description && (
         <Tooltip content={t[flag.description]()}>
@@ -181,7 +175,6 @@ const ExperimentalFeaturesMain = () => {
         {Object.keys(AFFINE_FLAGS).map(key => (
           <ExperimentalFeaturesItem
             key={key}
-            flagKey={key}
             flag={featureFlagService.flags[key as keyof AFFINE_FLAGS]}
           />
         ))}

@@ -13,12 +13,12 @@
   "sideEffects": "false",
   "devDependencies": {
     "@graphql-codegen/add": "^5.0.3",
-    "@graphql-codegen/cli": "5.0.4",
+    "@graphql-codegen/cli": "5.0.3",
     "@graphql-codegen/typescript": "^4.1.2",
     "@graphql-codegen/typescript-operations": "^4.4.0",
     "@types/lodash-es": "^4.17.12",
     "prettier": "^3.4.2",
-    "vitest": "3.0.5"
+    "vitest": "2.1.8"
   },
   "scripts": {
     "build": "gql-gen --errors-only"
@@ -28,5 +28,8 @@
     "graphql": "^16.9.0",
     "lodash": "^4.17.21",
     "lodash-es": "^4.17.21"
+  },
+  "installConfig": {
+    "hoistingLimits": "workspaces"
   }
 }

@@ -223,7 +223,6 @@ export class SurfaceBlockComponent extends BlockComponent<
 
   override firstUpdated() {
     this._renderer.attach(this._surfaceContainer);
-    this._renderer['_render']();
     this._surfaceContainer.append(...this._renderer.stackingCanvas);
   }
 

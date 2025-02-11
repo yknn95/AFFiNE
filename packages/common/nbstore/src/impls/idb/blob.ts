@@ -4,16 +4,10 @@ import {
   BlobStorageBase,
   type ListedBlobRecord,
 } from '../../storage';
-import { IDBConnection, type IDBConnectionOptions } from './db';
+import { IDBConnection } from './db';
 
 export class IndexedDBBlobStorage extends BlobStorageBase {
-  static readonly identifier = 'IndexedDBBlobStorage';
-
   readonly connection = share(new IDBConnection(this.options));
-
-  constructor(private readonly options: IDBConnectionOptions) {
-    super();
-  }
 
   get db() {
     return this.connection.inner.db;

@@ -15,5 +15,3 @@ export const isMarkdownAST = (node: unknown): node is MarkdownAST =>
   !Array.isArray(node) &&
   'type' in (node as object) &&
   (node as MarkdownAST).type !== undefined;
-
-export const FOOTNOTE_DEFINITION_PREFIX = 'footnoteDefinition:';

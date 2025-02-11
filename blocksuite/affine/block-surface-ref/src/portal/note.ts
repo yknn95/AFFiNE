@@ -18,7 +18,7 @@ import {
   ShadowlessElement,
 } from '@blocksuite/block-std';
 import { deserializeXYWH, WithDisposable } from '@blocksuite/global/utils';
-import { type BlockModel, type Query } from '@blocksuite/store';
+import { type BlockModel, BlockViewType, type Query } from '@blocksuite/store';
 import { css, nothing } from 'lit';
 import { property } from 'lit/decorators.js';
 import { styleMap } from 'lit/directives/style-map.js';
@@ -48,14 +48,14 @@ export class SurfaceRefNotePortal extends WithDisposable(ShadowlessElement) {
       mode: 'include',
       match: Array.from(ancestors).map(id => ({
         id,
-        viewType: 'display',
+        viewType: BlockViewType.Display,
       })),
     };
     this.query = query;
 
     const doc = this.model.doc;
     this._disposables.add(() => {
-      doc.doc.clearQuery(query, true);
+      doc.blockCollection.clearQuery(query, true);
     });
   }
 
@@ -114,13 +114,13 @@ export class SurfaceRefNotePortal extends WithDisposable(ShadowlessElement) {
       console.error('Query is not set before rendering note preview');
       return nothing;
     }
-    const doc = this.model.doc.doc.getStore({
+    const doc = this.model.doc.blockCollection.getDoc({
       query: this.query,
       readonly: true,
     });
     const previewSpec = SpecProvider.getInstance().getSpec('page:preview');
     return new BlockStdScope({
-      store: doc,
+      doc,
       extensions: previewSpec.value.slice(),
     }).render();
   }

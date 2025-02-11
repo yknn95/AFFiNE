@@ -1,7 +1,6 @@
 import { assertExists } from '@blocksuite/global/utils';
 import { diffUpdate, encodeStateVectorFromUpdate, mergeUpdates } from 'yjs';
 
-import { MANUALLY_STOP } from '../../utils/throw-if-aborted.js';
 import type { DocSource } from '../source.js';
 
 type ChannelMessage =
@@ -86,7 +85,7 @@ export class BroadcastChannelDocSource implements DocSource {
       { signal: abortController.signal }
     );
     return () => {
-      abortController.abort(MANUALLY_STOP);
+      abortController.abort();
     };
   }
 }

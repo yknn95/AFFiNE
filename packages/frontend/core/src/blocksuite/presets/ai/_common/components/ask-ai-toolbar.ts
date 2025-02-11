@@ -1,8 +1,4 @@
-import {
-  BlockSelection,
-  type EditorHost,
-  TextSelection,
-} from '@blocksuite/affine/block-std';
+import type { EditorHost } from '@blocksuite/affine/block-std';
 import {
   type AffineAIPanelWidgetConfig,
   type AIItemGroupConfig,
@@ -15,7 +11,7 @@ import { property } from 'lit/decorators.js';
 
 import { AIProvider } from '../../provider';
 import { getAIPanelWidget } from '../../utils/ai-widgets';
-import { extractSelectedContent } from '../../utils/extract';
+import { extractContext } from '../../utils/extract';
 
 export class AskAIToolbarButton extends WithDisposable(LitElement) {
   static override styles = css`
@@ -75,7 +71,8 @@ export class AskAIToolbarButton extends WithDisposable(LitElement) {
       finish('success');
       const aiPanel = getAIPanelWidget(this.host);
       aiPanel.discard();
-      extractSelectedContent(this.host)
+      AIProvider.slots.requestOpenWithChat.emit({ host: this.host });
+      extractContext(this.host)
         .then(context => {
           AIProvider.slots.requestSendWithChat.emit({
             input,
@@ -95,8 +92,8 @@ export class AskAIToolbarButton extends WithDisposable(LitElement) {
       this._panelRoot.style.visibility = text ? 'hidden' : 'visible';
     };
 
-    const textSelection = this.host.selection.find(TextSelection);
-    const blockSelections = this.host.selection.filter(BlockSelection);
+    const textSelection = this.host.selection.find('text');
+    const blockSelections = this.host.selection.filter('block');
     let lastBlockId: string | undefined;
     if (textSelection) {
       lastBlockId = textSelection.to?.blockId ?? textSelection.blockId;

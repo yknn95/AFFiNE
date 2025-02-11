@@ -1,4 +1,8 @@
-import { BlockStdScope, ShadowlessElement } from '@blocksuite/block-std';
+import {
+  BlockStdScope,
+  type ExtensionType,
+  ShadowlessElement,
+} from '@blocksuite/block-std';
 import {
   type AbstractEditor,
   type DocMode,
@@ -6,12 +10,8 @@ import {
   PageEditorBlockSpecs,
   ThemeProvider,
 } from '@blocksuite/blocks';
-import { SignalWatcher, WithDisposable } from '@blocksuite/global/utils';
-import {
-  type BlockModel,
-  type ExtensionType,
-  type Store,
-} from '@blocksuite/store';
+import { SignalWatcher, Slot, WithDisposable } from '@blocksuite/global/utils';
+import type { BlockModel, Doc } from '@blocksuite/store';
 import { computed, signal } from '@preact/signals-core';
 import { css, html } from 'lit';
 import { property } from 'lit/decorators.js';
@@ -88,7 +88,7 @@ export class AffineEditorContainer
     }
   `;
 
-  private readonly _doc = signal<Store>();
+  private readonly _doc = signal<Doc>();
 
   private readonly _edgelessSpecs = signal<ExtensionType[]>(
     EdgelessEditorBlockSpecs
@@ -106,7 +106,7 @@ export class AffineEditorContainer
 
   private readonly _std = computed(() => {
     return new BlockStdScope({
-      store: this.doc,
+      doc: this.doc,
       extensions: this._specs.value,
     });
   });
@@ -115,11 +115,18 @@ export class AffineEditorContainer
     return this._std.value.render();
   });
 
+  /**
+   * @deprecated need to refactor
+   */
+  slots: AbstractEditor['slots'] = {
+    docUpdated: new Slot(),
+  };
+
   get doc() {
-    return this._doc.value as Store;
+    return this._doc.value as Doc;
   }
 
-  set doc(doc: Store) {
+  set doc(doc: Doc) {
     this._doc.value = doc;
   }
 
@@ -219,6 +226,19 @@ export class AffineEditorContainer
 
   switchEditor(mode: DocMode) {
     this._mode.value = mode;
+  }
+
+  /**
+   * @deprecated need to refactor
+   */
+  override updated(changedProperties: Map<string, unknown>) {
+    if (changedProperties.has('doc')) {
+      this.slots.docUpdated.emit({ newDocId: this.doc.id });
+    }
+
+    if (!changedProperties.has('doc') && !changedProperties.has('mode')) {
+      return;
+    }
   }
 
   @property({ attribute: false })

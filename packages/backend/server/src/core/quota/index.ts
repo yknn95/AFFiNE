@@ -1,9 +1,11 @@
 import { Module } from '@nestjs/common';
 
+import { FeatureModule } from '../features';
 import { PermissionModule } from '../permission';
 import { StorageModule } from '../storage';
-import { QuotaResolver } from './resolver';
+import { QuotaManagementResolver } from './resolver';
 import { QuotaService } from './service';
+import { QuotaManagementService } from './storage';
 
 /**
  * Quota module provider pre-user quota management.
@@ -12,11 +14,18 @@ import { QuotaService } from './service';
  * - quota statistics
  */
 @Module({
-  imports: [StorageModule, PermissionModule],
-  providers: [QuotaService, QuotaResolver],
-  exports: [QuotaService],
+  imports: [FeatureModule, StorageModule, PermissionModule],
+  providers: [QuotaService, QuotaManagementResolver, QuotaManagementService],
+  exports: [QuotaService, QuotaManagementService],
 })
 export class QuotaModule {}
 
-export { QuotaService };
-export { WorkspaceQuotaHumanReadableType, WorkspaceQuotaType } from './types';
+export { QuotaManagementService, QuotaService };
+export { Quota_FreePlanV1_1, Quota_ProPlanV1 } from './schema';
+export {
+  formatDate,
+  formatSize,
+  type QuotaBusinessType,
+  QuotaQueryType,
+  QuotaType,
+} from './types';

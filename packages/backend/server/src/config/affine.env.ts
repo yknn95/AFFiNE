@@ -28,7 +28,6 @@ AFFiNE.ENV_MAP = {
   CAPTCHA_TURNSTILE_SECRET: ['plugins.captcha.turnstile.secret', 'string'],
   COPILOT_OPENAI_API_KEY: 'plugins.copilot.openai.apiKey',
   COPILOT_FAL_API_KEY: 'plugins.copilot.fal.apiKey',
-  COPILOT_PERPLEXITY_API_KEY: 'plugins.copilot.perplexity.apiKey',
   COPILOT_UNSPLASH_API_KEY: 'plugins.copilot.unsplashKey',
   REDIS_SERVER_HOST: 'redis.host',
   REDIS_SERVER_PORT: ['redis.port', 'int'],
@@ -36,7 +35,6 @@ AFFiNE.ENV_MAP = {
   REDIS_SERVER_PASSWORD: 'redis.password',
   REDIS_SERVER_DATABASE: ['redis.db', 'int'],
   DOC_MERGE_INTERVAL: ['doc.manager.updatePollInterval', 'int'],
-  DOC_SERVICE_ENDPOINT: 'docService.endpoint',
   STRIPE_API_KEY: 'plugins.payment.stripe.keys.APIKey',
   STRIPE_WEBHOOK_KEY: 'plugins.payment.stripe.keys.webhookKey',
 };

@@ -1,18 +1,15 @@
 import {
-  CodeBlockModel,
   type DocMode,
   DocModes,
-  ImageBlockModel,
   type ParagraphBlockModel,
   type ReferenceInfo,
 } from '@blocksuite/affine-model';
 import {
   BLOCK_ID_ATTR,
   type BlockComponent,
-  BlockSelection,
   type EditorHost,
   type TextRangePoint,
-  TextSelection,
+  type TextSelection,
 } from '@blocksuite/block-std';
 import { BlockSuiteError, ErrorCode } from '@blocksuite/global/exceptions';
 import { assertExists } from '@blocksuite/global/utils';
@@ -20,15 +17,14 @@ import {
   type BlockModel,
   type BlockSnapshot,
   type DeltaOperation,
+  DocCollection,
   fromJSON,
+  type JobMiddleware,
   type SliceSnapshot,
   type Text,
-  type TransformerMiddleware,
 } from '@blocksuite/store';
-import * as Y from 'yjs';
 
 import { REFERENCE_NODE } from '../../consts';
-import { ImageSelection } from '../../selection';
 import {
   ParseDocUrlProvider,
   type ParseDocUrlService,
@@ -241,10 +237,10 @@ class PasteTr {
           linkToDocId,
           parseDocUrlService
         );
-        const model = this.std.store.getBlock(blockSnapshot.id)?.model;
+        const model = this.std.doc.getBlock(blockSnapshot.id)?.model;
         if (transformed && model) {
-          this.std.store.captureSync();
-          this.std.store.transact(() => {
+          this.std.doc.captureSync();
+          this.std.doc.transact(() => {
             const text = model.text as Text;
             text.clear();
             text.applyDelta(delta);
@@ -265,8 +261,8 @@ class PasteTr {
     if (!transformed) {
       return;
     }
-    this.std.store.captureSync();
-    this.std.store.transact(() => {
+    this.std.doc.captureSync();
+    this.std.doc.transact(() => {
       fromPointStateText.clear();
       fromPointStateText.applyDelta(delta);
     });
@@ -277,8 +273,8 @@ class PasteTr {
 
     const cursorBlock =
       this.pointState.model.flavour === 'affine:code' || !this.lastSnapshot
-        ? this.std.store.getBlock(this.pointState.model.id)
-        : this.std.store.getBlock(this.lastSnapshot.id);
+        ? this.std.doc.getBlock(this.pointState.model.id)
+        : this.std.doc.getBlock(this.lastSnapshot.id);
     if (!cursorBlock) {
       return;
     }
@@ -293,20 +289,20 @@ class PasteTr {
           return;
         }
         if (!cursorModel.text) {
-          if (matchFlavours(cursorModel, [ImageBlockModel])) {
-            const selection = this.std.selection.create(ImageSelection, {
+          if (matchFlavours(cursorModel, ['affine:image'])) {
+            const selection = this.std.selection.create('image', {
               blockId: target.blockId,
             });
             this.std.selection.setGroup('note', [selection]);
             return;
           }
-          const selection = this.std.selection.create(BlockSelection, {
+          const selection = this.std.selection.create('block', {
             blockId: target.blockId,
           });
           this.std.selection.setGroup('note', [selection]);
           return;
         }
-        const selection = this.std.selection.create(TextSelection, {
+        const selection = this.std.selection.create('text', {
           from: {
             blockId: target.blockId,
             index: cursorModel.text ? this.lastIndex : 0,
@@ -325,22 +321,22 @@ class PasteTr {
     }
 
     if (this.lastSnapshot) {
-      const lastModel = this.std.store.getBlock(this.lastSnapshot.id)?.model;
+      const lastModel = this.std.doc.getBlock(this.lastSnapshot.id)?.model;
       if (!lastModel) {
         return;
       }
-      this.std.store.moveBlocks(this.pointState.model.children, lastModel);
+      this.std.doc.moveBlocks(this.pointState.model.children, lastModel);
     }
 
-    this.std.store.moveBlocks(
-      this.std.store
+    this.std.doc.moveBlocks(
+      this.std.doc
         .getNexts(this.pointState.model.id)
         .slice(0, this.pasteStartModelChildrenCount),
       this.pointState.model
     );
 
     if (!this.firstSnapshotIsPlainText && this.pointState.text.length == 0) {
-      this.std.store.deleteBlock(this.pointState.model);
+      this.std.doc.deleteBlock(this.pointState.model);
     }
   };
 
@@ -358,10 +354,10 @@ class PasteTr {
     if (
       this.firstSnapshot !== this.lastSnapshot &&
       this.lastSnapshot.props.text &&
-      !matchFlavours(this.pointState.model, [CodeBlockModel])
+      !matchFlavours(this.pointState.model, ['affine:code'])
     ) {
       const text = fromJSON(this.lastSnapshot.props.text) as Text;
-      const doc = new Y.Doc();
+      const doc = new DocCollection.Y.Doc();
       const temp = doc.getMap('temp');
       temp.set('text', text.yText);
       this.lastIndex = text.length;
@@ -404,7 +400,7 @@ class PasteTr {
             op.attributes.link
           );
           if (searchResult) {
-            const doc = this.std.workspace.getDoc(searchResult.docId);
+            const doc = this.std.collection.getDoc(searchResult.docId);
             if (doc) {
               docId = doc.id;
               linkToDocId.set(op.attributes.link, doc.id);
@@ -507,9 +503,7 @@ function flatNote(snapshot: SliceSnapshot) {
   }
 }
 
-export const pasteMiddleware = (
-  std: EditorHost['std']
-): TransformerMiddleware => {
+export const pasteMiddleware = (std: EditorHost['std']): JobMiddleware => {
   return ({ slots }) => {
     let tr: PasteTr | undefined;
     slots.beforeImport.on(payload => {
@@ -517,7 +511,7 @@ export const pasteMiddleware = (
         const { snapshot } = payload;
         flatNote(snapshot);
 
-        const text = std.selection.find(TextSelection);
+        const text = std.selection.find('text');
         if (!text) {
           return;
         }

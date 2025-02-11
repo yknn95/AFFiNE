@@ -1,7 +1,5 @@
 import type { SurfaceBlockModel } from '@blocksuite/affine-block-surface';
 import { Overlay } from '@blocksuite/affine-block-surface';
-import type { FrameBlockModel, NoteBlockModel } from '@blocksuite/affine-model';
-import { EditPropsStore } from '@blocksuite/affine-shared/services';
 import {
   generateKeyBetweenV2,
   getTopElements,
@@ -21,10 +19,10 @@ import {
   type IVec,
   type SerializedXYWH,
 } from '@blocksuite/global/utils';
-import type { Store } from '@blocksuite/store';
-import { Text } from '@blocksuite/store';
-import * as Y from 'yjs';
+import type { Doc } from '@blocksuite/store';
+import { DocCollection, Text } from '@blocksuite/store';
 
+import type { FrameBlockModel, NoteBlockModel } from '../../index.js';
 import { areSetsEqual } from './utils/misc.js';
 import { isFrameBlock } from './utils/query.js';
 
@@ -195,16 +193,18 @@ export class EdgelessFrameManager extends GfxExtension {
 
   private _addFrameBlock(bound: Bound) {
     const surfaceModel = this.gfx.surface as SurfaceBlockModel;
-    const props = this.gfx.std
-      .get(EditPropsStore)
-      .applyLastProps('affine:frame', {
-        title: new Text(new Y.Text(`Frame ${this.frames.length + 1}`)),
+    const id = this.gfx.doc.addBlock(
+      'affine:frame',
+      {
+        title: new Text(
+          new DocCollection.Y.Text(`Frame ${this.frames.length + 1}`)
+        ),
         xywh: bound.serialize(),
         index: this.gfx.layer.generateIndex(true),
         presentationIndex: this.generatePresentationIndex(),
-      });
-
-    const id = this.gfx.doc.addBlock('affine:frame', props, surfaceModel);
+      },
+      surfaceModel
+    );
     const frameModel = this.gfx.getElementById(id);
 
     if (!frameModel || !isFrameBlock(frameModel)) {
@@ -464,7 +464,7 @@ export class EdgelessFrameManager extends GfxExtension {
 }
 
 export function getNotesInFrameBound(
-  doc: Store,
+  doc: Doc,
   frame: FrameBlockModel,
   fullyContained: boolean = true
 ) {
@@ -482,7 +482,7 @@ export function getNotesInFrameBound(
 }
 
 export function getBlocksInFrameBound(
-  doc: Store,
+  doc: Doc,
   model: FrameBlockModel,
   fullyContained: boolean = true
 ) {

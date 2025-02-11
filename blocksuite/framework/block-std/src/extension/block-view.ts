@@ -1,7 +1,6 @@
-import type { ExtensionType } from '@blocksuite/store';
-
 import { BlockViewIdentifier } from '../identifier.js';
 import type { BlockViewType } from '../spec/type.js';
+import type { ExtensionType } from './extension.js';
 
 /**
  * Create a block view extension.

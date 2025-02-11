@@ -1,29 +1,52 @@
-import { EdgelessNoteBackground } from './components/edgeless-note-background';
-import { EdgelessNoteMask } from './components/edgeless-note-mask';
-import { EdgelessPageBlockTitle } from './components/edgeless-page-block-title';
-import type { NoteConfig } from './config';
+import type { BlockComponent } from '@blocksuite/block-std';
+import type { BlockModel } from '@blocksuite/store';
+
+import type { updateBlockType } from './commands/block-type';
+import type { dedentBlock } from './commands/dedent-block';
+import type { dedentBlockToRoot } from './commands/dedent-block-to-root';
+import type { dedentBlocks } from './commands/dedent-blocks';
+import type { dedentBlocksToRoot } from './commands/dedent-blocks-to-root';
+import type { focusBlockEnd } from './commands/focus-block-end';
+import type { focusBlockStart } from './commands/focus-block-start';
+import type { indentBlock } from './commands/indent-block';
+import type { indentBlocks } from './commands/indent-blocks';
+import type { selectBlock } from './commands/select-block';
+import type { selectBlocksBetween } from './commands/select-blocks-between';
 import { NoteBlockComponent } from './note-block';
 import {
-  AFFINE_EDGELESS_NOTE,
   EdgelessNoteBlockComponent,
+  EdgelessNoteMask,
 } from './note-edgeless-block';
 import type { NoteBlockService } from './note-service';
 
 export function effects() {
   customElements.define('affine-note', NoteBlockComponent);
-  customElements.define(AFFINE_EDGELESS_NOTE, EdgelessNoteBlockComponent);
   customElements.define('edgeless-note-mask', EdgelessNoteMask);
-  customElements.define('edgeless-note-background', EdgelessNoteBackground);
-  customElements.define('edgeless-page-block-title', EdgelessPageBlockTitle);
+  customElements.define('affine-edgeless-note', EdgelessNoteBlockComponent);
 }
 
 declare global {
   namespace BlockSuite {
+    interface Commands {
+      selectBlock: typeof selectBlock;
+      selectBlocksBetween: typeof selectBlocksBetween;
+      focusBlockStart: typeof focusBlockStart;
+      focusBlockEnd: typeof focusBlockEnd;
+      indentBlocks: typeof indentBlocks;
+      dedentBlock: typeof dedentBlock;
+      dedentBlocksToRoot: typeof dedentBlocksToRoot;
+      dedentBlocks: typeof dedentBlocks;
+      indentBlock: typeof indentBlock;
+      updateBlockType: typeof updateBlockType;
+      dedentBlockToRoot: typeof dedentBlockToRoot;
+    }
+    interface CommandContext {
+      focusBlock?: BlockComponent | null;
+      anchorBlock?: BlockComponent | null;
+      updatedBlocks?: BlockModel[];
+    }
     interface BlockServices {
       'affine:note': NoteBlockService;
-    }
-    interface BlockConfigs {
-      'affine:note': NoteConfig;
     }
   }
 }

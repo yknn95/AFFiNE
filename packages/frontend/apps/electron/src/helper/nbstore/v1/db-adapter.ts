@@ -255,12 +255,4 @@ export class SQLiteAdapter {
       await this.db.clearSyncMetadata();
     },
   };
-
-  async getDocTimestamps() {
-    if (!this.db) {
-      logger.warn(`${this.path} is not connected`);
-      return [];
-    }
-    return await this.db.getDocTimestamps();
-  }
 }

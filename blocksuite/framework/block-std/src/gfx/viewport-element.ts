@@ -98,10 +98,6 @@ export class GfxViewportElement extends WithDisposable(ShadowlessElement) {
       this._hideOutsideBlock();
     };
 
-    if (!this.enableChildrenSchedule) {
-      delete this.scheduleUpdateChildren;
-    }
-
     viewportUpdateCallback();
     this.disposables.add(
       this.viewport.viewportUpdated.on(() => viewportUpdateCallback())
@@ -115,7 +111,7 @@ export class GfxViewportElement extends WithDisposable(ShadowlessElement) {
     return html``;
   }
 
-  scheduleUpdateChildren? = (id: string) => {
+  scheduleUpdateChildren(id: string) {
     const { promise, resolve } = Promise.withResolvers<void>();
 
     this._pendingChildrenUpdates.push({ id, resolve });
@@ -147,7 +143,7 @@ export class GfxViewportElement extends WithDisposable(ShadowlessElement) {
     }
 
     return promise;
-  };
+  }
 
   @property({ attribute: false })
   accessor getModelsInViewport: undefined | (() => Set<GfxBlockElementModel>);
@@ -157,9 +153,6 @@ export class GfxViewportElement extends WithDisposable(ShadowlessElement) {
 
   @property({ type: Number })
   accessor maxConcurrentRenders: number = 2;
-
-  @property({ attribute: false })
-  accessor enableChildrenSchedule: boolean = true;
 
   @property({ attribute: false })
   accessor viewport!: Viewport;

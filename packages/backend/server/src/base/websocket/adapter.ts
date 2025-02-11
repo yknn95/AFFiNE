@@ -39,18 +39,17 @@ export class SocketIoAdapter extends IoAdapter {
     }
 
     const pubClient = this.app.get(SocketIoRedis);
+
+    pubClient.on('error', err => {
+      console.error(err);
+    });
+
     const subClient = pubClient.duplicate();
+    subClient.on('error', err => {
+      console.error(err);
+    });
 
     server.adapter(createAdapter(pubClient, subClient));
-    const close = server.close;
-
-    server.close = async fn => {
-      await close.call(server, fn);
-      // NOTE(@forehalo):
-      //   the lifecycle of duplicated redis client will not be controlled by nestjs lifecycle
-      //   we've got to manually disconnect it
-      subClient.disconnect();
-    };
 
     return server;
   }

@@ -1,15 +1,13 @@
-import { RootBlockModel } from '@blocksuite/affine-model';
-import {
-  type BlockStdScope,
-  type EditorHost,
-  type TextRangePoint,
-  TextSelection,
+import type {
+  BlockStdScope,
+  EditorHost,
+  TextRangePoint,
 } from '@blocksuite/block-std';
 import type {
   BlockSnapshot,
   DraftModel,
-  TransformerMiddleware,
-  TransformerSlots,
+  JobMiddleware,
+  JobSlots,
 } from '@blocksuite/store';
 
 import { matchFlavours } from '../../utils';
@@ -20,7 +18,7 @@ const handlePoint = (
   model: DraftModel
 ) => {
   const { index, length } = point;
-  if (matchFlavours(model, [RootBlockModel])) {
+  if (matchFlavours(model, ['affine:page'])) {
     if (length === 0) return;
     (snapshot.props.title as Record<string, unknown>).delta =
       model.title.sliceToDelta(index, length + index);
@@ -34,13 +32,13 @@ const handlePoint = (
     model.text?.sliceToDelta(index, length + index);
 };
 
-const sliceText = (slots: TransformerSlots, std: EditorHost['std']) => {
+const sliceText = (slots: JobSlots, std: EditorHost['std']) => {
   slots.afterExport.on(payload => {
     if (payload.type === 'block') {
       const snapshot = payload.snapshot;
 
       const model = payload.model;
-      const text = std.selection.find(TextSelection);
+      const text = std.selection.find('text');
       if (text && text.from.blockId === model.id) {
         handlePoint(text.from, snapshot, model);
         return;
@@ -53,7 +51,7 @@ const sliceText = (slots: TransformerSlots, std: EditorHost['std']) => {
   });
 };
 
-export const copyMiddleware = (std: BlockStdScope): TransformerMiddleware => {
+export const copyMiddleware = (std: BlockStdScope): JobMiddleware => {
   return ({ slots }) => {
     sliceText(slots, std);
   };

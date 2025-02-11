@@ -1767,7 +1767,7 @@ test('unexpected scroll when clicking padding area', async ({ page }) => {
   expect(listRect).toEqual(newListRect);
 
   await pressArrowUp(page, 4);
-  await type(page, '/tableview\n');
+  await type(page, '/table\n');
   const database = page.locator('affine-database');
   const databaseRect = await database.boundingBox();
   assertExists(databaseRect);

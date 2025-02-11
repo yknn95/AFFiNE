@@ -2,28 +2,44 @@ import { EdgelessCRUDIdentifier } from '@blocksuite/affine-block-surface';
 import type { RootBlockModel } from '@blocksuite/affine-model';
 import { DocModeProvider } from '@blocksuite/affine-shared/services';
 import {
+  autoScroll,
+  calcDropTarget,
+  type DroppingType,
+  type DropResult,
+  getScrollContainer,
   isInsideEdgelessEditor,
   isInsidePageEditor,
   isTopLevelBlock,
+  matchFlavours,
 } from '@blocksuite/affine-shared/utils';
-import { type BlockComponent, WidgetComponent } from '@blocksuite/block-std';
-import type { GfxBlockElementModel } from '@blocksuite/block-std/gfx';
 import {
-  DisposableGroup,
-  type IVec,
-  type Point,
-  type Rect,
-} from '@blocksuite/global/utils';
+  type BlockComponent,
+  type DndEventState,
+  WidgetComponent,
+} from '@blocksuite/block-std';
+import type { GfxBlockElementModel } from '@blocksuite/block-std/gfx';
+import type { IVec } from '@blocksuite/global/utils';
+import { DisposableGroup, Point, Rect } from '@blocksuite/global/utils';
 import { computed, type ReadonlySignal, signal } from '@preact/signals-core';
 import { html } from 'lit';
 import { query, state } from 'lit/decorators.js';
 import { styleMap } from 'lit/directives/style-map.js';
 
+import type { DragPreview } from './components/drag-preview.js';
+import type { DropIndicator } from './components/drop-indicator.js';
 import type { AFFINE_DRAG_HANDLE_WIDGET } from './consts.js';
+import { PreviewHelper } from './helpers/preview-helper.js';
 import { RectHelper } from './helpers/rect-helper.js';
 import { SelectionHelper } from './helpers/selection-helper.js';
 import { styles } from './styles.js';
-import { updateDragHandleClassName } from './utils.js';
+import {
+  containBlock,
+  containChildBlock,
+  getClosestBlockByPoint,
+  getClosestNoteBlock,
+  isOutOfNoteBlock,
+  updateDragHandleClassName,
+} from './utils.js';
 import { DragEventWatcher } from './watchers/drag-event-watcher.js';
 import { EdgelessWatcher } from './watchers/edgeless-watcher.js';
 import { HandleEventWatcher } from './watchers/handle-event-watcher.js';
@@ -36,10 +52,72 @@ export class AffineDragHandleWidget extends WidgetComponent<RootBlockModel> {
 
   private _anchorModelDisposables: DisposableGroup | null = null;
 
-  /**
-   * Used to handle drag behavior
-   */
   private readonly _dragEventWatcher = new DragEventWatcher(this);
+
+  private readonly _getBlockView = (blockId: string) => {
+    return this.host.view.getBlock(blockId);
+  };
+
+  /**
+   * When dragging, should update indicator position and target drop block id
+   */
+  private readonly _getDropResult = (
+    state: DndEventState
+  ): DropResult | null => {
+    const point = new Point(state.raw.x, state.raw.y);
+    const closestBlock = getClosestBlockByPoint(
+      this.host,
+      this.rootComponent,
+      point
+    );
+    if (!closestBlock) return null;
+
+    const blockId = closestBlock.model.id;
+    const model = closestBlock.model;
+
+    const isDatabase = matchFlavours(model, ['affine:database']);
+    if (isDatabase) return null;
+
+    // note block can only be dropped into another note block
+    // prevent note block from being dropped into other blocks
+    const isDraggedElementNote =
+      this.draggingElements.length === 1 &&
+      matchFlavours(this.draggingElements[0].model, ['affine:note']);
+
+    if (isDraggedElementNote) {
+      const parent = this.std.doc.getParent(closestBlock.model);
+      if (!parent) return null;
+      const parentElement = this._getBlockView(parent.id);
+      if (!parentElement) return null;
+      if (!matchFlavours(parentElement.model, ['affine:note'])) return null;
+    }
+
+    // Should make sure that target drop block is
+    // neither within the dragging elements
+    // nor a child-block of any dragging elements
+    if (
+      containBlock(
+        this.draggingElements.map(block => block.model.id),
+        blockId
+      ) ||
+      containChildBlock(this.draggingElements, model)
+    ) {
+      return null;
+    }
+
+    const result = calcDropTarget(
+      point,
+      model,
+      closestBlock,
+      this.draggingElements,
+      this.scale.peek(),
+      isDraggedElementNote === false
+    );
+
+    if (isDraggedElementNote && result?.type === 'in') return null;
+
+    return result;
+  };
 
   private readonly _handleEventWatcher = new HandleEventWatcher(this);
 
@@ -47,7 +125,19 @@ export class AffineDragHandleWidget extends WidgetComponent<RootBlockModel> {
 
   private readonly _pageWatcher = new PageWatcher(this);
 
+  private readonly _removeDropIndicator = () => {
+    if (this.dropIndicator) {
+      this.dropIndicator.remove();
+      this.dropIndicator = null;
+    }
+  };
+
   private readonly _reset = () => {
+    this.draggingElements = [];
+    this.dropBlockId = '';
+    this.dropType = null;
+    this.lastDragPointerState = null;
+    this.rafID = 0;
     this.dragging = false;
 
     this.dragHoverRect = null;
@@ -57,6 +147,40 @@ export class AffineDragHandleWidget extends WidgetComponent<RootBlockModel> {
     this.isTopLevelDragHandleVisible = false;
 
     this.pointerEventWatcher.reset();
+
+    this.previewHelper.removeDragPreview();
+    this._removeDropIndicator();
+    this._resetCursor();
+  };
+
+  private readonly _resetCursor = () => {
+    document.documentElement.classList.remove('affine-drag-preview-grabbing');
+  };
+
+  private readonly _resetDropResult = () => {
+    this.dropBlockId = '';
+    this.dropType = null;
+    if (this.dropIndicator) this.dropIndicator.rect = null;
+  };
+
+  private readonly _updateDropResult = (dropResult: DropResult | null) => {
+    if (!this.dropIndicator) return;
+    this.dropBlockId = dropResult?.modelState.model.id ?? '';
+    this.dropType = dropResult?.type ?? null;
+    if (dropResult?.rect) {
+      const offsetParentRect =
+        this.dragHandleContainerOffsetParent.getBoundingClientRect();
+      let { left, top } = dropResult.rect;
+      left -= offsetParentRect.left;
+      top -= offsetParentRect.top;
+
+      const { width, height } = dropResult.rect;
+
+      const rect = Rect.fromLWTH(left, width, top, height);
+      this.dropIndicator.rect = rect;
+    } else {
+      this.dropIndicator.rect = dropResult?.rect ?? null;
+    }
   };
 
   anchorBlockId = signal<string | null>(null);
@@ -89,7 +213,15 @@ export class AffineDragHandleWidget extends WidgetComponent<RootBlockModel> {
     this.rectHelper.getDraggingAreaRect
   );
 
-  lastDragPoint: Point | null = null;
+  draggingElements: BlockComponent[] = [];
+
+  dragPreview: DragPreview | null = null;
+
+  dropBlockId = '';
+
+  dropIndicator: DropIndicator | null = null;
+
+  dropType: DroppingType | null = null;
 
   edgelessWatcher = new EdgelessWatcher(this);
 
@@ -136,15 +268,73 @@ export class AffineDragHandleWidget extends WidgetComponent<RootBlockModel> {
 
   isTopLevelDragHandleVisible = false;
 
+  lastDragPointerState: DndEventState | null = null;
+
   noteScale = signal(1);
 
   pointerEventWatcher = new PointerEventWatcher(this);
+
+  previewHelper = new PreviewHelper(this);
+
+  rafID = 0;
 
   scale = signal(1);
 
   scaleInNote = computed(() => this.scale.value * this.noteScale.value);
 
   selectionHelper = new SelectionHelper(this);
+
+  updateDropIndicator = (
+    state: DndEventState,
+    shouldAutoScroll: boolean = false
+  ) => {
+    const point = new Point(state.raw.x, state.raw.y);
+    const closestNoteBlock = getClosestNoteBlock(
+      this.host,
+      this.rootComponent,
+      point
+    );
+    if (
+      !closestNoteBlock ||
+      isOutOfNoteBlock(this.host, closestNoteBlock, point, this.scale.peek())
+    ) {
+      this._resetDropResult();
+    } else {
+      const dropResult = this._getDropResult(state);
+      this._updateDropResult(dropResult);
+    }
+
+    this.lastDragPointerState = state;
+    if (this.mode === 'page') {
+      if (!shouldAutoScroll) return;
+
+      const scrollContainer = getScrollContainer(this.rootComponent);
+      const result = autoScroll(scrollContainer, state.raw.y);
+      if (!result) {
+        this.clearRaf();
+        return;
+      }
+      this.rafID = requestAnimationFrame(() =>
+        this.updateDropIndicator(state, true)
+      );
+    } else {
+      this.clearRaf();
+    }
+  };
+
+  updateDropIndicatorOnScroll = () => {
+    if (
+      !this.dragging ||
+      this.draggingElements.length === 0 ||
+      !this.lastDragPointerState
+    )
+      return;
+
+    const state = this.lastDragPointerState;
+    this.rafID = requestAnimationFrame(() =>
+      this.updateDropIndicator(state, false)
+    );
+  };
 
   get dragHandleContainerOffsetParent() {
     return this.dragHandleContainer.parentElement!;
@@ -156,6 +346,13 @@ export class AffineDragHandleWidget extends WidgetComponent<RootBlockModel> {
 
   get rootComponent() {
     return this.block;
+  }
+
+  clearRaf() {
+    if (this.rafID) {
+      cancelAnimationFrame(this.rafID);
+      this.rafID = 0;
+    }
   }
 
   override connectedCallback() {

@@ -1,3 +1,8 @@
+import type {
+  autoArrangeElementsCommand,
+  autoResizeElementsCommand,
+} from './commands/auto-align.js';
+import type { reassociateConnectorsCommand } from './commands/reassociate-connectors.js';
 import { SurfaceBlockComponent } from './surface-block.js';
 import { SurfaceBlockVoidComponent } from './surface-block-void.js';
 import type { SurfaceBlockModel } from './surface-model.js';
@@ -15,6 +20,11 @@ declare global {
     }
     interface BlockModels {
       'affine:surface': SurfaceBlockModel;
+    }
+    interface Commands {
+      reassociateConnectors: typeof reassociateConnectorsCommand;
+      autoArrangeElements: typeof autoArrangeElementsCommand;
+      autoResizeElements: typeof autoResizeElementsCommand;
     }
   }
 }

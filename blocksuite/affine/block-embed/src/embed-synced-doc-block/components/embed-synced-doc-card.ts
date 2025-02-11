@@ -1,9 +1,5 @@
 import { ThemeProvider } from '@blocksuite/affine-shared/services';
-import {
-  BlockSelection,
-  isGfxBlockComponent,
-  ShadowlessElement,
-} from '@blocksuite/block-std';
+import { isGfxBlockComponent, ShadowlessElement } from '@blocksuite/block-std';
 import { throttle, WithDisposable } from '@blocksuite/global/utils';
 import { html, nothing } from 'lit';
 import { property, queryAsync } from 'lit/decorators.js';
@@ -68,7 +64,7 @@ export class EmbedSyncedDocCard extends WithDisposable(ShadowlessElement) {
 
   private _selectBlock() {
     const selectionManager = this.host.selection;
-    const blockSelection = selectionManager.create(BlockSelection, {
+    const blockSelection = selectionManager.create('block', {
       blockId: this.block.blockId,
     });
     selectionManager.setGroup('note', [blockSelection]);
@@ -104,7 +100,7 @@ export class EmbedSyncedDocCard extends WithDisposable(ShadowlessElement) {
       }
 
       this.disposables.add(
-        syncedDoc.workspace.slots.docListUpdated.on(() => {
+        syncedDoc.collection.meta.docMetaUpdated.on(() => {
           renderLinkedDocInCard(this);
         })
       );

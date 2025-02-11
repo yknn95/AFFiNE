@@ -98,7 +98,7 @@ abstract class BaseTextCell extends BaseCellRenderer<Text> {
     if (!this.docId$.value) {
       return this.value;
     }
-    const doc = this.host?.std.workspace.getDoc(this.docId$.value);
+    const doc = this.host?.std.collection.getDoc(this.docId$.value);
     const root = doc?.root as RootBlockModel;
     return root.title;
   });
@@ -388,8 +388,6 @@ export class HeaderAreaTextCellEditing extends BaseTextCell {
 
   override renderBlockText() {
     return html` <rich-text
-      data-disable-ask-ai
-      data-not-block-text
       .yText="${this.value}"
       .inlineEventSource="${this.topContenteditableElement}"
       .attributesSchema="${this.attributesSchema}"
@@ -403,14 +401,12 @@ export class HeaderAreaTextCellEditing extends BaseTextCell {
           ? getViewportElement(this.topContenteditableElement.host)
           : null}"
       data-parent-flavour="affine:database"
-      class="data-view-header-area-rich-text"
+      class="data-view-header-area-rich-text can-link-doc"
     ></rich-text>`;
   }
 
   override renderLinkedDoc(): TemplateResult {
     return html` <rich-text
-      data-disable-ask-ai
-      data-not-block-text
       .yText="${this.linkedDocTitle$.value}"
       .inlineEventSource="${this.topContenteditableElement}"
       .readonly="${this.readonly}"

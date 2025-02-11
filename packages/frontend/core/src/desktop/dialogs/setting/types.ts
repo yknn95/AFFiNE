@@ -1,14 +1,8 @@
 import type { SettingTab } from '@affine/core/modules/dialogs/constant';
-import type { ReactElement } from 'react';
+import type { WorkspaceMetadata } from '@affine/core/modules/workspace';
 
 export interface SettingState {
   activeTab: SettingTab;
+  activeWorkspaceMetadata?: WorkspaceMetadata | null;
   scrollAnchor?: string;
-}
-
-export interface SettingSidebarItem {
-  key: SettingTab;
-  title: string;
-  icon: ReactElement;
-  testId: string;
 }

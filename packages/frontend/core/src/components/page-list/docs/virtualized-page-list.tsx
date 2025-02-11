@@ -56,14 +56,12 @@ export const VirtualizedPageList = memo(function VirtualizedPageList({
   filters,
   listItem,
   setHideHeaderCreateNewPage,
-  disableMultiDelete,
 }: {
   tag?: Tag;
   collection?: Collection;
   filters?: Filter[];
   listItem?: DocMeta[];
   setHideHeaderCreateNewPage?: (hide: boolean) => void;
-  disableMultiDelete?: boolean;
 }) {
   const t = useI18n();
   const listRef = useRef<ItemListHandle>(null);
@@ -188,7 +186,7 @@ export const VirtualizedPageList = memo(function VirtualizedPageList({
       />
       <ListFloatingToolbar
         open={showFloatingToolbar}
-        onDelete={disableMultiDelete ? undefined : handleMultiDelete}
+        onDelete={handleMultiDelete}
         onClose={hideFloatingToolbar}
         content={
           <Trans

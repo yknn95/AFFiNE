@@ -1,7 +1,7 @@
 import { CompatibleFavoriteItemsAdapter } from '@affine/core/modules/favorite';
 import { ShareDocsListService } from '@affine/core/modules/share-doc';
 import type { Collection, Filter } from '@affine/env/filter';
-import { PublicDocMode } from '@affine/graphql';
+import { PublicPageMode } from '@affine/graphql';
 import type { DocMeta } from '@blocksuite/affine/store';
 import { useLiveData, useService } from '@toeverything/infra';
 import { useCallback, useEffect, useMemo } from 'react';
@@ -23,7 +23,7 @@ export const useFilteredPageMetas = (
     (id: string) => {
       const mode = shareDocs?.find(shareDoc => shareDoc.id === id)?.mode;
       return mode
-        ? mode === PublicDocMode.Edgeless
+        ? mode === PublicPageMode.Edgeless
           ? ('edgeless' as const)
           : ('page' as const)
         : undefined;

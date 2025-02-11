@@ -1,5 +1,6 @@
 import { Avatar, ConfirmModal, Input, notify, Switch } from '@affine/component';
 import type { ConfirmModalProps } from '@affine/component/ui/modal';
+import { CloudSvg } from '@affine/core/components/affine/share-page-modal/cloud-svg';
 import { useAsyncCallback } from '@affine/core/components/hooks/affine-async-hooks';
 import { AuthService, ServersService } from '@affine/core/modules/cloud';
 import {
@@ -8,7 +9,6 @@ import {
   GlobalDialogService,
 } from '@affine/core/modules/dialogs';
 import { FeatureFlagService } from '@affine/core/modules/feature-flag';
-import { CloudSvg } from '@affine/core/modules/share-menu';
 import { WorkspacesService } from '@affine/core/modules/workspace';
 import { useI18n } from '@affine/i18n';
 import { track } from '@affine/track';

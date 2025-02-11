@@ -6,7 +6,7 @@ import type {
   InlineRange,
   KeyboardBindingHandler,
 } from '@blocksuite/inline';
-import type * as Y from 'yjs';
+import type { Y } from '@blocksuite/store';
 import type { ZodTypeAny } from 'zod';
 
 export type InlineSpecs<

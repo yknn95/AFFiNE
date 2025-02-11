@@ -1,7 +1,6 @@
 import { DefaultTheme } from '@blocksuite/affine-model';
 import {
   EditPropsStore,
-  FeatureFlagService,
   ThemeProvider,
 } from '@blocksuite/affine-shared/services';
 import type { ColorEvent } from '@blocksuite/affine-shared/utils';
@@ -66,9 +65,9 @@ export class EdgelessBrushMenu extends EdgelessToolbarToolMixin(
             .value=${this._props$.value.color}
             .theme=${this._theme$.value}
             .palettes=${DefaultTheme.StrokeColorPalettes}
-            .hasTransparent=${!this.edgeless.doc
-              .get(FeatureFlagService)
-              .getFlag('enable_color_picker')}
+            .hasTransparent=${!this.edgeless.doc.awarenessStore.getFlag(
+              'enable_color_picker'
+            )}
             @select=${(e: ColorEvent) =>
               this.onChange({ color: e.detail.value })}
           ></edgeless-color-panel>

@@ -146,8 +146,8 @@ test('add brush element with different size', async ({ page }) => {
   const color = lightThemeV2['edgeless/palette/medium/blueMedium'];
   await assertEdgelessColorSameWithHexColor(page, color, topEdge);
   await assertEdgelessColorSameWithHexColor(page, color, bottomEdge);
-  assertSameColor(nearTopEdge, '#53b2ef');
-  assertSameColor(nearBottomEdge, '#53b2ef');
+  assertSameColor(nearTopEdge, '#84cfff');
+  assertSameColor(nearBottomEdge, '#84cfff');
 });
 
 test('change brush element size by component-toolbar', async ({ page }) => {

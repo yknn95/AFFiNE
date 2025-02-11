@@ -1,14 +1,9 @@
-import { autoResizeElementsCommand } from '@blocksuite/affine-block-surface';
 import { toast } from '@blocksuite/affine-components/toast';
 import type {
   AttachmentBlockProps,
   ImageBlockModel,
   ImageBlockProps,
 } from '@blocksuite/affine-model';
-import {
-  FileSizeLimitService,
-  NativeClipboardProvider,
-} from '@blocksuite/affine-shared/services';
 import {
   downloadBlob,
   humanFileSize,
@@ -17,6 +12,7 @@ import {
 } from '@blocksuite/affine-shared/utils';
 import type { BlockStdScope, EditorHost } from '@blocksuite/block-std';
 import { GfxControllerIdentifier } from '@blocksuite/block-std/gfx';
+import { BlockSuiteError, ErrorCode } from '@blocksuite/global/exceptions';
 import { Bound, type IVec, Point, Vec } from '@blocksuite/global/utils';
 import type { BlockModel } from '@blocksuite/store';
 
@@ -204,6 +200,15 @@ export async function resetImageSize(
   });
 }
 
+function convertToString(blob: Blob): Promise<string | null> {
+  return new Promise(resolve => {
+    const reader = new FileReader();
+    reader.addEventListener('load', _ => resolve(reader.result as string));
+    reader.addEventListener('error', () => resolve(null));
+    reader.readAsDataURL(blob);
+  });
+}
+
 function convertToPng(blob: Blob): Promise<Blob | null> {
   return new Promise(resolve => {
     const reader = new FileReader();
@@ -229,35 +234,33 @@ function convertToPng(blob: Blob): Promise<Blob | null> {
 export async function copyImageBlob(
   block: ImageBlockComponent | ImageEdgelessBlockComponent
 ) {
-  const { host, model, std } = block;
+  const { host, model } = block;
   let blob = await getImageBlob(model);
   if (!blob) {
     console.error('Failed to get image blob');
     return;
   }
 
-  let copied = false;
-
   try {
-    // Copies the image as PNG in Electron.
-    const copyAsPNG = std.getOptional(NativeClipboardProvider)?.copyAsPNG;
-    if (copyAsPNG) {
-      copied = await copyAsPNG(await blob.arrayBuffer());
-    }
-
-    // The current clipboard only supports the `image/png` image format.
-    // The `ClipboardItem.supports('image/svg+xml')` is not currently used,
-    // because when pasting, the content is not read correctly.
-    //
-    // https://developer.mozilla.org/en-US/docs/Web/API/ClipboardItem
-    // https://alexharri.com/blog/clipboard
-    if (!copied) {
+    // @ts-expect-error FIXME: BS-2239
+    if (window.apis?.clipboard?.copyAsImageFromString) {
+      const dataURL = await convertToString(blob);
+      if (!dataURL)
+        throw new BlockSuiteError(
+          ErrorCode.DefaultRuntimeError,
+          'Cant convert a blob to data URL.'
+        );
+      // @ts-expect-error FIXME: BS-2239
+      await window.apis.clipboard?.copyAsImageFromString(dataURL);
+    } else {
+      // DOMException: Type image/jpeg not supported on write.
       if (blob.type !== 'image/png') {
-        blob = await convertToPng(blob);
-        if (!blob) {
+        const pngBlob = await convertToPng(blob);
+        if (!pngBlob) {
           console.error('Failed to convert blob to PNG');
           return;
         }
+        blob = pngBlob;
       }
 
       if (!globalThis.isSecureContext) {
@@ -428,15 +431,20 @@ export async function addImages(
   options: {
     point?: IVec;
     maxWidth?: number;
-    transformPoint?: boolean; // determines whether we should use `toModelCoord` to convert the point
   }
 ): Promise<string[]> {
   const imageFiles = [...files].filter(file => file.type.startsWith('image/'));
   if (!imageFiles.length) return [];
 
+  const imageService = std.getService('affine:image');
   const gfx = std.get(GfxControllerIdentifier);
 
-  const maxFileSize = std.store.get(FileSizeLimitService).maxFileSize;
+  if (!imageService) {
+    console.error('Image service not found');
+    return [];
+  }
+
+  const maxFileSize = imageService.maxFileSize;
   const isSizeExceeded = imageFiles.some(file => file.size > maxFileSize);
   if (isSizeExceeded) {
     toast(
@@ -450,15 +458,9 @@ export async function addImages(
     return [];
   }
 
-  const { point, maxWidth, transformPoint = true } = options;
+  const { point, maxWidth } = options;
   let { x, y } = gfx.viewport.center;
-  if (point) {
-    if (transformPoint) {
-      [x, y] = gfx.viewport.toModelCoord(...point);
-    } else {
-      [x, y] = point;
-    }
-  }
+  if (point) [x, y] = gfx.viewport.toModelCoord(...point);
 
   const dropInfos: { point: Point; blockId: string }[] = [];
   const IMAGE_STACK_GAP = 32;
@@ -473,7 +475,7 @@ export async function addImages(
     );
     const center = Vec.toVec(point);
     const bound = calcBoundByOrigin(center, inTopLeft);
-    const blockId = std.store.addBlock(
+    const blockId = std.doc.addBlock(
       'affine:image',
       {
         size: file.size,
@@ -489,7 +491,7 @@ export async function addImages(
   const uploadPromises = imageFiles.map(async (file, index) => {
     const { point, blockId } = dropInfos[index];
 
-    const sourceId = await std.store.blobSync.set(file);
+    const sourceId = await std.doc.blobSync.set(file);
     const imageSize = await readImageSize(file);
 
     const center = Vec.toVec(point);
@@ -503,7 +505,7 @@ export async function addImages(
       : imageSize.height;
     const bound = calcBoundByOrigin(center, inTopLeft, width, height);
 
-    std.store.withoutTransact(() => {
+    std.doc.withoutTransact(() => {
       gfx.updateElement(blockId, {
         sourceId,
         ...imageSize,
@@ -521,7 +523,7 @@ export async function addImages(
     editing: false,
   });
   if (isMultipleFiles) {
-    std.command.exec(autoResizeElementsCommand);
+    std.command.exec('autoResizeElements');
   }
   return blockIds;
 }

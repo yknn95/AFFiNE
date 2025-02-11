@@ -23,7 +23,7 @@ export class TagStore extends Store {
 
   subscribe(cb: () => void) {
     const disposable =
-      this.workspaceService.workspace.docCollection.slots.docListUpdated.on(cb);
+      this.workspaceService.workspace.docCollection.meta.docMetaUpdated.on(cb);
     return disposable.dispose;
   }
 
@@ -86,7 +86,7 @@ export class TagStore extends Store {
   };
 
   updatePageTags = (pageId: string, tags: string[]) => {
-    this.workspaceService.workspace.docCollection.meta.setDocMeta(pageId, {
+    this.workspaceService.workspace.docCollection.setDocMeta(pageId, {
       tags,
     });
   };

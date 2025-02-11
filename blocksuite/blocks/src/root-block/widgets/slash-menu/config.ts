@@ -1,18 +1,13 @@
 import { addSiblingAttachmentBlocks } from '@blocksuite/affine-block-attachment';
+import { toggleEmbedCardCreateModal } from '@blocksuite/affine-block-bookmark';
 import type { DataViewBlockComponent } from '@blocksuite/affine-block-data-view';
-import { insertDatabaseBlockCommand } from '@blocksuite/affine-block-database';
 import {
   FigmaIcon,
   GithubIcon,
   LoomIcon,
   YoutubeIcon,
 } from '@blocksuite/affine-block-embed';
-import { insertImagesCommand } from '@blocksuite/affine-block-image';
-import { insertLatexBlockCommand } from '@blocksuite/affine-block-latex';
 import { getSurfaceBlock } from '@blocksuite/affine-block-surface';
-import { insertSurfaceRefBlockCommand } from '@blocksuite/affine-block-surface-ref';
-import { insertTableBlockCommand } from '@blocksuite/affine-block-table';
-import { toggleEmbedCardCreateModal } from '@blocksuite/affine-components/embed-card-modal';
 import {
   ArrowDownBigIcon,
   ArrowUpBigIcon,
@@ -35,7 +30,6 @@ import {
 import {
   getInlineEditorByModel,
   insertContent,
-  insertInlineLatex,
   textConversionConfigs,
   textFormatConfigs,
 } from '@blocksuite/affine-components/rich-text';
@@ -44,28 +38,15 @@ import type {
   FrameBlockModel,
   ParagraphBlockModel,
 } from '@blocksuite/affine-model';
-import {
-  getSelectedModelsCommand,
-  getTextSelectionCommand,
-} from '@blocksuite/affine-shared/commands';
 import { REFERENCE_NODE } from '@blocksuite/affine-shared/consts';
-import {
-  FeatureFlagService,
-  FileSizeLimitService,
-  TelemetryProvider,
-} from '@blocksuite/affine-shared/services';
+import { TelemetryProvider } from '@blocksuite/affine-shared/services';
 import {
   createDefaultDoc,
   openFileOrFiles,
 } from '@blocksuite/affine-shared/utils';
 import { viewPresets } from '@blocksuite/data-view/view-presets';
 import { assertType } from '@blocksuite/global/utils';
-import {
-  DualLinkIcon,
-  GroupingIcon,
-  TableIcon,
-  TeXIcon,
-} from '@blocksuite/icons/lit';
+import { DualLinkIcon, GroupingIcon, TeXIcon } from '@blocksuite/icons/lit';
 import type { DeltaInsert } from '@blocksuite/inline';
 import type { BlockModel } from '@blocksuite/store';
 import { Slice, Text } from '@blocksuite/store';
@@ -84,7 +65,7 @@ import {
 
 export type SlashMenuConfig = {
   triggerKeys: string[];
-  ignoreBlockTypes: string[];
+  ignoreBlockTypes: BlockSuite.Flavour[];
   items: SlashMenuItem[];
   maxHeight: number;
   tooltipTimeout: number;
@@ -181,8 +162,8 @@ export const defaultSlashMenuConfig: SlashMenuConfig = {
       action: ({ rootComponent }) => {
         rootComponent.std.command
           .chain()
-          .pipe(getTextSelectionCommand)
-          .pipe(insertInlineLatex)
+          .getTextSelection()
+          .insertInlineLatex()
           .run();
       },
     },
@@ -213,7 +194,7 @@ export const defaultSlashMenuConfig: SlashMenuConfig = {
       showWhen: ({ model }) =>
         model.doc.schema.flavourSchemaMap.has('affine:embed-linked-doc'),
       action: ({ rootComponent, model }) => {
-        const newDoc = createDefaultDoc(rootComponent.doc.workspace);
+        const newDoc = createDefaultDoc(rootComponent.doc.collection);
         insertContent(rootComponent.host, model, REFERENCE_NODE, {
           reference: {
             type: 'LinkedPage',
@@ -255,33 +236,13 @@ export const defaultSlashMenuConfig: SlashMenuConfig = {
         const inlineEditor = getInlineEditorByModel(rootComponent.host, model);
         // Wait for range to be updated
         inlineEditor?.slots.inlineRangeSync.once(() => {
-          linkedDocWidget.show({ addTriggerKey: true });
+          linkedDocWidget.show();
         });
       },
     },
 
     // ---------------------------------------------------------
     { groupName: 'Content & Media' },
-    {
-      name: 'Table',
-      description: 'Create a simple table.',
-      icon: TableIcon({
-        width: '20',
-        height: '20',
-      }),
-      tooltip: slashMenuToolTips['Table View'],
-      showWhen: ({ model }) => !insideEdgelessText(model),
-      action: ({ rootComponent }) => {
-        rootComponent.std.command
-          .chain()
-          .pipe(getSelectedModelsCommand)
-          .pipe(insertTableBlockCommand, {
-            place: 'after',
-            removeEmptyLine: true,
-          })
-          .run();
-      },
-    },
     {
       name: 'Image',
       description: 'Insert an image.',
@@ -292,8 +253,8 @@ export const defaultSlashMenuConfig: SlashMenuConfig = {
       action: async ({ rootComponent }) => {
         const [success, ctx] = rootComponent.std.command
           .chain()
-          .pipe(getSelectedModelsCommand)
-          .pipe(insertImagesCommand, { removeEmptyLine: true })
+          .getSelectedModels()
+          .insertImages({ removeEmptyLine: true })
           .run();
 
         if (success) await ctx.insertedImageIds;
@@ -333,8 +294,10 @@ export const defaultSlashMenuConfig: SlashMenuConfig = {
         const file = await openFileOrFiles();
         if (!file) return;
 
-        const maxFileSize =
-          rootComponent.std.store.get(FileSizeLimitService).maxFileSize;
+        const attachmentService =
+          rootComponent.std.getService('affine:attachment');
+        if (!attachmentService) return;
+        const maxFileSize = attachmentService.maxFileSize;
 
         await addSiblingAttachmentBlocks(
           rootComponent.host,
@@ -446,8 +409,8 @@ export const defaultSlashMenuConfig: SlashMenuConfig = {
       action: ({ rootComponent }) => {
         rootComponent.std.command
           .chain()
-          .pipe(getSelectedModelsCommand)
-          .pipe(insertLatexBlockCommand, {
+          .getSelectedModels()
+          .insertLatexBlock({
             place: 'after',
             removeEmptyLine: true,
           })
@@ -477,8 +440,8 @@ export const defaultSlashMenuConfig: SlashMenuConfig = {
         action: ({ rootComponent }) => {
           rootComponent.std.command
             .chain()
-            .pipe(getSelectedModelsCommand)
-            .pipe(insertSurfaceRefBlockCommand, {
+            .getSelectedModels()
+            .insertSurfaceRefBlock({
               reference: frameModel.id,
               place: 'after',
               removeEmptyLine: true,
@@ -494,8 +457,8 @@ export const defaultSlashMenuConfig: SlashMenuConfig = {
         action: () => {
           rootComponent.std.command
             .chain()
-            .pipe(getSelectedModelsCommand)
-            .pipe(insertSurfaceRefBlockCommand, {
+            .getSelectedModels()
+            .insertSurfaceRefBlock({
               reference: group.id,
               place: 'after',
               removeEmptyLine: true,
@@ -585,13 +548,13 @@ export const defaultSlashMenuConfig: SlashMenuConfig = {
       action: ({ rootComponent }) => {
         rootComponent.std.command
           .chain()
-          .pipe(getSelectedModelsCommand)
-          .pipe(insertDatabaseBlockCommand, {
+          .getSelectedModels()
+          .insertDatabaseBlock({
             viewType: viewPresets.tableViewMeta.type,
             place: 'after',
             removeEmptyLine: true,
           })
-          .pipe(({ insertedDatabaseBlockId }) => {
+          .inline(({ insertedDatabaseBlockId }) => {
             if (insertedDatabaseBlockId) {
               const telemetry =
                 rootComponent.std.getOptional(TelemetryProvider);
@@ -611,7 +574,7 @@ export const defaultSlashMenuConfig: SlashMenuConfig = {
       showWhen: ({ model }) =>
         model.doc.schema.flavourSchemaMap.has('affine:database') &&
         !insideEdgelessText(model) &&
-        !!model.doc.get(FeatureFlagService).getFlag('enable_block_query'),
+        !!model.doc.awarenessStore.getFlag('enable_block_query'),
 
       action: ({ model, rootComponent }) => {
         const parent = rootComponent.doc.getParent(model);
@@ -648,13 +611,13 @@ export const defaultSlashMenuConfig: SlashMenuConfig = {
       action: ({ rootComponent }) => {
         rootComponent.std.command
           .chain()
-          .pipe(getSelectedModelsCommand)
-          .pipe(insertDatabaseBlockCommand, {
+          .getSelectedModels()
+          .insertDatabaseBlock({
             viewType: viewPresets.kanbanViewMeta.type,
             place: 'after',
             removeEmptyLine: true,
           })
-          .pipe(({ insertedDatabaseBlockId }) => {
+          .inline(({ insertedDatabaseBlockId }) => {
             if (insertedDatabaseBlockId) {
               const telemetry =
                 rootComponent.std.getOptional(TelemetryProvider);
@@ -707,7 +670,7 @@ export const defaultSlashMenuConfig: SlashMenuConfig = {
       icon: CopyIcon,
       tooltip: slashMenuToolTips['Copy'],
       action: ({ rootComponent, model }) => {
-        const slice = Slice.fromModels(rootComponent.std.store, [model]);
+        const slice = Slice.fromModels(rootComponent.std.doc, [model]);
 
         rootComponent.std.clipboard
           .copy(slice)
@@ -746,7 +709,9 @@ export const defaultSlashMenuConfig: SlashMenuConfig = {
           model.flavour as never,
           {
             type: (model as ParagraphBlockModel).type,
-            text: new Text(model.text.toDelta() as DeltaInsert[]),
+            text: new rootComponent.doc.Text(
+              model.text.toDelta() as DeltaInsert[]
+            ),
             // @ts-expect-error FIXME: ts error
             checked: model.checked,
           },

@@ -8,7 +8,6 @@ import {
 import { GlobalDialogService } from '@affine/core/modules/dialogs';
 import { DndService } from '@affine/core/modules/dnd/services';
 import { GlobalContextService } from '@affine/core/modules/global-context';
-import { OpenInAppGuard } from '@affine/core/modules/open-in-app';
 import {
   type Workspace,
   type WorkspaceMetadata,
@@ -17,7 +16,6 @@ import {
 import { ZipTransformer } from '@blocksuite/affine/blocks';
 import {
   FrameworkScope,
-  LiveData,
   useLiveData,
   useService,
   useServices,
@@ -30,8 +28,6 @@ import {
   useParams,
   useSearchParams,
 } from 'react-router-dom';
-import { map } from 'rxjs';
-import * as _Y from 'yjs';
 
 import { AffineErrorBoundary } from '../../../components/affine/affine-error-boundary';
 import { WorkbenchRoot } from '../../../modules/workbench';
@@ -50,14 +46,10 @@ declare global {
   var exportWorkspaceSnapshot: (docs?: string[]) => Promise<void>;
   // oxlint-disable-next-line no-var
   var importWorkspaceSnapshot: () => Promise<void>;
-  // oxlint-disable-next-line no-var
-  var Y: typeof _Y;
   interface WindowEventMap {
     'affine:workspace:change': CustomEvent<{ id: string }>;
   }
 }
-
-globalThis.Y = _Y;
 
 export const Component = (): ReactElement => {
   const {
@@ -250,20 +242,7 @@ const WorkspacePage = ({ meta }: { meta: WorkspaceMetadata }) => {
   }, [meta, workspacesService]);
 
   const isRootDocReady =
-    useLiveData(
-      useMemo(
-        () =>
-          workspace
-            ? LiveData.from(
-                workspace.engine.doc
-                  .docState$(workspace.id)
-                  .pipe(map(v => v.ready)),
-                false
-              )
-            : null,
-        [workspace]
-      )
-    ) ?? false;
+    useLiveData(workspace?.engine.rootDocState$.map(v => v.ready)) ?? false;
 
   useEffect(() => {
     if (workspace) {
@@ -281,7 +260,7 @@ const WorkspacePage = ({ meta }: { meta: WorkspaceMetadata }) => {
           workspace.docCollection,
           Array.from(workspace.docCollection.docs.values())
             .filter(doc => (docs ? docs.includes(doc.id) : true))
-            .map(doc => doc.getStore())
+            .map(doc => doc.getDoc())
         );
       };
       window.importWorkspaceSnapshot = async () => {
@@ -331,9 +310,7 @@ const WorkspacePage = ({ meta }: { meta: WorkspaceMetadata }) => {
     return (
       <FrameworkScope scope={workspace.scope}>
         <DNDContextProvider>
-          <OpenInAppGuard>
-            <AppContainer fallback />
-          </OpenInAppGuard>
+          <AppContainer fallback />
         </DNDContextProvider>
       </FrameworkScope>
     );
@@ -342,13 +319,11 @@ const WorkspacePage = ({ meta }: { meta: WorkspaceMetadata }) => {
   return (
     <FrameworkScope scope={workspace.scope}>
       <DNDContextProvider>
-        <OpenInAppGuard>
-          <AffineErrorBoundary height="100vh">
-            <WorkspaceLayout>
-              <WorkbenchRoot />
-            </WorkspaceLayout>
-          </AffineErrorBoundary>
-        </OpenInAppGuard>
+        <AffineErrorBoundary height="100vh">
+          <WorkspaceLayout>
+            <WorkbenchRoot />
+          </WorkspaceLayout>
+        </AffineErrorBoundary>
       </DNDContextProvider>
     </FrameworkScope>
   );

@@ -155,7 +155,7 @@ export class AIChatBlockPeekView extends LitElement {
     const { doc } = this.host;
     // create a new AI chat block
     const surfaceBlock = doc
-      .getStore()
+      .getBlocks()
       .find(block => block.flavour === 'affine:surface');
     if (!surfaceBlock) {
       return;
@@ -175,7 +175,7 @@ export class AIChatBlockPeekView extends LitElement {
     const edgelessService = this._rootService as EdgelessRootService;
     const bound = calcChildBound(this.parentModel, edgelessService);
     const aiChatBlockId = edgelessService.crud.addBlock(
-      'affine:embed-ai-chat',
+      'affine:embed-ai-chat' as keyof BlockSuite.BlockModels,
       {
         xywh: bound.serialize(),
         messages: JSON.stringify(messages),
@@ -269,7 +269,7 @@ export class AIChatBlockPeekView extends LitElement {
     ) {
       const { doc } = this.host;
       if (currentSessionId) {
-        await AIProvider.histories?.cleanup(doc.workspace.id, doc.id, [
+        await AIProvider.histories?.cleanup(doc.collection.id, doc.id, [
           currentSessionId,
         ]);
       }
@@ -323,7 +323,7 @@ export class AIChatBlockPeekView extends LitElement {
         sessionId: currentSessionId,
         retry: true,
         docId: doc.id,
-        workspaceId: doc.workspace.id,
+        workspaceId: doc.collection.id,
         host: this.host,
         stream: true,
         signal: abortController.signal,

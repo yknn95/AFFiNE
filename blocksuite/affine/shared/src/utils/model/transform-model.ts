@@ -1,9 +1,9 @@
-import type { BlockModel, Store, Text } from '@blocksuite/store';
+import type { BlockModel, Doc, Text } from '@blocksuite/store';
 
 export function transformModel(
   model: BlockModel,
   flavour: BlockSuite.Flavour,
-  props?: Parameters<Store['addBlock']>[1]
+  props?: Parameters<Doc['addBlock']>[1]
 ) {
   const doc = model.doc;
   const parent = doc.getParent(model);

@@ -1,7 +1,6 @@
 import { assertType, type Constructor, Slot } from '@blocksuite/global/utils';
-import type { Boxed } from '@blocksuite/store';
-import { BlockModel, nanoid } from '@blocksuite/store';
-import * as Y from 'yjs';
+import type { Boxed, Y } from '@blocksuite/store';
+import { BlockModel, DocCollection, nanoid } from '@blocksuite/store';
 
 import {
   type GfxGroupCompatibleInterface,
@@ -103,10 +102,6 @@ export class SurfaceBlockModel extends BlockModel<SurfaceBlockProps> {
     return Object.keys(this._elementCtorMap);
   }
 
-  override isEmpty(): boolean {
-    return this._elementModels.size === 0 && this.children.length === 0;
-  }
-
   constructor() {
     super();
     this.created.once(() => this._init());
@@ -129,7 +124,7 @@ export class SurfaceBlockModel extends BlockModel<SurfaceBlockProps> {
       throw new Error('Cannot find id in props');
     }
 
-    const yMap = new Y.Map();
+    const yMap = new DocCollection.Y.Map();
     const elementModel = this._createElementFromYMap(
       type as string,
       id as string,

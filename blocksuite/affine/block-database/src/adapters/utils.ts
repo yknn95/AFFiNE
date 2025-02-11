@@ -1,14 +1,6 @@
-import type { Column, SerializedCells } from '@blocksuite/affine-model';
-import type { DeltaInsert } from '@blocksuite/inline';
-import type { BlockSnapshot } from '@blocksuite/store';
-
-import { databaseBlockModels } from '../properties/model';
-
 function calculateColumnWidths(rows: string[][]): number[] {
-  return (
-    rows[0]?.map((_, colIndex) =>
-      Math.max(...rows.map(row => (row[colIndex] || '').length))
-    ) ?? []
+  return rows[0].map((_, colIndex) =>
+    Math.max(...rows.map(row => (row[colIndex] || '').length))
   );
 }
 
@@ -18,7 +10,7 @@ function formatRow(
   isHeader: boolean
 ): string {
   const cells = row.map((cell, colIndex) =>
-    cell?.padEnd(columnWidths[colIndex] ?? 0, ' ')
+    cell.padEnd(columnWidths[colIndex], ' ')
   );
   const rowString = `| ${cells.join(' | ')} |`;
   return isHeader
@@ -38,73 +30,3 @@ export function formatTable(rows: string[][]): string {
   );
   return formattedRows.join('\n');
 }
-export const isDelta = (value: unknown): value is { delta: DeltaInsert[] } => {
-  if (typeof value === 'object' && value !== null) {
-    return '$blocksuite:internal:text$' in value;
-  }
-  return false;
-};
-type Table = {
-  headers: Column[];
-  rows: Row[];
-};
-type Row = {
-  cells: Cell[];
-};
-type Cell = {
-  value: string | { delta: DeltaInsert[] };
-};
-export const processTable = (
-  columns: Column[],
-  children: BlockSnapshot[],
-  cells: SerializedCells
-): Table => {
-  const table: Table = {
-    headers: columns,
-    rows: [],
-  };
-  children.forEach(v => {
-    const row: Row = {
-      cells: [],
-    };
-    const title = v.props.text;
-    if (isDelta(title)) {
-      row.cells.push({
-        value: title,
-      });
-    } else {
-      row.cells.push({
-        value: '',
-      });
-    }
-
-    columns.forEach(col => {
-      const property = databaseBlockModels[col.type];
-      const cell = cells[v.id]?.[col.id];
-      if (col.type === 'title') {
-        return;
-      }
-      if (!cell || !property) {
-        row.cells.push({
-          value: '',
-        });
-        return;
-      }
-      let value: string | { delta: DeltaInsert[] };
-      if (isDelta(cell.value)) {
-        value = cell.value;
-      } else {
-        value = property.config.cellToString({
-          value: cell.value,
-          data: col.data,
-        });
-      }
-      row.cells.push({
-        value,
-      });
-    });
-    table.rows.push(row);
-  });
-
-  return table;
-};

@@ -127,8 +127,6 @@ AFFiNE now provides pre-built [templates](https://affine.pro/templates) from our
 Welcome to the AFFiNE blog section! Here, you’ll find the latest insights, tips, and guides on how to maximize your experience with AFFiNE and AFFiNE AI, the leading Canvas AI tool for flexible note-taking and creative organization.
 
 - [vision board template](https://affine.pro/blog/8-free-printable-vision-board-templates-examples-2023)
-- [ai homework helper](https://affine.pro/blog/ai-homework-helper)
-- [vision board maker](https://affine.pro/blog/vision-board-maker)
 - [itinerary template](https://affine.pro/blog/free-customized-travel-itinerary-planner-templates)
 - [one pager template](https://affine.pro/blog/top-12-one-pager-examples-how-to-create-your-own)
 - [cornell notes template](https://affine.pro/blog/the-cornell-notes-template-and-system-learning-tips)

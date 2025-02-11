@@ -10,7 +10,7 @@ import {
 } from '@blocksuite/block-std';
 import { GfxControllerIdentifier } from '@blocksuite/block-std/gfx';
 import { DisposableGroup, Vec, WithDisposable } from '@blocksuite/global/utils';
-import type { Store } from '@blocksuite/store';
+import type { Doc } from '@blocksuite/store';
 import { consume } from '@lit/context';
 import { css, html, LitElement } from 'lit';
 import { property, query } from 'lit/decorators.js';
@@ -150,7 +150,7 @@ export class EdgelessConnectorHandle extends WithDisposable(LitElement) {
   @consume({
     context: docContext,
   })
-  accessor doc!: Store;
+  accessor doc!: Doc;
 
   @property({ attribute: false })
   accessor edgeless!: EdgelessRootBlockComponent;

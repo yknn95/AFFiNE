@@ -1,24 +1,20 @@
-import type { BlockModel, Store } from '@blocksuite/store';
+import type { BlockModel, Doc, DraftModel } from '@blocksuite/store';
+import { minimatch } from 'minimatch';
 
-type ConstructorType<U> = { new (): U };
-type ModelList<T> =
-  T extends Array<infer U>
-    ? U extends ConstructorType<infer C>
-      ? Array<C>
-      : never
-    : never;
-
-export function matchFlavours<
-  const Model extends ConstructorType<BlockModel>[],
-  U extends ModelList<Model>[number] = ModelList<Model>[number],
->(model: unknown, expected: Model): model is U {
+export function matchFlavours<Key extends (keyof BlockSuite.BlockModels)[]>(
+  model: DraftModel | null,
+  expected: Key
+): model is BlockSuite.BlockModels[Key[number]] {
   return (
-    !!model && expected.some(expectedModel => model instanceof expectedModel)
+    !!model &&
+    expected.some(key =>
+      minimatch(model.flavour as keyof BlockSuite.BlockModels, key)
+    )
   );
 }
 
 export function isInsideBlockByFlavour(
-  doc: Store,
+  doc: Doc,
   block: BlockModel | string,
   flavour: string
 ): boolean {

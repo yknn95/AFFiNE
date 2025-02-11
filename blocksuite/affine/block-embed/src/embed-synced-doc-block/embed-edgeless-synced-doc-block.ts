@@ -1,7 +1,4 @@
-import {
-  EdgelessCRUDIdentifier,
-  reassociateConnectorsCommand,
-} from '@blocksuite/affine-block-surface';
+import { EdgelessCRUDIdentifier } from '@blocksuite/affine-block-surface';
 import type { AliasInfo } from '@blocksuite/affine-model';
 import {
   EMBED_CARD_HEIGHT,
@@ -12,8 +9,8 @@ import {
   ThemeProvider,
 } from '@blocksuite/affine-shared/services';
 import { BlockStdScope } from '@blocksuite/block-std';
-import { Bound } from '@blocksuite/global/utils';
-import { html, nothing } from 'lit';
+import { assertExists, Bound } from '@blocksuite/global/utils';
+import { html } from 'lit';
 import { choose } from 'lit/directives/choose.js';
 import { classMap } from 'lit/directives/class-map.js';
 import { guard } from 'lit/directives/guard.js';
@@ -28,10 +25,7 @@ export class EmbedEdgelessSyncedDocBlockComponent extends toEdgelessEmbedBlock(
   protected override _renderSyncedView = () => {
     const { syncedDoc, editorMode } = this;
 
-    if (!syncedDoc) {
-      console.error('Synced doc is not found');
-      return html`${nothing}`;
-    }
+    assertExists(syncedDoc, 'Doc should exist');
 
     let containerStyleMap = styleMap({
       position: 'relative',
@@ -58,6 +52,7 @@ export class EmbedEdgelessSyncedDocBlockComponent extends toEdgelessEmbedBlock(
     }
     const theme = this.isPageMode ? appTheme : edgelessTheme;
 
+    const isSelected = !!this.selected?.is('block');
     const scale = this.model.scale ?? 1;
 
     this.dataset.nestedEditor = '';
@@ -69,7 +64,7 @@ export class EmbedEdgelessSyncedDocBlockComponent extends toEdgelessEmbedBlock(
           () => html`
             <div class="affine-page-viewport" data-theme=${appTheme}>
               ${new BlockStdScope({
-                store: syncedDoc,
+                doc: syncedDoc,
                 extensions: this._buildPreviewSpec('page:preview'),
               }).render()}
             </div>
@@ -80,7 +75,7 @@ export class EmbedEdgelessSyncedDocBlockComponent extends toEdgelessEmbedBlock(
           () => html`
             <div class="affine-edgeless-viewport" data-theme=${edgelessTheme}>
               ${new BlockStdScope({
-                store: syncedDoc,
+                doc: syncedDoc,
                 extensions: this._buildPreviewSpec('edgeless:preview'),
               }).render()}
             </div>
@@ -96,8 +91,8 @@ export class EmbedEdgelessSyncedDocBlockComponent extends toEdgelessEmbedBlock(
             'affine-embed-synced-doc-container': true,
             [editorMode]: true,
             [theme]: true,
+            selected: isSelected,
             surface: true,
-            selected: this.selected$.value,
           })}
           @click=${this._handleClick}
           style=${containerStyleMap}
@@ -147,7 +142,7 @@ export class EmbedEdgelessSyncedDocBlockComponent extends toEdgelessEmbedBlock(
       surface
     );
 
-    this.std.command.exec(reassociateConnectorsCommand, {
+    this.std.command.exec('reassociateConnectors', {
       oldId: id,
       newId,
     });

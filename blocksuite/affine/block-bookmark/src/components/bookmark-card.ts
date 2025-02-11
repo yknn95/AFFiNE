@@ -2,11 +2,11 @@ import { getEmbedCardIcons } from '@blocksuite/affine-block-embed';
 import { WebIcon16 } from '@blocksuite/affine-components/icons';
 import { ThemeProvider } from '@blocksuite/affine-shared/services';
 import { getHostName } from '@blocksuite/affine-shared/utils';
-import { BlockSelection, ShadowlessElement } from '@blocksuite/block-std';
+import { ShadowlessElement } from '@blocksuite/block-std';
 import { WithDisposable } from '@blocksuite/global/utils';
 import { OpenInNewIcon } from '@blocksuite/icons/lit';
 import { html } from 'lit';
-import { property } from 'lit/decorators.js';
+import { property, state } from 'lit/decorators.js';
 import { classMap } from 'lit/directives/class-map.js';
 
 import type { BookmarkBlockComponent } from '../bookmark-block.js';
@@ -31,7 +31,7 @@ export class BookmarkCard extends WithDisposable(ShadowlessElement) {
 
   private _selectBlock() {
     const selectionManager = this.bookmark.host.selection;
-    const blockSelection = selectionManager.create(BlockSelection, {
+    const blockSelection = selectionManager.create('block', {
       blockId: this.bookmark.blockId,
     });
     selectionManager.setGroup('note', [blockSelection]);
@@ -51,6 +51,14 @@ export class BookmarkCard extends WithDisposable(ShadowlessElement) {
         .get(ThemeProvider)
         .theme$.subscribe(() => this.requestUpdate())
     );
+
+    this.disposables.add(
+      this.bookmark.selection.slots.changed.on(() => {
+        this._isSelected =
+          !!this.bookmark.selected?.is('block') ||
+          !!this.bookmark.selected?.is('surface');
+      })
+    );
   }
 
   override render() {
@@ -60,7 +68,7 @@ export class BookmarkCard extends WithDisposable(ShadowlessElement) {
       loading: this.loading,
       error: this.error,
       [style]: true,
-      selected: this.bookmark.selected$.value,
+      selected: this._isSelected,
     });
 
     const domainName = url.match(
@@ -135,6 +143,9 @@ export class BookmarkCard extends WithDisposable(ShadowlessElement) {
       </div>
     `;
   }
+
+  @state()
+  private accessor _isSelected = false;
 
   @property({ attribute: false })
   accessor bookmark!: BookmarkBlockComponent;

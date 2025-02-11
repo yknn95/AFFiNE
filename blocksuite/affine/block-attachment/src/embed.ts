@@ -2,16 +2,14 @@ import type {
   AttachmentBlockModel,
   ImageBlockProps,
 } from '@blocksuite/affine-model';
-import { FileSizeLimitService } from '@blocksuite/affine-shared/services';
 import {
   transformModel,
   withTempBlobData,
 } from '@blocksuite/affine-shared/utils';
-import { type BlockStdScope, StdIdentifier } from '@blocksuite/block-std';
+import type { ExtensionType } from '@blocksuite/block-std';
+import { Extension } from '@blocksuite/block-std';
 import type { Container } from '@blocksuite/global/di';
 import { createIdentifier } from '@blocksuite/global/di';
-import type { ExtensionType } from '@blocksuite/store';
-import { Extension } from '@blocksuite/store';
 import type { TemplateResult } from 'lit';
 import { html } from 'lit';
 
@@ -59,9 +57,8 @@ export const AttachmentEmbedProvider = createIdentifier<AttachmentEmbedService>(
 );
 
 export class AttachmentEmbedService extends Extension {
-  private get _maxFileSize() {
-    return this.std.store.get(FileSizeLimitService).maxFileSize;
-  }
+  // 10MB
+  static MAX_EMBED_SIZE = 10 * 1024 * 1024;
 
   get keys() {
     return this.configs.keys();
@@ -71,10 +68,7 @@ export class AttachmentEmbedService extends Extension {
     return this.configs.values();
   }
 
-  constructor(
-    private readonly std: BlockStdScope,
-    private readonly configs: Map<string, AttachmentEmbedConfig>
-  ) {
+  constructor(private readonly configs: Map<string, AttachmentEmbedConfig>) {
     super();
   }
 
@@ -83,13 +77,15 @@ export class AttachmentEmbedService extends Extension {
       provider.getAll(AttachmentEmbedConfigIdentifier)
     );
     di.addImpl(AttachmentEmbedProvider, AttachmentEmbedService, [
-      StdIdentifier,
       AttachmentEmbedConfigMapIdentifier,
     ]);
   }
 
   // Converts to embed view.
-  convertTo(model: AttachmentBlockModel, maxFileSize = this._maxFileSize) {
+  convertTo(
+    model: AttachmentBlockModel,
+    maxFileSize = AttachmentEmbedService.MAX_EMBED_SIZE
+  ) {
     const config = this.values.find(config => config.check(model, maxFileSize));
     if (!config || !config.action) {
       model.doc.updateBlock(model, { embed: true });
@@ -98,14 +94,17 @@ export class AttachmentEmbedService extends Extension {
     config.action(model)?.catch(console.error);
   }
 
-  embedded(model: AttachmentBlockModel, maxFileSize = this._maxFileSize) {
+  embedded(
+    model: AttachmentBlockModel,
+    maxFileSize = AttachmentEmbedService.MAX_EMBED_SIZE
+  ) {
     return this.values.some(config => config.check(model, maxFileSize));
   }
 
   render(
     model: AttachmentBlockModel,
     blobUrl?: string,
-    maxFileSize = this._maxFileSize
+    maxFileSize = AttachmentEmbedService.MAX_EMBED_SIZE
   ) {
     if (!model.embed || !blobUrl) return;
 
@@ -153,7 +152,7 @@ const embedConfig: AttachmentEmbedConfig[] = [
     check: (model, maxFileSize) =>
       model.type.startsWith('video/') && model.size <= maxFileSize,
     template: (_, blobUrl) =>
-      html`<video width="100%;" height="100%;" controls src=${blobUrl}></video>`,
+      html`<video width="100%;" height="480" controls src=${blobUrl}></video>`,
   },
   {
     name: 'audio',

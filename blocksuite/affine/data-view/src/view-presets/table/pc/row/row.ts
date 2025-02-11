@@ -9,11 +9,8 @@ import { styleMap } from 'lit/directives/style-map.js';
 import { html } from 'lit/static-html.js';
 
 import type { DataViewRenderer } from '../../../../core/data-view.js';
-import {
-  TableViewRowSelection,
-  type TableViewSelection,
-} from '../../selection';
 import type { TableSingleView } from '../../table-view-manager.js';
+import { TableRowSelection, type TableViewSelection } from '../../types.js';
 import { openDetail, popRowMenu } from '../menu.js';
 
 export class TableRow extends SignalWatcher(WithDisposable(ShadowlessElement)) {
@@ -136,8 +133,8 @@ export class TableRow extends SignalWatcher(WithDisposable(ShadowlessElement)) {
     const ele = e.target as HTMLElement;
     const cell = ele.closest('affine-database-cell-container');
     const row = { id: this.rowId, groupKey: this.groupKey };
-    if (!TableViewRowSelection.includes(selection.selection, row)) {
-      selection.selection = TableViewRowSelection.create({
+    if (!TableRowSelection.includes(selection.selection, row)) {
+      selection.selection = TableRowSelection.create({
         rows: [row],
       });
     }
@@ -204,7 +201,7 @@ export class TableRow extends SignalWatcher(WithDisposable(ShadowlessElement)) {
               return;
             }
             this.setSelection(
-              TableViewRowSelection.create({
+              TableRowSelection.create({
                 rows: [{ id: this.rowId, groupKey: this.groupKey }],
               })
             );
@@ -217,14 +214,14 @@ export class TableRow extends SignalWatcher(WithDisposable(ShadowlessElement)) {
             const ele = e.currentTarget as HTMLElement;
             const selection = this.selectionController.selection;
             if (
-              !TableViewRowSelection.is(selection) ||
+              !TableRowSelection.is(selection) ||
               !selection.rows.some(
                 row => row.id === this.rowId && row.groupKey === this.groupKey
               )
             ) {
               const row = { id: this.rowId, groupKey: this.groupKey };
               this.setSelection(
-                TableViewRowSelection.create({
+                TableRowSelection.create({
                   rows: [row],
                 })
               );

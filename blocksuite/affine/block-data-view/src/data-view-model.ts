@@ -33,7 +33,7 @@ export class DataViewBlockModel extends BlockModel<Props> {
   }
 
   duplicateView(id: string): string {
-    const newId = this.doc.workspace.idGenerator();
+    const newId = this.doc.generateBlockId();
     this.doc.transact(() => {
       const index = this.views.findIndex(v => v.id === id);
       const view = this.views[index];

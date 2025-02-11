@@ -14,7 +14,6 @@ export { WorkbenchRoot } from './view/workbench-root';
 import { type Framework } from '@toeverything/infra';
 
 import { DesktopApiService } from '../desktop-api';
-import { PeekViewService } from '../peek-view';
 import { GlobalStateService } from '../storage';
 import { WorkspaceScope } from '../workspace';
 import { SidebarTab } from './entities/sidebar-tab';
@@ -65,9 +64,5 @@ export function configureDesktopWorkbenchModule(services: Framework) {
     .impl(WorkbenchNewTabHandler, DesktopWorkbenchNewTabHandler, [
       DesktopApiService,
     ])
-    .service(DesktopStateSynchronizer, [
-      WorkbenchService,
-      DesktopApiService,
-      PeekViewService,
-    ]);
+    .service(DesktopStateSynchronizer, [WorkbenchService, DesktopApiService]);
 }

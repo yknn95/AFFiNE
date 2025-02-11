@@ -1,3 +1,4 @@
+import { BLOCK_CHILDREN_CONTAINER_PADDING_LEFT } from '@blocksuite/affine-shared/consts';
 import { expect } from '@playwright/test';
 
 import {
@@ -21,7 +22,6 @@ import {
   initParagraphsByCount,
 } from './utils/actions/misc.js';
 import { assertRichTexts } from './utils/asserts.js';
-import { BLOCK_CHILDREN_CONTAINER_PADDING_LEFT } from './utils/bs-alternative.js';
 import { test } from './utils/playwright.js';
 
 test('only have one drag handle in screen', async ({ page }) => {
@@ -66,7 +66,7 @@ test('move drag handle in paragraphs', async ({ page }) => {
   await initThreeParagraphs(page);
   await assertRichTexts(page, ['123', '456', '789']);
   await dragHandleFromBlockToBlockBottomById(page, '2', '4');
-  await expect(page.locator('.affine-drop-indicator')).toBeHidden();
+  await expect(page.locator('.affine-drag-indicator')).toBeHidden();
   await assertRichTexts(page, ['456', '789', '123']);
 });
 
@@ -76,8 +76,8 @@ test('move drag handle in list', async ({ page }) => {
   await initThreeLists(page);
   await assertRichTexts(page, ['123', '456', '789']);
   await dragHandleFromBlockToBlockBottomById(page, '5', '3', false);
-  await expect(page.locator('.affine-drop-indicator')).toBeHidden();
-  await assertRichTexts(page, ['123', '789', '456']);
+  await expect(page.locator('.affine-drag-indicator')).toBeHidden();
+  await assertRichTexts(page, ['789', '123', '456']);
 });
 
 test('move drag handle in nested block', async ({ page }) => {
@@ -106,11 +106,11 @@ test('move drag handle in nested block', async ({ page }) => {
   await assertRichTexts(page, ['1', '2', '21', '22', '23', '3']);
 
   await dragHandleFromBlockToBlockBottomById(page, '5', '7');
-  await expect(page.locator('.affine-drop-indicator')).toBeHidden();
+  await expect(page.locator('.affine-drag-indicator')).toBeHidden();
   await assertRichTexts(page, ['1', '2', '22', '23', '21', '3']);
 
   await dragHandleFromBlockToBlockBottomById(page, '3', '8');
-  await expect(page.locator('.affine-drop-indicator')).toBeHidden();
+  await expect(page.locator('.affine-drag-indicator')).toBeHidden();
   await assertRichTexts(page, ['2', '22', '23', '21', '3', '1']);
 });
 
@@ -146,7 +146,7 @@ test('move drag handle into another block', async ({ page }) => {
     true,
     2 * BLOCK_CHILDREN_CONTAINER_PADDING_LEFT
   );
-  await expect(page.locator('.affine-drop-indicator')).toBeHidden();
+  await expect(page.locator('.affine-drag-indicator')).toBeHidden();
   await assertRichTexts(page, ['1', '2', '22', '23', '21', '3']);
   // FIXME(DND)
   // await assertBlockChildrenIds(page, '7', ['5']);
@@ -158,7 +158,7 @@ test('move drag handle into another block', async ({ page }) => {
   //   true,
   //   2 * BLOCK_CHILDREN_CONTAINER_PADDING_LEFT
   // );
-  // await expect(page.locator('.affine-drop-indicator')).toBeHidden();
+  // await expect(page.locator('.affine-drag-indicator')).toBeHidden();
   // await assertRichTexts(page, ['2', '22', '23', '21', '3', '1']);
   // await assertBlockChildrenIds(page, '8', ['3']);
 });
@@ -193,7 +193,7 @@ test('move to the last block of each level in multi-level nesting', async ({
   );
 
   await dragHandleFromBlockToBlockBottomById(page, '3', '9');
-  await expect(page.locator('.affine-drop-indicator')).toBeHidden();
+  await expect(page.locator('.affine-drag-indicator')).toBeHidden();
 
   expect(await getPageSnapshot(page, true)).toMatchSnapshot(
     `${testInfo.title}_drag_3_9.json`
@@ -206,7 +206,7 @@ test('move to the last block of each level in multi-level nesting', async ({
     true,
     -(1 * BLOCK_CHILDREN_CONTAINER_PADDING_LEFT)
   );
-  await expect(page.locator('.affine-drop-indicator')).toBeHidden();
+  await expect(page.locator('.affine-drag-indicator')).toBeHidden();
 
   expect(await getPageSnapshot(page, true)).toMatchSnapshot(
     `${testInfo.title}_drag_4_3.json`
@@ -220,7 +220,7 @@ test('move to the last block of each level in multi-level nesting', async ({
     true,
     -(2 * BLOCK_CHILDREN_CONTAINER_PADDING_LEFT)
   );
-  await expect(page.locator('.affine-drop-indicator')).toBeHidden();
+  await expect(page.locator('.affine-drag-indicator')).toBeHidden();
 
   // FIXME(DND)
   // expect(await getPageSnapshot(page, true)).toMatchSnapshot(
@@ -277,7 +277,7 @@ test.fixme(
     await expect(blockSelections).toHaveCount(2);
 
     await dragHandleFromBlockToBlockBottomById(page, '2', '4', true);
-    await expect(page.locator('.affine-drop-indicator')).toBeHidden();
+    await expect(page.locator('.affine-drag-indicator')).toBeHidden();
 
     await assertRichTexts(page, ['789', '123', '456']);
 
@@ -350,7 +350,7 @@ test('should blur rich-text first on starting block selection', async ({
   await expect(page.locator('*:focus')).toHaveCount(1);
 
   await dragHandleFromBlockToBlockBottomById(page, '2', '4');
-  await expect(page.locator('.affine-drop-indicator')).toBeHidden();
+  await expect(page.locator('.affine-drag-indicator')).toBeHidden();
   await assertRichTexts(page, ['456', '789', '123']);
 
   await expect(page.locator('*:focus')).toHaveCount(0);
@@ -628,7 +628,7 @@ test.fixme(
       const { doc } = window;
 
       const rootId = doc.addBlock('affine:page', {
-        title: new window.$blocksuite.store.Text(),
+        title: new doc.Text(),
       });
       doc.addBlock('affine:surface', {}, rootId);
 
@@ -637,7 +637,7 @@ test.fixme(
         doc.addBlock(
           'affine:paragraph',
           {
-            text: new window.$blocksuite.store.Text(text),
+            text: new doc.Text(text),
           },
           noteId
         );

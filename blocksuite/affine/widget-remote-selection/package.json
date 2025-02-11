@@ -13,14 +13,12 @@
   "author": "toeverything",
   "license": "MIT",
   "dependencies": {
-    "@blocksuite/affine-block-surface": "workspace:*",
-    "@blocksuite/affine-components": "workspace:*",
     "@blocksuite/affine-model": "workspace:*",
     "@blocksuite/affine-shared": "workspace:*",
     "@blocksuite/block-std": "workspace:*",
     "@blocksuite/global": "workspace:*",
     "@preact/signals-core": "^1.8.0",
-    "@toeverything/theme": "^1.1.7",
+    "@toeverything/theme": "^1.1.3",
     "lit": "^3.2.0"
   },
   "exports": {

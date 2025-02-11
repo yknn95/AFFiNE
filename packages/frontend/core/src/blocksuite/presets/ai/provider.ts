@@ -3,7 +3,7 @@ import {
   PaymentRequiredError,
   UnauthorizedError,
 } from '@blocksuite/affine/blocks';
-import { Slot } from '@blocksuite/affine/global/utils';
+import { Slot } from '@blocksuite/affine/store';
 import { captureException } from '@sentry/react';
 
 import type { ChatContextValue } from './chat-panel/chat-context';
@@ -20,6 +20,7 @@ export interface AIChatParams {
   mode?: 'page' | 'edgeless';
   // Auto select and append selection to input via `Continue with AI` action.
   autoSelect?: boolean;
+  appendCard?: boolean;
 }
 
 export interface AISendParams {
@@ -127,6 +128,11 @@ export class AIProvider {
     }>(),
     // downstream can emit this slot to notify ai presets that user info has been updated
     userInfo: new Slot<AIUserInfo | null>(),
+    // add more if needed
+    toggleChatCards: new Slot<{
+      visible: boolean;
+      ok?: boolean;
+    }>(),
   };
 
   // track the history of triggered actions (in memory only)

@@ -1,6 +1,4 @@
 // Please add modules to `external` in `rollupOptions` to avoid wrong bundling.
-import type { MessagePort } from 'node:worker_threads';
-
 import type { EventBasedChannel } from 'async-call-rpc';
 import { AsyncCall } from 'async-call-rpc';
 import { ipcRenderer } from 'electron';
@@ -137,13 +135,12 @@ const helperPort = new Promise<MessagePort>(resolve =>
 const createMessagePortChannel = (port: MessagePort): EventBasedChannel => {
   return {
     on(listener) {
-      const listen = (e: MessageEvent) => {
+      port.onmessage = e => {
         listener(e.data);
       };
-      port.addEventListener('message', listen as any);
       port.start();
       return () => {
-        port.removeEventListener('message', listen as any);
+        port.onmessage = null;
         try {
           port.close();
         } catch (err) {
@@ -248,3 +245,47 @@ export const events = {
   ...mainAPIs.events,
   ...helperAPIs.events,
 };
+
+// Create MessagePort that can be used by web workers
+export function requestWebWorkerPort() {
+  const ch = new MessageChannel();
+
+  const localPort = ch.port1;
+  const remotePort = ch.port2;
+
+  // todo: should be able to let the web worker use the electron APIs directly for better performance
+  const flattenedAPIs = Object.entries(apis).flatMap(([namespace, api]) => {
+    return Object.entries(api as any).map(([method, fn]) => [
+      `${namespace}:${method}`,
+      fn,
+    ]);
+  });
+
+  AsyncCall(Object.fromEntries(flattenedAPIs), {
+    channel: createMessagePortChannel(localPort),
+    log: false,
+  });
+
+  const cleanup = () => {
+    remotePort.close();
+    localPort.close();
+  };
+
+  const portId = crypto.randomUUID();
+
+  setTimeout(() => {
+    window.postMessage(
+      {
+        type: 'electron:request-api-port',
+        portId,
+        ports: [remotePort],
+      },
+      '*',
+      [remotePort]
+    );
+  });
+
+  localPort.start();
+
+  return { portId, cleanup };
+}

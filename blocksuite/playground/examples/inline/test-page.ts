@@ -1,3 +1,4 @@
+/* eslint-disable @typescript-eslint/no-non-null-assertion */
 import '@shoelace-style/shoelace';
 
 import { ShadowlessElement } from '@blocksuite/block-std';
@@ -190,9 +191,8 @@ export class TestRichText extends ShadowlessElement {
         }
 
         code {
-          font-family:
-            'SFMono-Regular', Menlo, Consolas, 'PT Mono', 'Liberation Mono',
-            Courier, monospace;
+          font-family: 'SFMono-Regular', Menlo, Consolas, 'PT Mono',
+            'Liberation Mono', Courier, monospace;
           line-height: normal;
           background: rgba(135, 131, 120, 0.15);
           color: #eb5757;
@@ -203,9 +203,8 @@ export class TestRichText extends ShadowlessElement {
 
         .v-range,
         .y-text {
-          font-family:
-            'SFMono-Regular', Menlo, Consolas, 'PT Mono', 'Liberation Mono',
-            Courier, monospace;
+          font-family: 'SFMono-Regular', Menlo, Consolas, 'PT Mono',
+            'Liberation Mono', Courier, monospace;
           line-height: normal;
           background: rgba(135, 131, 120, 0.15);
         }

@@ -28,7 +28,6 @@ test-results
 # per files
 tools/cli/src/webpack/error-handler.js
 packages/backend/native/index.d.ts
-packages/backend/server/src/__tests__/__snapshots__
 packages/frontend/native/index.d.ts
 packages/frontend/native/index.js
 packages/frontend/graphql/src/graphql/index.ts

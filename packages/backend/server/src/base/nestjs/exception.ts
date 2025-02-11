@@ -95,7 +95,6 @@ function toWebsocketError(error: UserFriendlyError) {
     name: error.name.toUpperCase(),
     message: error.message,
     data: error.data,
-    requestId: error.requestId,
   };
 }
 

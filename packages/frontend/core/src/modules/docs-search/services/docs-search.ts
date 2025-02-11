@@ -1,5 +1,5 @@
 import { toURLSearchParams } from '@affine/core/modules/navigation';
-import type { ReferenceParams } from '@blocksuite/affine/blocks';
+import type { ReferenceParams } from '@blocksuite/blocks';
 import { fromPromise, OnEvent, Service } from '@toeverything/infra';
 import { isEmpty, omit } from 'lodash-es';
 import { map, type Observable, switchMap } from 'rxjs';

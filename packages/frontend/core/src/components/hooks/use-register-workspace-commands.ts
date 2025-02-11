@@ -1,14 +1,10 @@
 import { AppSidebarService } from '@affine/core/modules/app-sidebar';
 import { DesktopApiService } from '@affine/core/modules/desktop-api';
-import {
-  GlobalDialogService,
-  WorkspaceDialogService,
-} from '@affine/core/modules/dialogs';
+import { GlobalDialogService } from '@affine/core/modules/dialogs';
 import { I18nService } from '@affine/core/modules/i18n';
 import { UrlService } from '@affine/core/modules/url';
 import { WorkspaceService } from '@affine/core/modules/workspace';
 import { useI18n } from '@affine/i18n';
-import { TextSelection } from '@blocksuite/affine/block-std';
 import type { AffineEditorContainer } from '@blocksuite/affine/presets';
 import { useService, useServiceOptional } from '@toeverything/infra';
 import { useStore } from 'jotai';
@@ -33,7 +29,7 @@ import { useActiveBlocksuiteEditor } from './use-block-suite-editor';
 import { useNavigateHelper } from './use-navigate-helper';
 
 function hasLinkPopover(editor: AffineEditorContainer | null) {
-  const textSelection = editor?.host?.std.selection.find(TextSelection);
+  const textSelection = editor?.host?.std.selection.find('text');
   if (editor && textSelection && textSelection.from.length > 0) {
     const formatBar = editor.host?.querySelector('affine-format-bar-widget');
     if (formatBar) {
@@ -79,7 +75,6 @@ export function useRegisterWorkspaceCommands() {
   const [editor] = useActiveBlocksuiteEditor();
   const cmdkQuickSearchService = useService(CMDKQuickSearchService);
   const editorSettingService = useService(EditorSettingService);
-  const workspaceDialogService = useService(WorkspaceDialogService);
   const globalDialogService = useService(GlobalDialogService);
   const appSidebarService = useService(AppSidebarService);
   const i18n = useService(I18nService).i18n;
@@ -119,7 +114,7 @@ export function useRegisterWorkspaceCommands() {
       t,
       docCollection: currentWorkspace.docCollection,
       navigationHelper,
-      workspaceDialogService,
+      globalDialogService,
     });
 
     return () => {
@@ -131,7 +126,6 @@ export function useRegisterWorkspaceCommands() {
     currentWorkspace.docCollection,
     navigationHelper,
     globalDialogService,
-    workspaceDialogService,
   ]);
 
   // register AffineSettingsCommands
@@ -187,11 +181,11 @@ export function useRegisterWorkspaceCommands() {
     const unsub = registerAffineHelpCommands({
       t,
       urlService,
-      workspaceDialogService,
+      globalDialogService,
     });
 
     return () => {
       unsub();
     };
-  }, [t, globalDialogService, urlService, workspaceDialogService]);
+  }, [t, globalDialogService, urlService]);
 }

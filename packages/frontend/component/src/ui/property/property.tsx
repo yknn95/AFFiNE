@@ -2,7 +2,7 @@ import type { Edge } from '@atlaskit/pragmatic-drag-and-drop-hitbox/closest-edge
 import {
   ArrowDownSmallIcon,
   ArrowUpSmallIcon,
-  ToggleDownIcon,
+  ToggleExpandIcon,
 } from '@blocksuite/icons/rc';
 import * as Collapsible from '@radix-ui/react-collapsible';
 import clsx from 'clsx';
@@ -94,7 +94,7 @@ export const PropertyCollapsibleSection = forwardRef<
             >
               {title}
             </div>
-            <ToggleDownIcon
+            <ToggleExpandIcon
               className={styles.sectionCollapsedIcon}
               data-collapsed={finalCollapsed}
             />

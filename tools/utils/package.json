@@ -13,7 +13,7 @@
   },
   "dependencies": {
     "@types/lodash-es": "^4.17.12",
-    "@types/node": "^22.0.0",
+    "@types/node": "^20.17.10",
     "chalk": "^5.3.0",
     "lodash-es": "^4.17.21",
     "typescript": "^5.5.4"

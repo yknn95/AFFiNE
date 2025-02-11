@@ -21,13 +21,14 @@ import {
   Throttle,
   URLHelper,
 } from '../../base';
-import { Models, TokenType } from '../../models';
 import { Admin } from '../common';
+import { UserService } from '../user';
 import { UserType } from '../user/types';
 import { validators } from '../utils/validators';
 import { Public } from './guard';
 import { AuthService } from './service';
 import { CurrentUser } from './session';
+import { TokenService, TokenType } from './token';
 
 @ObjectType('tokenType')
 export class ClientTokenType {
@@ -47,7 +48,8 @@ export class AuthResolver {
   constructor(
     private readonly url: URLHelper,
     private readonly auth: AuthService,
-    private readonly models: Models
+    private readonly user: UserService,
+    private readonly token: TokenService
   ) {}
 
   @SkipThrottle()
@@ -94,7 +96,7 @@ export class AuthResolver {
     }
 
     // NOTE: Set & Change password are using the same token type.
-    const valid = await this.models.verificationToken.verify(
+    const valid = await this.token.verifyToken(
       TokenType.ChangePassword,
       token,
       {
@@ -119,13 +121,9 @@ export class AuthResolver {
     @Args('email') email: string
   ) {
     // @see [sendChangeEmail]
-    const valid = await this.models.verificationToken.verify(
-      TokenType.VerifyEmail,
-      token,
-      {
-        credential: user.id,
-      }
-    );
+    const valid = await this.token.verifyToken(TokenType.VerifyEmail, token, {
+      credential: user.id,
+    });
 
     if (!valid) {
       throw new InvalidEmailToken();
@@ -154,7 +152,7 @@ export class AuthResolver {
       throw new EmailVerificationRequired();
     }
 
-    const token = await this.models.verificationToken.create(
+    const token = await this.token.createToken(
       TokenType.ChangePassword,
       user.id
     );
@@ -197,10 +195,7 @@ export class AuthResolver {
       throw new EmailVerificationRequired();
     }
 
-    const token = await this.models.verificationToken.create(
-      TokenType.ChangeEmail,
-      user.id
-    );
+    const token = await this.token.createToken(TokenType.ChangeEmail, user.id);
 
     const url = this.url.link(callbackUrl, { token });
 
@@ -220,19 +215,15 @@ export class AuthResolver {
     }
 
     validators.assertValidEmail(email);
-    const valid = await this.models.verificationToken.verify(
-      TokenType.ChangeEmail,
-      token,
-      {
-        credential: user.id,
-      }
-    );
+    const valid = await this.token.verifyToken(TokenType.ChangeEmail, token, {
+      credential: user.id,
+    });
 
     if (!valid) {
       throw new InvalidEmailToken();
     }
 
-    const hasRegistered = await this.models.user.getUserByEmail(email);
+    const hasRegistered = await this.user.findUserByEmail(email);
 
     if (hasRegistered) {
       if (hasRegistered.id !== user.id) {
@@ -242,7 +233,7 @@ export class AuthResolver {
       }
     }
 
-    const verifyEmailToken = await this.models.verificationToken.create(
+    const verifyEmailToken = await this.token.createToken(
       TokenType.VerifyEmail,
       user.id
     );
@@ -258,10 +249,7 @@ export class AuthResolver {
     @CurrentUser() user: CurrentUser,
     @Args('callbackUrl') callbackUrl: string
   ) {
-    const token = await this.models.verificationToken.create(
-      TokenType.VerifyEmail,
-      user.id
-    );
+    const token = await this.token.createToken(TokenType.VerifyEmail, user.id);
 
     const url = this.url.link(callbackUrl, { token });
 
@@ -278,13 +266,9 @@ export class AuthResolver {
       throw new EmailTokenNotFound();
     }
 
-    const valid = await this.models.verificationToken.verify(
-      TokenType.VerifyEmail,
-      token,
-      {
-        credential: user.id,
-      }
-    );
+    const valid = await this.token.verifyToken(TokenType.VerifyEmail, token, {
+      credential: user.id,
+    });
 
     if (!valid) {
       throw new InvalidEmailToken();
@@ -303,7 +287,7 @@ export class AuthResolver {
     @Args('userId') userId: string,
     @Args('callbackUrl') callbackUrl: string
   ): Promise<string> {
-    const token = await this.models.verificationToken.create(
+    const token = await this.token.createToken(
       TokenType.ChangePassword,
       userId
     );

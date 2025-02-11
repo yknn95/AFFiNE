@@ -18,7 +18,7 @@ import { query, state } from 'lit/decorators.js';
 import { html } from 'lit/static-html.js';
 
 import { HostContextKey } from '../../context/host-context.js';
-import { linkPropertyModelConfig } from './define.js';
+import { linkColumnModelConfig } from './define.js';
 
 export class LinkCell extends BaseCellRenderer<string> {
   static override styles = css`
@@ -119,10 +119,9 @@ export class LinkCell extends BaseCellRenderer<string> {
       return;
     }
 
-    std.getOptional(RefNodeSlotsProvider)?.docLinkClicked.emit({
-      pageId: this.docId,
-      host: std.host,
-    });
+    std
+      .getOptional(RefNodeSlotsProvider)
+      ?.docLinkClicked.emit({ pageId: this.docId });
   };
 
   get std() {
@@ -133,7 +132,7 @@ export class LinkCell extends BaseCellRenderer<string> {
   override render() {
     const linkText = this.value ?? '';
     const docName =
-      this.docId && this.std?.workspace.getDoc(this.docId)?.meta?.title;
+      this.docId && this.std?.collection.getDoc(this.docId)?.meta?.title;
     return html`
       <div class="affine-database-link" @click="${this._onClick}">
         ${docName
@@ -248,7 +247,7 @@ export class LinkCellEditing extends BaseCellRenderer<string> {
   private accessor _container!: HTMLInputElement;
 }
 
-export const linkColumnConfig = linkPropertyModelConfig.createPropertyMeta({
+export const linkColumnConfig = linkColumnModelConfig.createPropertyMeta({
   icon: createIcon('LinkIcon'),
   cellRenderer: {
     view: createFromBaseCellRenderer(LinkCell),

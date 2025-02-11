@@ -4,12 +4,9 @@ MIT License
 Copyright (c) 2020 Titus Wormer <tituswormer@gmail.com>
 
 mdast-util-gfm-autolink-literal is from markdown only.
+mdast-util-gfm-footnote is not included.
 */
 import { gfmAutolinkLiteralFromMarkdown } from 'mdast-util-gfm-autolink-literal';
-import {
-  gfmFootnoteFromMarkdown,
-  gfmFootnoteToMarkdown,
-} from 'mdast-util-gfm-footnote';
 import {
   gfmStrikethroughFromMarkdown,
   gfmStrikethroughToMarkdown,
@@ -20,7 +17,6 @@ import {
   gfmTaskListItemToMarkdown,
 } from 'mdast-util-gfm-task-list-item';
 import { gfmAutolinkLiteral } from 'micromark-extension-gfm-autolink-literal';
-import { gfmFootnote } from 'micromark-extension-gfm-footnote';
 import { gfmStrikethrough } from 'micromark-extension-gfm-strikethrough';
 import { gfmTable } from 'micromark-extension-gfm-table';
 import { gfmTaskListItem } from 'micromark-extension-gfm-task-list-item';
@@ -33,7 +29,6 @@ export function gfm() {
     gfmStrikethrough(),
     gfmTable(),
     gfmTaskListItem(),
-    gfmFootnote(),
   ]);
 }
 
@@ -43,7 +38,6 @@ function gfmFromMarkdown() {
     gfmTableFromMarkdown(),
     gfmTaskListItemFromMarkdown(),
     gfmAutolinkLiteralFromMarkdown(),
-    gfmFootnoteFromMarkdown(),
   ];
 }
 
@@ -53,7 +47,6 @@ function gfmToMarkdown() {
       gfmStrikethroughToMarkdown(),
       gfmTableToMarkdown(),
       gfmTaskListItemToMarkdown(),
-      gfmFootnoteToMarkdown(),
     ],
   };
 }

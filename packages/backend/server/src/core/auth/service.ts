@@ -1,10 +1,15 @@
 import { Injectable, OnApplicationBootstrap } from '@nestjs/common';
+import { Cron, CronExpression } from '@nestjs/schedule';
+import type { User, UserSession } from '@prisma/client';
+import { PrismaClient } from '@prisma/client';
 import type { CookieOptions, Request, Response } from 'express';
 import { assign, pick } from 'lodash-es';
 
 import { Config, MailService, SignUpForbidden } from '../../base';
-import { Models, type User, type UserSession } from '../../models';
-import { FeatureService } from '../features';
+import { FeatureManagementService } from '../features/management';
+import { QuotaService } from '../quota/service';
+import { QuotaType } from '../quota/types';
+import { UserService } from '../user/service';
 import type { CurrentUser } from './session';
 
 export function sessionUser(
@@ -41,41 +46,36 @@ export class AuthService implements OnApplicationBootstrap {
 
   constructor(
     private readonly config: Config,
-    private readonly models: Models,
+    private readonly db: PrismaClient,
     private readonly mailer: MailService,
-    private readonly feature: FeatureService
+    private readonly feature: FeatureManagementService,
+    private readonly quota: QuotaService,
+    private readonly user: UserService
   ) {}
 
   async onApplicationBootstrap() {
     if (this.config.node.dev) {
       try {
         const [email, name, password] = ['dev@affine.pro', 'Dev User', 'dev'];
-        let devUser = await this.models.user.getUserByEmail(email);
+        let devUser = await this.user.findUserByEmail(email);
         if (!devUser) {
-          devUser = await this.models.user.create({
+          devUser = await this.user.createUser_without_verification({
             email,
             name,
             password,
           });
         }
-        await this.models.userFeature.add(
-          devUser.id,
-          'administrator',
-          'dev user'
-        );
-        await this.models.userFeature.add(
-          devUser.id,
-          'unlimited_copilot',
-          'dev user'
-        );
+        await this.quota.switchUserQuota(devUser.id, QuotaType.ProPlanV1);
+        await this.feature.addAdmin(devUser.id);
+        await this.feature.addCopilot(devUser.id);
       } catch {
         // ignore
       }
     }
   }
 
-  async canSignIn(email: string) {
-    return await this.feature.canEarlyAccess(email);
+  canSignIn(email: string) {
+    return this.feature.canEarlyAccess(email);
   }
 
   /**
@@ -88,8 +88,8 @@ export class AuthService implements OnApplicationBootstrap {
       );
     }
 
-    return this.models.user
-      .create({
+    return this.user
+      .createUser_without_verification({
         email,
         password,
       })
@@ -97,15 +97,24 @@ export class AuthService implements OnApplicationBootstrap {
   }
 
   async signIn(email: string, password: string): Promise<CurrentUser> {
-    return this.models.user.signIn(email, password).then(sessionUser);
+    return this.user.signIn(email, password).then(sessionUser);
   }
 
   async signOut(sessionId: string, userId?: string) {
     // sign out all users in the session
     if (!userId) {
-      await this.models.session.deleteSession(sessionId);
+      await this.db.session.deleteMany({
+        where: {
+          id: sessionId,
+        },
+      });
     } else {
-      await this.models.session.deleteUserSession(userId, sessionId);
+      await this.db.userSession.deleteMany({
+        where: {
+          sessionId,
+          userId,
+        },
+      });
     }
   }
 
@@ -129,11 +138,11 @@ export class AuthService implements OnApplicationBootstrap {
     // fallback to the first valid session if user provided userId is invalid
     if (!userSession) {
       // checked
-      // oxlint-disable-next-line @typescript-eslint/no-non-null-assertion
+      // eslint-disable-next-line @typescript-eslint/no-non-null-assertion
       userSession = sessions.at(-1)!;
     }
 
-    const user = await this.models.user.get(userSession.userId);
+    const user = await this.user.findUserById(userSession.userId);
 
     if (!user) {
       return null;
@@ -143,50 +152,127 @@ export class AuthService implements OnApplicationBootstrap {
   }
 
   async getUserSessions(sessionId: string) {
-    return await this.models.session.findUserSessionsBySessionId(sessionId);
+    return this.db.userSession.findMany({
+      where: {
+        sessionId,
+        OR: [{ expiresAt: { gt: new Date() } }, { expiresAt: null }],
+      },
+      orderBy: {
+        createdAt: 'asc',
+      },
+    });
   }
 
-  async createUserSession(userId: string, sessionId?: string, ttl?: number) {
-    return await this.models.session.createOrRefreshUserSession(
-      userId,
-      sessionId,
-      ttl
-    );
+  async createUserSession(
+    userId: string,
+    sessionId?: string,
+    ttl = this.config.auth.session.ttl
+  ) {
+    // check whether given session is valid
+    if (sessionId) {
+      const session = await this.db.session.findFirst({
+        where: {
+          id: sessionId,
+        },
+      });
+
+      if (!session) {
+        sessionId = undefined;
+      }
+    }
+
+    if (!sessionId) {
+      const session = await this.createSession();
+      sessionId = session.id;
+    }
+
+    const expiresAt = new Date(Date.now() + ttl * 1000);
+
+    return this.db.userSession.upsert({
+      where: {
+        sessionId_userId: {
+          sessionId,
+          userId,
+        },
+      },
+      update: {
+        expiresAt,
+      },
+      create: {
+        sessionId,
+        userId,
+        expiresAt,
+      },
+    });
   }
 
   async getUserList(sessionId: string) {
-    const sessions = await this.models.session.findUserSessionsBySessionId(
-      sessionId,
-      {
+    const sessions = await this.db.userSession.findMany({
+      where: {
+        sessionId,
+        OR: [
+          {
+            expiresAt: null,
+          },
+          {
+            expiresAt: {
+              gt: new Date(),
+            },
+          },
+        ],
+      },
+      include: {
         user: true,
-      }
-    );
+      },
+      orderBy: {
+        createdAt: 'asc',
+      },
+    });
+
     return sessions.map(({ user }) => sessionUser(user));
   }
 
   async createSession() {
-    return await this.models.session.createSession();
+    return this.db.session.create({
+      data: {},
+    });
   }
 
   async getSession(sessionId: string) {
-    return await this.models.session.getSession(sessionId);
+    return this.db.session.findFirst({
+      where: {
+        id: sessionId,
+      },
+    });
   }
 
   async refreshUserSessionIfNeeded(
     res: Response,
-    userSession: UserSession,
-    ttr?: number
+    session: UserSession,
+    ttr = this.config.auth.session.ttr
   ): Promise<boolean> {
-    const newExpiresAt = await this.models.session.refreshUserSessionIfNeeded(
-      userSession,
-      ttr
-    );
-    if (!newExpiresAt) {
+    if (
+      session.expiresAt &&
+      session.expiresAt.getTime() - Date.now() > ttr * 1000
+    ) {
       // no need to refresh
       return false;
     }
 
-    res.cookie(AuthService.sessionCookieName, userSession.sessionId, {
+    const newExpiresAt = new Date(
+      Date.now() + this.config.auth.session.ttl * 1000
+    );
+
+    await this.db.userSession.update({
+      where: {
+        id: session.id,
+      },
+      data: {
+        expiresAt: newExpiresAt,
+      },
+    });
+
+    res.cookie(AuthService.sessionCookieName, session.sessionId, {
       expires: newExpiresAt,
       ...this.cookieOptions,
     });
@@ -195,7 +281,11 @@ export class AuthService implements OnApplicationBootstrap {
   }
 
   async revokeUserSessions(userId: string) {
-    return await this.models.session.deleteUserSession(userId);
+    return this.db.userSession.deleteMany({
+      where: {
+        userId,
+      },
+    });
   }
 
   getSessionOptionsFromRequest(req: Request) {
@@ -286,54 +376,64 @@ export class AuthService implements OnApplicationBootstrap {
     id: string,
     newPassword: string
   ): Promise<Omit<User, 'password'>> {
-    return this.models.user.update(id, { password: newPassword });
+    return this.user.updateUser(id, { password: newPassword });
   }
 
   async changeEmail(
     id: string,
     newEmail: string
   ): Promise<Omit<User, 'password'>> {
-    return this.models.user.update(id, {
+    return this.user.updateUser(id, {
       email: newEmail,
       emailVerifiedAt: new Date(),
     });
   }
 
   async setEmailVerified(id: string) {
-    return await this.models.user.update(id, {
-      emailVerifiedAt: new Date(),
-    });
+    return await this.user.updateUser(
+      id,
+      { emailVerifiedAt: new Date() },
+      { emailVerifiedAt: true }
+    );
   }
 
   async sendChangePasswordEmail(email: string, callbackUrl: string) {
-    return this.mailer.sendChangePasswordMail(email, { url: callbackUrl });
+    return this.mailer.sendChangePasswordEmail(email, callbackUrl);
   }
   async sendSetPasswordEmail(email: string, callbackUrl: string) {
-    return this.mailer.sendSetPasswordMail(email, { url: callbackUrl });
+    return this.mailer.sendSetPasswordEmail(email, callbackUrl);
   }
   async sendChangeEmail(email: string, callbackUrl: string) {
-    return this.mailer.sendChangeEmailMail(email, { url: callbackUrl });
+    return this.mailer.sendChangeEmail(email, callbackUrl);
   }
   async sendVerifyChangeEmail(email: string, callbackUrl: string) {
-    return this.mailer.sendVerifyChangeEmail(email, { url: callbackUrl });
+    return this.mailer.sendVerifyChangeEmail(email, callbackUrl);
   }
   async sendVerifyEmail(email: string, callbackUrl: string) {
-    return this.mailer.sendVerifyEmail(email, { url: callbackUrl });
+    return this.mailer.sendVerifyEmail(email, callbackUrl);
   }
   async sendNotificationChangeEmail(email: string) {
-    return this.mailer.sendNotificationChangeEmail(email, {
-      to: email,
-    });
+    return this.mailer.sendNotificationChangeEmail(email);
   }
 
-  async sendSignInEmail(
-    email: string,
-    link: string,
-    otp: string,
-    signUp: boolean
-  ) {
+  async sendSignInEmail(email: string, link: string, signUp: boolean) {
     return signUp
-      ? await this.mailer.sendSignUpMail(email, { url: link, otp })
-      : await this.mailer.sendSignInMail(email, { url: link, otp });
+      ? await this.mailer.sendSignUpMail(link, {
+          to: email,
+        })
+      : await this.mailer.sendSignInMail(link, {
+          to: email,
+        });
+  }
+
+  @Cron(CronExpression.EVERY_DAY_AT_MIDNIGHT)
+  async cleanExpiredSessions() {
+    await this.db.userSession.deleteMany({
+      where: {
+        expiresAt: {
+          lte: new Date(),
+        },
+      },
+    });
   }
 }

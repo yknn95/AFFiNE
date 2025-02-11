@@ -16,11 +16,9 @@ type AppEvents =
 type NavigationEvents =
   | 'openInNewTab'
   | 'openInSplitView'
-  | 'openInPeekView'
   | 'switchTab'
   | 'switchSplitView'
   | 'tabAction'
-  | 'splitViewAction'
   | 'navigate'
   | 'goBack'
   | 'goForward'
@@ -40,7 +38,6 @@ type WorkspaceEvents =
   | 'openWorkspaceList';
 type DocEvents =
   | 'createDoc'
-  | 'quickStart'
   | 'renameDoc'
   | 'linkDoc'
   | 'deleteDoc'
@@ -129,10 +126,6 @@ type AttachmentEvents =
   | 'openPDFRendererFail';
 // END SECTION
 
-// SECTION: template
-type TemplateEvents = 'openTemplateListMenu';
-// END SECTION
-
 type UserEvents =
   | GeneralEvents
   | AppEvents
@@ -148,8 +141,7 @@ type UserEvents =
   | AccountEvents
   | PaymentEvents
   | DNDEvents
-  | AttachmentEvents
-  | TemplateEvents;
+  | AttachmentEvents;
 interface PageDivision {
   [page: string]: {
     [segment: string]: {
@@ -312,13 +304,6 @@ const PageEvents = {
         'openPDFRendererFail',
       ],
     },
-    sidebar: {
-      newDoc: ['quickStart'],
-      template: ['openTemplateListMenu', 'quickStart'],
-    },
-    splitViewIndicator: {
-      $: ['splitViewAction', 'openInSplitView', 'openInPeekView'],
-    },
   },
   doc: {
     editor: {
@@ -327,15 +312,8 @@ const PageEvents = {
       quickSearch: ['createDoc'],
       formatToolbar: ['bold'],
       pageRef: ['navigate'],
-      toolbar: [
-        'copyBlockToLink',
-        'openInSplitView',
-        'openInNewTab',
-        'openInPeekView',
-      ],
+      toolbar: ['copyBlockToLink'],
       aiActions: ['requestSignIn'],
-      pageBlockHeader: ['openDocInfo'],
-      starterBar: ['quickStart', 'openTemplateListMenu'],
     },
     inlineDocInfo: {
       $: ['toggle'],
@@ -422,9 +400,6 @@ type TabActionType =
   | 'switchTab'
   | 'separateTabs';
 
-type SplitViewActionControlType = 'menu' | 'indicator';
-type SplitViewActionType = 'open' | 'close' | 'move' | 'closeOthers';
-
 type AuthArgs = {
   method: 'password' | 'magic-link' | 'oauth';
   provider?: string;
@@ -465,20 +440,15 @@ export type EventArgs = {
   deleteOrganizeItem: OrganizeItemArgs;
   orderOrganizeItem: OrganizeItemArgs;
   openInNewTab: { type: OrganizeItemType };
-  openInSplitView: { type: OrganizeItemType; route?: string };
+  openInSplitView: { type: OrganizeItemType };
   tabAction: {
     type?: OrganizeItemType;
     control: TabActionControlType;
     action: TabActionType;
   };
-  splitViewAction: {
-    control: SplitViewActionControlType;
-    action: SplitViewActionType;
-  };
   toggleFavorite: OrganizeItemArgs & { on: boolean };
   toggle: { type: 'collapse' | 'expand' };
   createDoc: { mode?: 'edgeless' | 'page' };
-  quickStart: { with: 'page' | 'edgeless' | 'template' | 'ai' };
   switchPageMode: { mode: 'edgeless' | 'page' };
   createShareLink: { mode: 'edgeless' | 'page' };
   copyShareLink: {

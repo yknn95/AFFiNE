@@ -4,42 +4,19 @@ import type {
 } from '@blocksuite/block-std/gfx';
 import { GfxCompatible } from '@blocksuite/block-std/gfx';
 import { BlockModel, defineBlockSchema } from '@blocksuite/store';
-import { z } from 'zod';
 
 import {
   FontFamily,
-  FontFamilySchema,
   FontStyle,
-  FontStyleSchema,
   FontWeight,
-  FontWeightSchema,
   TextAlign,
-  TextAlignSchema,
   type TextStyleProps,
 } from '../../consts/index.js';
-import { ColorSchema } from '../../themes/color.js';
-import { DefaultTheme } from '../../themes/default.js';
 
 type EdgelessTextProps = {
   hasMaxWidth: boolean;
 } & Omit<TextStyleProps, 'fontSize'> &
   GfxCommonBlockProps;
-
-export const EdgelessTextZodSchema = z
-  .object({
-    color: ColorSchema,
-    fontFamily: FontFamilySchema,
-    fontWeight: FontWeightSchema,
-    fontStyle: FontStyleSchema,
-    textAlign: TextAlignSchema,
-  })
-  .default({
-    color: DefaultTheme.textColor,
-    fontFamily: FontFamily.Inter,
-    fontWeight: FontWeight.Regular,
-    fontStyle: FontStyle.Normal,
-    textAlign: TextAlign.Left,
-  });
 
 export const EdgelessTextBlockSchema = defineBlockSchema({
   flavour: 'affine:edgeless-text',

@@ -12,9 +12,7 @@ import {
 import {
   BLOCK_ID_ATTR,
   type BlockComponent,
-  BlockSelection,
   ShadowlessElement,
-  TextSelection,
 } from '@blocksuite/block-std';
 import { BlockSuiteError, ErrorCode } from '@blocksuite/global/exceptions';
 import { WithDisposable } from '@blocksuite/global/utils';
@@ -26,7 +24,7 @@ import {
   ZERO_WIDTH_NON_JOINER,
   ZERO_WIDTH_SPACE,
 } from '@blocksuite/inline';
-import type { DocMeta, Store } from '@blocksuite/store';
+import type { Doc, DocMeta } from '@blocksuite/store';
 import { css, html, nothing } from 'lit';
 import { property, state } from 'lit/decorators.js';
 import { choose } from 'lit/directives/choose.js';
@@ -73,13 +71,13 @@ export class AffineReference extends WithDisposable(ShadowlessElement) {
     }
   `;
 
-  private readonly _updateRefMeta = (doc: Store) => {
+  private readonly _updateRefMeta = (doc: Doc) => {
     const refAttribute = this.delta.attributes?.reference;
     if (!refAttribute) {
       return;
     }
 
-    const refMeta = doc.workspace.meta.docMetas.find(
+    const refMeta = doc.collection.meta.docMetas.find(
       doc => doc.id === refAttribute.pageId
     );
     this.refMeta = refMeta
@@ -110,12 +108,12 @@ export class AffineReference extends WithDisposable(ShadowlessElement) {
       if (!selection) {
         return null;
       }
-      const textSelection = selection.find(TextSelection);
+      const textSelection = selection.find('text');
       if (!!textSelection && !textSelection.isCollapsed()) {
         return null;
       }
 
-      const blockSelections = selection.filter(BlockSelection);
+      const blockSelections = selection.filter('block');
       if (blockSelections.length) {
         return null;
       }
@@ -145,9 +143,10 @@ export class AffineReference extends WithDisposable(ShadowlessElement) {
   get _title() {
     const { pageId, params, title } = this.referenceInfo;
     return (
+      title ||
       this.block?.std
         ?.get(DocDisplayMetaProvider)
-        .title(pageId, { params, title, referenced: true }).value || title
+        .title(pageId, { params, title, referenced: true }).value
     );
   }
 
@@ -200,10 +199,9 @@ export class AffineReference extends WithDisposable(ShadowlessElement) {
 
   private _onClick() {
     if (!this.config.interactable) return;
-    this.std.getOptional(RefNodeSlotsProvider)?.docLinkClicked.emit({
-      ...this.referenceInfo,
-      host: this.std.host,
-    });
+    this.std
+      .getOptional(RefNodeSlotsProvider)
+      ?.docLinkClicked.emit(this.referenceInfo);
   }
 
   override connectedCallback() {
@@ -223,7 +221,7 @@ export class AffineReference extends WithDisposable(ShadowlessElement) {
     const doc = this.doc;
     if (doc) {
       this._disposables.add(
-        doc.workspace.slots.docListUpdated.on(() => this._updateRefMeta(doc))
+        doc.collection.slots.docUpdated.on(() => this._updateRefMeta(doc))
       );
     }
 

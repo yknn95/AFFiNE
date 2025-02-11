@@ -20,6 +20,6 @@ export class ShareDocsStore extends Store {
         signal,
       },
     });
-    return data.workspace.publicDocs;
+    return data.workspace.publicPages;
   }
 }

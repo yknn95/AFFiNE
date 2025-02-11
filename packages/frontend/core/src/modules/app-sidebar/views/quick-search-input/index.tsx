@@ -19,7 +19,6 @@ export function QuickSearchInput({ onClick, ...props }: QuickSearchInputProps) {
       {...props}
       className={clsx([props.className, styles.root])}
       onClick={onClick}
-      tabIndex={0}
     >
       <SearchIcon className={styles.icon} />
       <span className={styles.quickSearchBarEllipsisStyle}>

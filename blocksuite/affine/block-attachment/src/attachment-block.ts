@@ -3,7 +3,7 @@ import { CaptionedBlockComponent } from '@blocksuite/affine-components/caption';
 import { HoverController } from '@blocksuite/affine-components/hover';
 import {
   AttachmentIcon16,
-  getAttachmentFileIcon,
+  getAttachmentFileIcons,
 } from '@blocksuite/affine-components/icons';
 import { Peekable } from '@blocksuite/affine-components/peek';
 import { toast } from '@blocksuite/affine-components/toast';
@@ -11,12 +11,8 @@ import {
   type AttachmentBlockModel,
   AttachmentBlockStyles,
 } from '@blocksuite/affine-model';
-import {
-  FileSizeLimitService,
-  ThemeProvider,
-} from '@blocksuite/affine-shared/services';
+import { ThemeProvider } from '@blocksuite/affine-shared/services';
 import { humanFileSize } from '@blocksuite/affine-shared/utils';
-import { BlockSelection, TextSelection } from '@blocksuite/block-std';
 import { Slice } from '@blocksuite/store';
 import { flip, offset } from '@floating-ui/dom';
 import { html, nothing } from 'lit';
@@ -25,13 +21,17 @@ import { classMap } from 'lit/directives/class-map.js';
 import { ref } from 'lit/directives/ref.js';
 import { styleMap } from 'lit/directives/style-map.js';
 
+import type { AttachmentBlockService } from './attachment-service.js';
 import { AttachmentOptionsTemplate } from './components/options.js';
 import { AttachmentEmbedProvider } from './embed.js';
 import { styles } from './styles.js';
 import { checkAttachmentBlob, downloadAttachmentBlob } from './utils.js';
 
 @Peekable()
-export class AttachmentBlockComponent extends CaptionedBlockComponent<AttachmentBlockModel> {
+export class AttachmentBlockComponent extends CaptionedBlockComponent<
+  AttachmentBlockModel,
+  AttachmentBlockService
+> {
   static override styles = styles;
 
   protected _isDragging = false;
@@ -44,7 +44,7 @@ export class AttachmentBlockComponent extends CaptionedBlockComponent<Attachment
     this,
     ({ abortController }) => {
       const selection = this.host.selection;
-      const textSelection = selection.find(TextSelection);
+      const textSelection = selection.find('text');
       if (
         !!textSelection &&
         (!!textSelection.to || !!textSelection.from.length)
@@ -52,7 +52,7 @@ export class AttachmentBlockComponent extends CaptionedBlockComponent<Attachment
         return null;
       }
 
-      const blockSelections = selection.filter(BlockSelection);
+      const blockSelections = selection.filter('block');
       if (
         blockSelections.length > 1 ||
         (blockSelections.length === 1 &&
@@ -85,14 +85,10 @@ export class AttachmentBlockComponent extends CaptionedBlockComponent<Attachment
     margin: '18px 0px',
   });
 
-  private get _maxFileSize() {
-    return this.std.store.get(FileSizeLimitService).maxFileSize;
-  }
-
   convertTo = () => {
     return this.std
       .get(AttachmentEmbedProvider)
-      .convertTo(this.model, this._maxFileSize);
+      .convertTo(this.model, this.service.maxFileSize);
   };
 
   copy = () => {
@@ -108,7 +104,7 @@ export class AttachmentBlockComponent extends CaptionedBlockComponent<Attachment
   embedded = () => {
     return this.std
       .get(AttachmentEmbedProvider)
-      .embedded(this.model, this._maxFileSize);
+      .embedded(this.model, this.service.maxFileSize);
   };
 
   open = () => {
@@ -125,12 +121,12 @@ export class AttachmentBlockComponent extends CaptionedBlockComponent<Attachment
   protected get embedView() {
     return this.std
       .get(AttachmentEmbedProvider)
-      .render(this.model, this.blobUrl, this._maxFileSize);
+      .render(this.model, this.blobUrl, this.service.maxFileSize);
   }
 
   private _selectBlock() {
     const selectionManager = this.host.selection;
-    const blockSelection = selectionManager.create(BlockSelection, {
+    const blockSelection = selectionManager.create('block', {
       blockId: this.blockId,
     });
     selectionManager.setGroup('note', [blockSelection]);
@@ -169,21 +165,25 @@ export class AttachmentBlockComponent extends CaptionedBlockComponent<Attachment
 
     // this is required to prevent iframe from capturing pointer events
     this.disposables.add(
-      this.selected$.subscribe(selected => {
-        this._showOverlay = this._isResizing || this._isDragging || !selected;
+      this.std.selection.slots.changed.on(() => {
+        this._isSelected =
+          !!this.selected?.is('block') || !!this.selected?.is('surface');
+
+        this._showOverlay =
+          this._isResizing || this._isDragging || !this._isSelected;
       })
     );
     // this is required to prevent iframe from capturing pointer events
     this.handleEvent('dragStart', () => {
       this._isDragging = true;
       this._showOverlay =
-        this._isResizing || this._isDragging || !this.selected$.peek();
+        this._isResizing || this._isDragging || !this._isSelected;
     });
 
     this.handleEvent('dragEnd', () => {
       this._isDragging = false;
       this._showOverlay =
-        this._isResizing || this._isDragging || !this.selected$.peek();
+        this._isResizing || this._isDragging || !this._isSelected;
     });
   }
 
@@ -220,7 +220,7 @@ export class AttachmentBlockComponent extends CaptionedBlockComponent<Attachment
     const infoText = this.error ? 'File loading failed.' : humanFileSize(size);
 
     const fileType = name.split('.').pop() ?? '';
-    const FileTypeIcon = getAttachmentFileIcon(fileType);
+    const FileTypeIcon = getAttachmentFileIcons(fileType);
 
     const embedView = this.embedView;
 
@@ -228,6 +228,7 @@ export class AttachmentBlockComponent extends CaptionedBlockComponent<Attachment
       <div
         ${this._whenHover ? ref(this._whenHover.setReference) : nothing}
         class="affine-attachment-container"
+        draggable="${this.blockDraggable ? 'true' : 'false'}"
         style=${this.containerStyleMap}
       >
         ${embedView

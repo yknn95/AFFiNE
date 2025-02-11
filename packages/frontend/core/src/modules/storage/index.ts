@@ -3,13 +3,11 @@ export {
   GlobalSessionState,
   GlobalState,
 } from './providers/global';
-export { NbstoreProvider } from './providers/nbstore';
 export {
   GlobalCacheService,
   GlobalSessionStateService,
   GlobalStateService,
 } from './services/global';
-export { NbstoreService } from './services/nbstore';
 
 import { type Framework } from '@toeverything/infra';
 
@@ -25,19 +23,16 @@ import {
   GlobalSessionState,
   GlobalState,
 } from './providers/global';
-import { NbstoreProvider } from './providers/nbstore';
 import {
   GlobalCacheService,
   GlobalSessionStateService,
   GlobalStateService,
 } from './services/global';
-import { NbstoreService } from './services/nbstore';
 
-export const configureStorageModule = (framework: Framework) => {
+export const configureGlobalStorageModule = (framework: Framework) => {
   framework.service(GlobalStateService, [GlobalState]);
   framework.service(GlobalCacheService, [GlobalCache]);
   framework.service(GlobalSessionStateService, [GlobalSessionState]);
-  framework.service(NbstoreService, [NbstoreProvider]);
 };
 
 export function configureLocalStorageStateStorageImpls(framework: Framework) {

@@ -2,7 +2,7 @@ import {
   type CollapsibleSectionName,
   ExplorerService,
 } from '@affine/core/modules/explorer';
-import { ToggleRightIcon } from '@blocksuite/icons/rc';
+import { ToggleCollapseIcon } from '@blocksuite/icons/rc';
 import * as Collapsible from '@radix-ui/react-collapsible';
 import { useLiveData, useService } from '@toeverything/infra';
 import clsx from 'clsx';
@@ -60,7 +60,7 @@ const CollapsibleSectionTrigger = forwardRef<
       <div className={triggerLabel}>
         {label}
         {collapsible ? (
-          <ToggleRightIcon
+          <ToggleCollapseIcon
             width={16}
             height={16}
             data-testid="category-divider-collapse-button"

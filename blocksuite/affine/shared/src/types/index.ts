@@ -1,8 +1,4 @@
-import type {
-  EmbedCardStyle,
-  FootNote,
-  ReferenceInfo,
-} from '@blocksuite/affine-model';
+import type { EmbedCardStyle, ReferenceInfo } from '@blocksuite/affine-model';
 import type { BlockComponent } from '@blocksuite/block-std';
 import type { BlockModel } from '@blocksuite/store';
 
@@ -74,5 +70,4 @@ export interface AffineTextAttributes {
   background?: string | null;
   color?: string | null;
   latex?: string | null;
-  footnote?: FootNote | null;
 }

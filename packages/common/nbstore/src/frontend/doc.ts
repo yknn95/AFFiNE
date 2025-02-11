@@ -1,14 +1,6 @@
 import { groupBy } from 'lodash-es';
 import { nanoid } from 'nanoid';
-import type { Subscription } from 'rxjs';
-import {
-  combineLatest,
-  map,
-  Observable,
-  ReplaySubject,
-  share,
-  Subject,
-} from 'rxjs';
+import { Subject } from 'rxjs';
 import {
   applyUpdate,
   type Doc as YDoc,
@@ -20,7 +12,7 @@ import type { DocRecord, DocStorage } from '../storage';
 import type { DocSync } from '../sync/doc';
 import { AsyncPriorityQueue } from '../utils/async-priority-queue';
 import { isEmptyUpdate } from '../utils/is-empty-update';
-import { MANUALLY_STOP, throwIfAborted } from '../utils/throw-if-aborted';
+import { throwIfAborted } from '../utils/throw-if-aborted';
 
 const NBSTORE_ORIGIN = 'nbstore-frontend';
 
@@ -44,64 +36,6 @@ interface DocFrontendOptions {
   mergeUpdates?: (updates: Uint8Array[]) => Promise<Uint8Array> | Uint8Array;
 }
 
-export type DocFrontendDocState = {
-  /**
-   * some data is available in yjs doc instance
-   */
-  ready: boolean;
-  /**
-   * data is loaded from local doc storage and applied to yjs doc instance
-   */
-  loaded: boolean;
-  /**
-   * some data is being applied to yjs doc instance, or some data is being saved to local doc storage
-   */
-  updating: boolean;
-  /**
-   * the doc is syncing with remote peers
-   */
-  syncing: boolean;
-  /**
-   * the doc is synced with remote peers
-   */
-  synced: boolean;
-  /**
-   * the doc is retrying to sync with remote peers
-   */
-  syncRetrying: boolean;
-  /**
-   * the error message when syncing with remote peers
-   */
-  syncErrorMessage: string | null;
-};
-
-export type DocFrontendState = {
-  /**
-   * total number of docs
-   */
-  total: number;
-  /**
-   * number of docs that have been loaded to yjs doc instance
-   */
-  loaded: number;
-  /**
-   * number of docs that are syncing with remote peers
-   */
-  syncing: number;
-  /**
-   * whether all docs are synced with remote peers
-   */
-  synced: boolean;
-  /**
-   * whether the doc is retrying to sync with remote peers
-   */
-  syncRetrying: boolean;
-  /**
-   * the error message when syncing with remote peers
-   */
-  syncErrorMessage: string | null;
-};
-
 export class DocFrontend {
   private readonly uniqueId = `frontend:${nanoid()}`;
 
@@ -121,70 +55,10 @@ export class DocFrontend {
   private readonly abort = new AbortController();
 
   constructor(
-    public readonly storage: DocStorage,
-    private readonly sync: DocSync,
+    private readonly storage: DocStorage,
+    private readonly sync: DocSync | null,
     readonly options: DocFrontendOptions = {}
   ) {}
-
-  docState$(docId: string): Observable<DocFrontendDocState> {
-    const frontendState$ = new Observable<{
-      ready: boolean;
-      loaded: boolean;
-      updating: boolean;
-    }>(subscribe => {
-      const next = () => {
-        subscribe.next({
-          ready: this.status.readyDocs.has(docId),
-          loaded: this.status.connectedDocs.has(docId),
-          updating:
-            (this.status.jobMap.get(docId)?.length ?? 0) > 0 ||
-            this.status.currentJob?.docId === docId,
-        });
-      };
-      next();
-      return this.statusUpdatedSubject$.subscribe(updatedId => {
-        if (updatedId === docId) next();
-      });
-    });
-    const syncState$ = this.sync.docState$(docId);
-    return combineLatest([frontendState$, syncState$]).pipe(
-      map(([frontend, sync]) => ({
-        ...frontend,
-        synced: sync.synced,
-        syncing: sync.syncing,
-        syncRetrying: sync.retrying,
-        syncErrorMessage: sync.errorMessage,
-      }))
-    );
-  }
-
-  state$ = combineLatest([
-    new Observable<{ total: number; loaded: number }>(subscriber => {
-      const next = () => {
-        subscriber.next({
-          total: this.status.docs.size,
-          loaded: this.status.connectedDocs.size,
-        });
-      };
-      next();
-      return this.statusUpdatedSubject$.subscribe(() => {
-        next();
-      });
-    }),
-    this.sync.state$,
-  ]).pipe(
-    map(([frontend, sync]) => ({
-      total: sync.total ?? frontend.total,
-      loaded: frontend.loaded,
-      syncing: sync.syncing,
-      synced: sync.synced,
-      syncRetrying: sync.retrying,
-      syncErrorMessage: sync.errorMessage,
-    })),
-    share({
-      connector: () => new ReplaySubject(1),
-    })
-  ) satisfies Observable<DocFrontendState>;
 
   start() {
     if (this.abort.signal.aborted) {
@@ -196,11 +70,10 @@ export class DocFrontend {
   }
 
   stop() {
-    this.abort.abort(MANUALLY_STOP);
+    this.abort.abort();
   }
 
   private async mainLoop(signal?: AbortSignal) {
-    await this.storage.connection.waitForConnected(signal);
     const dispose = this.storage.subscribeDocUpdate((record, origin) => {
       this.event.onStorageUpdate(record, origin);
     });
@@ -251,11 +124,19 @@ export class DocFrontend {
   }
 
   /**
-   * Connect a doc to the frontend, the doc will sync with the doc storage.
-   * @param doc - The doc to connect
+   * Add a doc to the frontend, the doc will sync with the doc storage.
+   * @param doc - The doc to add
+   * @param withSubDoc - Whether to add the subdocs of the doc
    */
-  connectDoc(doc: YDoc) {
-    this._connectDoc(doc);
+  addDoc(doc: YDoc, withSubDoc: boolean = false) {
+    this._addDoc(doc);
+    if (withSubDoc) {
+      doc.on('subdocs', ({ loaded }) => {
+        for (const subdoc of loaded) {
+          this._addDoc(subdoc);
+        }
+      });
+    }
   }
 
   readonly jobs = {
@@ -277,16 +158,18 @@ export class DocFrontend {
       // mark doc as loaded
       doc.emit('sync', [true, doc]);
 
+      this.status.connectedDocs.add(job.docId);
+      this.statusUpdatedSubject$.next(job.docId);
+
       const docRecord = await this.storage.getDoc(job.docId);
       throwIfAborted(signal);
 
-      if (docRecord && !isEmptyUpdate(docRecord.bin)) {
-        this.applyUpdate(job.docId, docRecord.bin);
-
-        this.status.readyDocs.add(job.docId);
+      if (!docRecord || isEmptyUpdate(docRecord.bin)) {
+        return;
       }
 
-      this.status.connectedDocs.add(job.docId);
+      this.applyUpdate(job.docId, docRecord.bin);
+      this.status.readyDocs.add(job.docId);
       this.statusUpdatedSubject$.next(job.docId);
     },
     save: async (
@@ -339,12 +222,12 @@ export class DocFrontend {
   };
 
   /**
-   * Disconnect a doc from the frontend, the doc will stop syncing with the doc storage.
+   * Remove a doc from the frontend, the doc will stop syncing with the doc storage.
    * It's not recommended to use this method directly, better to use `doc.destroy()`.
    *
-   * @param doc - The doc to disconnect
+   * @param doc - The doc to remove
    */
-  disconnectDoc(doc: YDoc) {
+  removeDoc(doc: YDoc) {
     this.status.docs.delete(doc.guid);
     this.status.connectedDocs.delete(doc.guid);
     this.status.readyDocs.delete(doc.guid);
@@ -370,10 +253,7 @@ export class DocFrontend {
     };
   }
 
-  private _connectDoc(doc: YDoc) {
-    if (this.status.docs.has(doc.guid)) {
-      throw new Error('doc already connected');
-    }
+  private _addDoc(doc: YDoc) {
     this.schedule({
       type: 'load',
       docId: doc.guid,
@@ -385,7 +265,7 @@ export class DocFrontend {
     doc.on('update', this.handleDocUpdate);
 
     doc.on('destroy', () => {
-      this.disconnectDoc(doc);
+      this.removeDoc(doc);
     });
   }
 
@@ -433,97 +313,5 @@ export class DocFrontend {
     const merge = this.options?.mergeUpdates ?? mergeUpdates;
 
     return merge(updates.filter(bin => !isEmptyUpdate(bin)));
-  }
-
-  async waitForSynced(abort?: AbortSignal) {
-    let sub: Subscription | undefined = undefined;
-    return Promise.race([
-      new Promise<void>(resolve => {
-        sub = this.state$?.subscribe(status => {
-          if (status.synced) {
-            resolve();
-          }
-        });
-      }),
-      new Promise<void>((_, reject) => {
-        if (abort?.aborted) {
-          reject(abort?.reason);
-        }
-        abort?.addEventListener('abort', () => {
-          reject(abort.reason);
-        });
-      }),
-    ]).finally(() => {
-      sub?.unsubscribe();
-    });
-  }
-
-  async waitForDocLoaded(docId: string, abort?: AbortSignal) {
-    let sub: Subscription | undefined = undefined;
-    return Promise.race([
-      new Promise<void>(resolve => {
-        sub = this.docState$(docId).subscribe(state => {
-          if (state.loaded) {
-            resolve();
-          }
-        });
-      }),
-      new Promise<void>((_, reject) => {
-        if (abort?.aborted) {
-          reject(abort?.reason);
-        }
-        abort?.addEventListener('abort', () => {
-          reject(abort.reason);
-        });
-      }),
-    ]).finally(() => {
-      sub?.unsubscribe();
-    });
-  }
-
-  async waitForDocSynced(docId: string, abort?: AbortSignal) {
-    let sub: Subscription | undefined = undefined;
-    return Promise.race([
-      new Promise<void>(resolve => {
-        sub = this.docState$(docId).subscribe(state => {
-          if (state.syncing) {
-            resolve();
-          }
-        });
-      }),
-      new Promise<void>((_, reject) => {
-        if (abort?.aborted) {
-          reject(abort?.reason);
-        }
-        abort?.addEventListener('abort', () => {
-          reject(abort.reason);
-        });
-      }),
-    ]).finally(() => {
-      sub?.unsubscribe();
-    });
-  }
-
-  async waitForDocReady(docId: string, abort?: AbortSignal) {
-    let sub: Subscription | undefined = undefined;
-    return Promise.race([
-      new Promise<void>(resolve => {
-        sub = this.docState$(docId).subscribe(state => {
-          if (state.ready) {
-            resolve();
-          }
-        });
-      }),
-      new Promise<void>((_, reject) => {
-        if (abort?.aborted) {
-          reject(abort?.reason);
-        }
-        abort?.addEventListener('abort', () => {
-          reject(abort.reason);
-        });
-      }),
-    ]).finally(() => {
-      sub?.unsubscribe();
-    });
   }
 }

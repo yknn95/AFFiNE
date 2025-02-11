@@ -1,6 +1,5 @@
+import type { BuiltInEmbedBlockComponent } from '@blocksuite/affine-block-bookmark';
 import { MenuContext } from '@blocksuite/affine-components/toolbar';
-
-import type { BuiltInEmbedBlockComponent } from '../../utils';
 
 export class EmbedCardToolbarContext extends MenuContext {
   override close = () => {

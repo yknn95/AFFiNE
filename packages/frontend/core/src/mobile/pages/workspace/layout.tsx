@@ -17,20 +17,13 @@ import type {
   WorkspaceMetadata,
 } from '@affine/core/modules/workspace';
 import { WorkspacesService } from '@affine/core/modules/workspace';
-import {
-  FrameworkScope,
-  LiveData,
-  useLiveData,
-  useServices,
-} from '@toeverything/infra';
+import { FrameworkScope, useLiveData, useServices } from '@toeverything/infra';
 import {
   type PropsWithChildren,
   useEffect,
   useLayoutEffect,
-  useMemo,
   useState,
 } from 'react';
-import { map } from 'rxjs';
 
 import { AppFallback } from '../../components/app-fallback';
 import { WorkspaceDialogs } from '../../dialogs';
@@ -40,11 +33,11 @@ declare global {
   /**
    * @internal debug only
    */
-  // oxlint-disable-next-line no-var
+  // eslint-disable-next-line no-var
   var currentWorkspace: Workspace | undefined;
-  // oxlint-disable-next-line no-var
+  // eslint-disable-next-line no-var
   var exportWorkspaceSnapshot: (docs?: string[]) => Promise<void>;
-  // oxlint-disable-next-line no-var
+  // eslint-disable-next-line no-var
   var importWorkspaceSnapshot: () => Promise<void>;
   interface WindowEventMap {
     'affine:workspace:change': CustomEvent<{ id: string }>;
@@ -113,20 +106,7 @@ export const WorkspaceLayout = ({
   ]);
 
   const isRootDocReady =
-    useLiveData(
-      useMemo(
-        () =>
-          workspace
-            ? LiveData.from(
-                workspace.engine.doc
-                  .docState$(workspace.id)
-                  .pipe(map(v => v.ready)),
-                false
-              )
-            : null,
-        [workspace]
-      )
-    ) ?? false;
+    useLiveData(workspace?.engine.rootDocState$.map(v => v.ready)) ?? false;
 
   if (!workspace) {
     return null; // skip this, workspace will be set in layout effect
@@ -145,10 +125,10 @@ export const WorkspaceLayout = ({
 
             {/* ---- some side-effect components ---- */}
             <PeekViewManagerModal />
-            {workspace?.flavour !== 'local' ? (
-              <CloudQuotaModal />
-            ) : (
+            {workspace?.flavour === 'local' ? (
               <LocalQuotaModal />
+            ) : (
+              <CloudQuotaModal />
             )}
             <AiLoginRequiredModal />
             <WorkspaceSideEffects />

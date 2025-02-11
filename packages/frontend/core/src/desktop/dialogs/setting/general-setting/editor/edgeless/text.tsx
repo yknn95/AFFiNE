@@ -15,7 +15,7 @@ import {
   FontWeightMap,
   TextAlign,
 } from '@blocksuite/affine/blocks';
-import type { Store } from '@blocksuite/affine/store';
+import type { Doc } from '@blocksuite/affine/store';
 import { useFramework, useLiveData } from '@toeverything/infra';
 import { isEqual } from 'lodash-es';
 import { useCallback, useMemo } from 'react';
@@ -143,7 +143,7 @@ export const TextSettings = () => {
     return getCurrentColor(color);
   }, [getCurrentColor, settings]);
 
-  const getElements = useCallback((doc: Store) => {
+  const getElements = useCallback((doc: Doc) => {
     return doc.getBlocksByFlavour('affine:edgeless-text') || [];
   }, []);
 

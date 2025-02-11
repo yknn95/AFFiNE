@@ -8,10 +8,7 @@ import {
   type MenuProps,
   Skeleton,
 } from '@affine/component';
-import {
-  GlobalDialogService,
-  WorkspaceDialogService,
-} from '@affine/core/modules/dialogs';
+import { GlobalDialogService } from '@affine/core/modules/dialogs';
 import { useI18n } from '@affine/i18n';
 import { track } from '@affine/track';
 import { AccountIcon, SignOutIcon } from '@blocksuite/icons/rc';
@@ -78,15 +75,15 @@ const UnauthorizedUserInfo = () => {
 };
 
 const AccountMenu = () => {
-  const workspaceDialogService = useService(WorkspaceDialogService);
+  const globalDialogService = useService(GlobalDialogService);
   const openSignOutModal = useSignOut();
 
   const onOpenAccountSetting = useCallback(() => {
     track.$.navigationPanel.profileAndBadge.openSettings({ to: 'account' });
-    workspaceDialogService.open('setting', {
+    globalDialogService.open('setting', {
       activeTab: 'account',
     });
-  }, [workspaceDialogService]);
+  }, [globalDialogService]);
 
   const t = useI18n();
 
@@ -115,13 +112,13 @@ const CloudUsage = () => {
   const quota = useService(UserQuotaService).quota;
   const quotaError = useLiveData(quota.error$);
 
-  const workspaceDialogService = useService(WorkspaceDialogService);
+  const globalDialogService = useService(GlobalDialogService);
   const handleClick = useCatchEventCallback(() => {
-    workspaceDialogService.open('setting', {
+    globalDialogService.open('setting', {
       activeTab: 'plans',
       scrollAnchor: 'cloudPricingPlan',
     });
-  }, [workspaceDialogService]);
+  }, [globalDialogService]);
 
   useEffect(() => {
     // revalidate quota to get the latest status
@@ -195,20 +192,20 @@ const AIUsage = () => {
   const loading = copilotActionLimit === null || copilotActionUsed === null;
   const loadError = useLiveData(copilotQuotaService.copilotQuota.error$);
 
-  const workspaceDialogService = useService(WorkspaceDialogService);
+  const globalDialogService = useService(GlobalDialogService);
 
   const goToAIPlanPage = useCallback(() => {
-    workspaceDialogService.open('setting', {
+    globalDialogService.open('setting', {
       activeTab: 'plans',
       scrollAnchor: 'aiPricingPlan',
     });
-  }, [workspaceDialogService]);
+  }, [globalDialogService]);
 
   const goToAccountSetting = useCallback(() => {
-    workspaceDialogService.open('setting', {
+    globalDialogService.open('setting', {
       activeTab: 'account',
     });
-  }, [workspaceDialogService]);
+  }, [globalDialogService]);
 
   if (loading) {
     if (loadError) console.error(loadError);

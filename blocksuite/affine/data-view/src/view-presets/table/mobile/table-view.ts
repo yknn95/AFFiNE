@@ -16,8 +16,8 @@ import type { DataViewInstance } from '../../../core/index.js';
 import { renderUniLit } from '../../../core/utils/uni-component/uni-component.js';
 import { DataViewBase } from '../../../core/view/data-view-base.js';
 import { LEFT_TOOL_BAR_WIDTH } from '../consts.js';
-import type { TableViewSelectionWithType } from '../selection';
 import type { TableSingleView } from '../table-view-manager.js';
+import type { TableViewSelectionWithType } from '../types.js';
 
 export class MobileDataViewTable extends DataViewBase<
   TableSingleView,

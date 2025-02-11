@@ -1,4 +1,4 @@
-import type { ExtensionType } from '@blocksuite/store';
+import type { ExtensionType } from '@blocksuite/block-std';
 
 import { EmbedFigmaBlockHtmlAdapterExtension } from './html.js';
 import { EmbedFigmaMarkdownAdapterExtension } from './markdown.js';

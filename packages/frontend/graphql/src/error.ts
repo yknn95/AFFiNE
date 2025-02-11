@@ -8,7 +8,7 @@ export interface UserFriendlyErrorResponse {
   type: string;
   name: ErrorNames;
   message: string;
-  data?: any;
+  args?: any;
   stacktrace?: string;
 }
 
@@ -19,17 +19,10 @@ export class UserFriendlyError
   readonly status = this.response.status;
   readonly code = this.response.code;
   readonly type = this.response.type;
-  readonly rawName = this.response.name;
+  override readonly name = this.response.name;
   override readonly message = this.response.message;
-  readonly data = this.response.data;
+  readonly args = this.response.args;
   readonly stacktrace = this.response.stacktrace;
-
-  override get name() {
-    if (this.rawName in ErrorNames) {
-      return this.rawName;
-    }
-    return ErrorNames.INTERNAL_SERVER_ERROR;
-  }
 
   static fromAnyError(response: any) {
     if (response instanceof GraphQLError) {

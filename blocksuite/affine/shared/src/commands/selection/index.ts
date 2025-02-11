@@ -1,7 +1,6 @@
 export { getBlockSelectionsCommand } from './get-block-selections.js';
 export { getImageSelectionsCommand } from './get-image-selections.js';
 export {
-  getRangeRects,
   getSelectionRectsCommand,
   type SelectionRect,
 } from './get-selection-rects.js';

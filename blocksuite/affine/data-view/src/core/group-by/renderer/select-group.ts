@@ -78,7 +78,7 @@ export class SelectGroupView extends BaseGroup<
   };
 
   get tag() {
-    return this.data.options?.find(v => v.id === this.value);
+    return this.data.options.find(v => v.id === this.value);
   }
 
   protected override render(): unknown {

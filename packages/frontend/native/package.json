@@ -20,13 +20,21 @@
     "extensions": {
       "mts": "module"
     },
+    "nodeArguments": [
+      "--loader",
+      "ts-node/esm.mjs",
+      "--es-module-specifier-resolution=node"
+    ],
     "files": [
       "__tests__/*.spec.mts"
-    ]
+    ],
+    "environmentVariables": {
+      "TS_NODE_PROJECT": "./tsconfig.json"
+    }
   },
   "devDependencies": {
-    "@napi-rs/cli": "3.0.0-alpha.70",
-    "@types/node": "^22.0.0",
+    "@napi-rs/cli": "3.0.0-alpha.65",
+    "@types/node": "^20.17.10",
     "ava": "^6.2.0",
     "ts-node": "^10.9.2",
     "typescript": "^5.7.2"

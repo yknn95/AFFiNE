@@ -15,7 +15,7 @@ import {
 } from '@affine/core/modules/favorite';
 import { WorkspaceService } from '@affine/core/modules/workspace';
 import type { AffineDNDData } from '@affine/core/types/dnd';
-import { inferOpenMode } from '@affine/core/utils';
+import { isNewTabTrigger } from '@affine/core/utils';
 import { useI18n } from '@affine/i18n';
 import { track } from '@affine/track';
 import { PlusIcon } from '@blocksuite/icons/rc';
@@ -81,7 +81,10 @@ export const ExplorerFavorites = () => {
 
   const handleCreateNewFavoriteDoc: MouseEventHandler = useCallback(
     e => {
-      const newDoc = createPage(undefined, { at: inferOpenMode(e) });
+      const newDoc = createPage(
+        undefined,
+        isNewTabTrigger(e) ? 'new-tab' : true
+      );
       favoriteService.favoriteList.add(
         'doc',
         newDoc.id,

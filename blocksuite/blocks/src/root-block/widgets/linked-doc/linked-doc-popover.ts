@@ -5,7 +5,6 @@ import {
   cleanSpecifiedTail,
   getTextContentFromInlineRange,
 } from '@blocksuite/affine-components/rich-text';
-import { unsafeCSSVar } from '@blocksuite/affine-shared/theme';
 import {
   createKeydownObserver,
   getCurrentNativeRange,
@@ -17,8 +16,7 @@ import {
   throttle,
   WithDisposable,
 } from '@blocksuite/global/utils';
-import { effect } from '@preact/signals-core';
-import { css, html, LitElement, nothing } from 'lit';
+import { html, LitElement, nothing } from 'lit';
 import { property, query, queryAll, state } from 'lit/decorators.js';
 import { styleMap } from 'lit/directives/style-map.js';
 
@@ -48,8 +46,6 @@ export class LinkedDocPopover extends SignalWatcher(
 
   private readonly _expanded = new Map<string, boolean>();
 
-  private _menusItemsEffectCleanup: () => void = () => {};
-
   private readonly _updateLinkedDocGroup = async () => {
     const query = this._query;
     if (this._updateLinkedDocGroupAbortController) {
@@ -68,30 +64,6 @@ export class LinkedDocPopover extends SignalWatcher(
       this.context.inlineEditor,
       this._updateLinkedDocGroupAbortController.signal
     );
-
-    this._menusItemsEffectCleanup();
-
-    // need to rebind the effect because this._linkedDocGroup has changed.
-    this._menusItemsEffectCleanup = effect(() => {
-      this._updateAutoFocusedItem();
-    });
-  };
-
-  private readonly _updateAutoFocusedItem = () => {
-    if (!this._query) {
-      return;
-    }
-    const autoFocusedItem = this.context.config.autoFocusedItem?.(
-      this._linkedDocGroup,
-      this._query,
-      this.context.std.host,
-      this.context.inlineEditor
-    );
-    if (autoFocusedItem) {
-      this._activatedItemIndex = this._flattenActionList.findIndex(
-        item => item.key === autoFocusedItem.key
-      );
-    }
   };
 
   private _updateLinkedDocGroupAbortController: AbortController | null = null;
@@ -244,11 +216,6 @@ export class LinkedDocPopover extends SignalWatcher(
     });
   }
 
-  override disconnectedCallback() {
-    super.disconnectedCallback();
-    this._menusItemsEffectCleanup();
-  }
-
   override render() {
     const MAX_HEIGHT = 380;
     const style = this._position
@@ -274,13 +241,7 @@ export class LinkedDocPopover extends SignalWatcher(
                 accIdx++;
                 const curIdx = accIdx - 1;
                 const tooltip = this._showTooltip
-                  ? html`<affine-tooltip
-                      tip-position=${'right'}
-                      .tooltipStyle=${css`
-                        * {
-                          color: ${unsafeCSSVar('white')} !important;
-                        }
-                      `}
+                  ? html`<affine-tooltip tip-position=${'right'}
                       >${name}</affine-tooltip
                     >`
                   : nothing;

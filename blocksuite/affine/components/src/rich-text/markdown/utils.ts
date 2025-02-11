@@ -34,6 +34,6 @@ export function beforeConvert(
   // *<space>| -> undo
   text.insert(' ', index);
   focusTextModel(std, model.id, index + 1);
-  std.store.captureSync();
+  std.doc.captureSync();
   text.delete(0, index + 1);
 }

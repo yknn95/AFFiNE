@@ -1,8 +1,8 @@
 import type { ExecutionContext } from '@nestjs/common';
 import { createParamDecorator } from '@nestjs/common';
+import { User, UserSession } from '@prisma/client';
 
 import { getRequestResponseFromContext } from '../../base';
-import type { User, UserSession } from '../../models';
 
 /**
  * Used to fetch current user from the request context.
@@ -37,7 +37,7 @@ import type { User, UserSession } from '../../models';
  * ```
  */
 // interface and variable don't conflict
-// oxlint-disable-next-line no-redeclare
+// eslint-disable-next-line no-redeclare
 export const CurrentUser = createParamDecorator(
   (_: unknown, context: ExecutionContext) => {
     return getRequestResponseFromContext(context).req.session?.user;
@@ -51,7 +51,7 @@ export interface CurrentUser
 }
 
 // interface and variable don't conflict
-// oxlint-disable-next-line no-redeclare
+// eslint-disable-next-line no-redeclare
 export const Session = createParamDecorator(
   (_: unknown, context: ExecutionContext) => {
     return getRequestResponseFromContext(context).req.session;

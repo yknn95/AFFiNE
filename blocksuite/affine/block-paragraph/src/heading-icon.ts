@@ -8,7 +8,7 @@ import {
 } from '@blocksuite/affine-components/icons';
 import type { ParagraphBlockModel } from '@blocksuite/affine-model';
 import { ShadowlessElement } from '@blocksuite/block-std';
-import { SignalWatcher, WithDisposable } from '@blocksuite/global/utils';
+import { WithDisposable } from '@blocksuite/global/utils';
 import { cssVarV2 } from '@toeverything/theme/v2';
 import { css, html, nothing, unsafeCSS } from 'lit';
 import { property } from 'lit/decorators.js';
@@ -32,9 +32,7 @@ function HeadingIcon(i: number) {
   }
 }
 
-export class ParagraphHeadingIcon extends SignalWatcher(
-  WithDisposable(ShadowlessElement)
-) {
+export class ParagraphHeadingIcon extends WithDisposable(ShadowlessElement) {
   static override styles = css`
     affine-paragraph-heading-icon .heading-icon {
       display: flex;
@@ -67,14 +65,12 @@ export class ParagraphHeadingIcon extends SignalWatcher(
   `;
 
   override render() {
-    const type = this.model.type$.value;
+    const type = this.model.type;
     if (!type.startsWith('h')) return nothing;
 
     const i = parseInt(type.slice(1));
 
-    return html`<div class="heading-icon" data-testid="heading-icon-${i}">
-      ${HeadingIcon(i)}
-    </div>`;
+    return html`<div class="heading-icon">${HeadingIcon(i)}</div>`;
   }
 
   @property({ attribute: false })

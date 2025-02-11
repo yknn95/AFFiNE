@@ -1,3 +1,4 @@
+import { NOTE_MIN_HEIGHT, NOTE_MIN_WIDTH } from '@blocksuite/affine-model';
 import { expect } from '@playwright/test';
 
 import {
@@ -24,7 +25,6 @@ import {
   assertRectEqual,
   assertRichTexts,
 } from '../../utils/asserts.js';
-import { NOTE_MIN_HEIGHT, NOTE_MIN_WIDTH } from '../../utils/bs-alternative.js';
 import { test } from '../../utils/playwright.js';
 
 test('resize note in edgeless mode', async ({ page }) => {
@@ -94,7 +94,7 @@ test('resize note then collapse note', async ({ page }) => {
     { x: box.x + 50, y: box.y + box.height + 100 }
   );
   let noteRect = await getNoteRect(page, noteId);
-  await expect(page.getByTestId('edgeless-note-collapse-button')).toBeVisible();
+  await expect(page.locator('.edgeless-note-collapse-button')).toBeVisible();
   assertRectEqual(noteRect, {
     x: initRect.x,
     y: initRect.y,
@@ -102,11 +102,11 @@ test('resize note then collapse note', async ({ page }) => {
     h: initRect.h + 100,
   });
 
-  await page.getByTestId('edgeless-note-collapse-button')!.click();
+  await page.locator('.edgeless-note-collapse-button')!.click();
   let domRect = await page.locator('affine-edgeless-note').boundingBox();
   expect(domRect!.height).toBeCloseTo(NOTE_MIN_HEIGHT);
 
-  await page.getByTestId('edgeless-note-collapse-button')!.click();
+  await page.locator('.edgeless-note-collapse-button')!.click();
   domRect = await page.locator('affine-edgeless-note').boundingBox();
   expect(domRect!.height).toBeCloseTo(initRect.h + 100);
 
@@ -120,7 +120,7 @@ test('resize note then collapse note', async ({ page }) => {
   );
   noteRect = await getNoteRect(page, noteId);
   await expect(
-    page.getByTestId('edgeless-note-collapse-button')
+    page.locator('.edgeless-note-collapse-button')
   ).not.toBeVisible();
   assertRectEqual(noteRect, {
     x: initRect.x,

@@ -1,21 +1,19 @@
-import { ParagraphBlockModel } from '@blocksuite/affine-model';
 import type { IndentContext } from '@blocksuite/affine-shared/types';
 import {
   calculateCollapsedSiblings,
   matchFlavours,
 } from '@blocksuite/affine-shared/utils';
-import { type Command, TextSelection } from '@blocksuite/block-std';
+import type { Command } from '@blocksuite/block-std';
 
 export const canDedentParagraphCommand: Command<
-  Partial<Omit<IndentContext, 'flavour' | 'type'>>,
-  {
-    indentContext: IndentContext;
-  }
+  never,
+  'indentContext',
+  Partial<Omit<IndentContext, 'flavour' | 'type'>>
 > = (ctx, next) => {
   let { blockId, inlineIndex } = ctx;
   const { std } = ctx;
-  const { selection, store } = std;
-  const text = selection.find(TextSelection);
+  const { selection, doc } = std;
+  const text = selection.find('text');
 
   if (!blockId) {
     /**
@@ -34,18 +32,18 @@ export const canDedentParagraphCommand: Command<
     return;
   }
 
-  const model = store.getBlock(blockId)?.model;
-  if (!model || !matchFlavours(model, [ParagraphBlockModel])) {
+  const model = doc.getBlock(blockId)?.model;
+  if (!model || !matchFlavours(model, ['affine:paragraph'])) {
     return;
   }
 
-  const parent = store.getParent(model);
-  if (store.readonly || !parent || parent.role !== 'content') {
+  const parent = doc.getParent(model);
+  if (doc.readonly || !parent || parent.role !== 'content') {
     // Top most, can not unindent, do nothing
     return;
   }
 
-  const grandParent = store.getParent(parent);
+  const grandParent = doc.getParent(parent);
   if (!grandParent) return;
 
   return next({
@@ -58,11 +56,9 @@ export const canDedentParagraphCommand: Command<
   });
 };
 
-export const dedentParagraphCommand: Command<{
-  indentContext: IndentContext;
-}> = (ctx, next) => {
+export const dedentParagraphCommand: Command<'indentContext'> = (ctx, next) => {
   const { indentContext: dedentContext, std } = ctx;
-  const { store, selection, range, host } = std;
+  const { doc, selection, range, host } = std;
 
   if (
     !dedentContext ||
@@ -77,31 +73,31 @@ export const dedentParagraphCommand: Command<{
 
   const { blockId } = dedentContext;
 
-  const model = store.getBlock(blockId)?.model;
+  const model = doc.getBlock(blockId)?.model;
   if (!model) return;
 
-  const parent = store.getParent(model);
+  const parent = doc.getParent(model);
   if (!parent) return;
 
-  const grandParent = store.getParent(parent);
+  const grandParent = doc.getParent(parent);
   if (!grandParent) return;
 
-  store.captureSync();
+  doc.captureSync();
 
   if (
-    matchFlavours(model, [ParagraphBlockModel]) &&
+    matchFlavours(model, ['affine:paragraph']) &&
     model.type.startsWith('h') &&
     model.collapsed
   ) {
     const collapsedSiblings = calculateCollapsedSiblings(model);
-    store.moveBlocks([model, ...collapsedSiblings], grandParent, parent, false);
+    doc.moveBlocks([model, ...collapsedSiblings], grandParent, parent, false);
   } else {
-    const nextSiblings = store.getNexts(model);
-    store.moveBlocks(nextSiblings, model);
-    store.moveBlocks([model], grandParent, parent, false);
+    const nextSiblings = doc.getNexts(model);
+    doc.moveBlocks(nextSiblings, model);
+    doc.moveBlocks([model], grandParent, parent, false);
   }
 
-  const textSelection = selection.find(TextSelection);
+  const textSelection = selection.find('text');
   if (textSelection) {
     host.updateComplete
       .then(() => {

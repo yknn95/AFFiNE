@@ -1,28 +1,26 @@
-import {
-  HtmlInlineToDeltaAdapterExtensions,
-  InlineDeltaToHtmlAdapterExtensions,
-} from '@blocksuite/affine-components/rich-text';
 import { DefaultTheme, NoteDisplayMode } from '@blocksuite/affine-model';
 import { HtmlAdapter } from '@blocksuite/affine-shared/adapters';
 import { Container } from '@blocksuite/global/di';
 import type {
   BlockSnapshot,
   DocSnapshot,
-  TransformerMiddleware,
+  JobMiddleware,
 } from '@blocksuite/store';
 import { AssetsManager, MemoryBlobCRUD } from '@blocksuite/store';
 import { describe, expect, test } from 'vitest';
 
 import { defaultBlockHtmlAdapterMatchers } from '../../_common/adapters/html/block-matcher.js';
+import { htmlInlineToDeltaMatchers } from '../../_common/adapters/html/delta-converter/html-inline.js';
+import { inlineDeltaToHtmlAdapterMatchers } from '../../_common/adapters/html/delta-converter/inline-delta.js';
 import { nanoidReplacement } from '../../_common/test-utils/test-utils.js';
 import { embedSyncedDocMiddleware } from '../../_common/transformers/middlewares.js';
 import { createJob } from '../utils/create-job.js';
 
 const container = new Container();
 [
-  ...HtmlInlineToDeltaAdapterExtensions,
+  ...htmlInlineToDeltaMatchers,
   ...defaultBlockHtmlAdapterMatchers,
-  ...InlineDeltaToHtmlAdapterExtensions,
+  ...inlineDeltaToHtmlAdapterMatchers,
 ].forEach(ext => {
   ext.setup(container);
 });
@@ -1441,7 +1439,7 @@ describe('snapshot to html', () => {
       ],
     };
     const html = template(
-      '<table><thead><tr><th>Title</th><th>Status</th><th>Date</th><th>Number</th><th>Progress</th><th>MultiSelect</th><th>RichText</th><th>Link</th><th>Checkbox</th></tr></thead><tbody><tr><td>Task 1</td><td>TODO</td><td>2023-12-15</td><td>1</td><td>65</td><td>test1,test2</td><td><a href="https://google.com">test2</a></td><td>https://google.com</td><td>True</td></tr><tr><td>Task 2</td><td>In Progress</td><td>2023-12-20</td><td></td><td></td><td></td><td>test1</td><td></td><td></td></tr></tbody></table>'
+      '<table><thead><tr><th>Title</th><th>Status</th><th>Date</th><th>Number</th><th>Progress</th><th>MultiSelect</th><th>RichText</th><th>Link</th><th>Checkbox</th></tr></thead><tbody><tr><td>Task 1</td><td>TODO</td><td>2023-12-15</td><td>1</td><td>65</td><td>test1,test2</td><td><a href="https://google.com">test2</a></td><td>https://google.com</td><td>true</td></tr><tr><td>Task 2</td><td>In Progress</td><td>2023-12-20</td><td></td><td></td><td></td><td>test1</td><td></td><td></td></tr></tbody></table>'
     );
     const htmlAdapter = new HtmlAdapter(createJob(), provider);
     const target = await htmlAdapter.fromBlockSnapshot({
@@ -1516,7 +1514,7 @@ describe('snapshot to html', () => {
       ],
     };
 
-    const middleware: TransformerMiddleware = ({ adapterConfigs }) => {
+    const middleware: JobMiddleware = ({ adapterConfigs }) => {
       adapterConfigs.set('title:4T5ObMgEIMII-4Bexyta1', 'Test Doc');
       adapterConfigs.set('docLinkBaseUrl', 'https://example.com');
     };
@@ -2588,50 +2586,6 @@ describe('html to snapshot', () => {
               '$blocksuite:internal:text$': true,
               delta: [
                 {
-                  insert: 'aaa',
-                },
-              ],
-            },
-          },
-          children: [],
-        },
-      ],
-    };
-
-    const htmlAdapter = new HtmlAdapter(createJob(), provider);
-    const rawBlockSnapshot = await htmlAdapter.toBlockSnapshot({
-      file: html,
-    });
-    expect(nanoidReplacement(rawBlockSnapshot)).toEqual(blockSnapshot);
-  });
-
-  test('p in ancestor', async () => {
-    const html = template(`<p><b><span>aaa</span></b></p>`);
-    const blockSnapshot: BlockSnapshot = {
-      type: 'block',
-      id: 'matchesReplaceMap[0]',
-      flavour: 'affine:note',
-      props: {
-        xywh: '[0,0,800,95]',
-        background: DefaultTheme.noteBackgrounColor,
-        index: 'a0',
-        hidden: false,
-        displayMode: NoteDisplayMode.DocAndEdgeless,
-      },
-      children: [
-        {
-          type: 'block',
-          id: 'matchesReplaceMap[1]',
-          flavour: 'affine:paragraph',
-          props: {
-            type: 'text',
-            text: {
-              '$blocksuite:internal:text$': true,
-              delta: [
-                {
-                  attributes: {
-                    bold: true,
-                  },
                   insert: 'aaa',
                 },
               ],

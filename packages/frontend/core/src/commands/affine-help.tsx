@@ -2,18 +2,18 @@ import type { useI18n } from '@affine/i18n';
 import { track } from '@affine/track';
 import { ContactWithUsIcon, NewIcon } from '@blocksuite/icons/rc';
 
-import type { WorkspaceDialogService } from '../modules/dialogs';
+import type { GlobalDialogService } from '../modules/dialogs';
 import type { UrlService } from '../modules/url';
 import { registerAffineCommand } from './registry';
 
 export function registerAffineHelpCommands({
   t,
   urlService,
-  workspaceDialogService,
+  globalDialogService,
 }: {
   t: ReturnType<typeof useI18n>;
   urlService: UrlService;
-  workspaceDialogService: WorkspaceDialogService;
+  globalDialogService: GlobalDialogService;
 }) {
   const unsubs: Array<() => void> = [];
   unsubs.push(
@@ -36,8 +36,9 @@ export function registerAffineHelpCommands({
       label: t['com.affine.cmdk.affine.contact-us'](),
       run() {
         track.$.cmdk.help.contactUs();
-        workspaceDialogService.open('setting', {
+        globalDialogService.open('setting', {
           activeTab: 'about',
+          workspaceMetadata: null,
         });
       },
     })

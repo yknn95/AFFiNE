@@ -1,9 +1,6 @@
 import { test } from '@affine-test/kit/playwright';
 import { clickEdgelessModeButton } from '@affine-test/kit/utils/editor';
 import {
-  copyByKeyboard,
-  pasteByKeyboard,
-  selectAllByKeyboard,
   withCtrlOrMeta,
   writeTextToClipboard,
 } from '@affine-test/kit/utils/keyboard';
@@ -30,11 +27,19 @@ const insertInputText = async (page: Page, text: string) => {
   expect(actual).toBe(text);
 };
 
-const selectItem = async (page: Page, label: string) => {
-  const selectedEl = page
-    .locator('[cmdk-item] [data-testid="cmdk-label"]')
-    .filter({ hasText: label });
-  await selectedEl.click();
+const keyboardDownAndSelect = async (page: Page, label: string) => {
+  await page.keyboard.press('ArrowDown');
+  const selectedEl = page.locator(
+    '[cmdk-item][data-selected="true"] [data-testid="cmdk-label"]'
+  );
+  if (
+    !(await selectedEl.isVisible()) ||
+    (await selectedEl.innerText()) !== label
+  ) {
+    await keyboardDownAndSelect(page, label);
+  } else {
+    await page.keyboard.press('Enter');
+  }
 };
 
 const commandsIsVisible = async (page: Page, label: string) => {
@@ -249,7 +254,7 @@ test('can use keyboard down to select goto setting', async ({ page }) => {
   await openHomePage(page);
   await waitForEditorLoad(page);
   await openQuickSearchByShortcut(page);
-  await selectItem(page, 'Go to Settings');
+  await keyboardDownAndSelect(page, 'Go to Settings');
 
   await expect(page.getByTestId('setting-modal')).toBeVisible();
 });
@@ -343,7 +348,7 @@ test('can use cmdk to export png', async ({ page }) => {
   await openQuickSearchByShortcut(page);
   const [download] = await Promise.all([
     page.waitForEvent('download'),
-    selectItem(page, 'Export to PNG'),
+    keyboardDownAndSelect(page, 'Export to PNG'),
   ]);
   expect(download.suggestedFilename()).toBe('this is a new page to export.png');
 });
@@ -355,7 +360,7 @@ test('can use cmdk to delete page and restore it', async ({ page }) => {
   await getBlockSuiteEditorTitle(page).click();
   await getBlockSuiteEditorTitle(page).fill('this is a new page to delete');
   await openQuickSearchByShortcut(page);
-  await selectItem(page, 'Move to trash');
+  await keyboardDownAndSelect(page, 'Move to trash');
   await page.getByTestId('confirm-modal-confirm').click();
   const restoreButton = page.getByTestId('page-restore-button');
   await expect(restoreButton).toBeVisible();
@@ -363,7 +368,7 @@ test('can use cmdk to delete page and restore it', async ({ page }) => {
   await openQuickSearchByShortcut(page);
   expect(await commandsIsVisible(page, 'Move to trash')).toBe(false);
   expect(await commandsIsVisible(page, 'Restore from trash')).toBe(true);
-  await selectItem(page, 'Restore from trash');
+  await keyboardDownAndSelect(page, 'Restore from trash');
   await expect(restoreButton).not.toBeVisible();
 });
 
@@ -581,31 +586,4 @@ test('can use slash menu to insert an external link', async ({ page }) => {
   await expect(page.locator('.affine-bookmark-content-url')).toContainText(
     link
   );
-});
-
-test('Paste content with keyboard', async ({ page }) => {
-  await openHomePage(page);
-  await waitForEditorLoad(page);
-  await clickNewPageButton(page, 'Test');
-
-  // goto main content
-  await page.keyboard.press('Enter');
-
-  // input hello world to editor
-  await page.keyboard.type('hello world', {
-    delay: 50,
-  });
-
-  await selectAllByKeyboard(page);
-  await copyByKeyboard(page);
-
-  const quickSearchButton = page.locator(
-    '[data-testid=slider-bar-quick-search-button]'
-  );
-  await quickSearchButton.click();
-  const quickSearch = page.locator('[data-testid=cmdk-quick-search]');
-  await expect(quickSearch).toBeVisible();
-
-  await pasteByKeyboard(page);
-  await expect(page.locator('[cmdk-input]')).toHaveValue('hello world');
 });

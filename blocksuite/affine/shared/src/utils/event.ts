@@ -44,16 +44,6 @@ export function isControlledKeyboardEvent(e: KeyboardEvent) {
   return e.ctrlKey || e.metaKey || e.altKey;
 }
 
-export function isNewTabTrigger(event?: MouseEvent) {
-  return event
-    ? (event.ctrlKey || event.metaKey || event.button === 1) && !event.altKey
-    : false;
-}
-
-export function isNewViewTrigger(event?: MouseEvent) {
-  return event ? (event.ctrlKey || event.metaKey) && event.altKey : false;
-}
-
 export function on<
   T extends HTMLElement,
   K extends keyof M,
@@ -180,7 +170,7 @@ export function requestConnectedFrame(
  * A wrapper around `requestConnectedFrame` that only calls at most once in one frame
  */
 export function requestThrottledConnectedFrame<
-  T extends (...args: any[]) => void,
+  T extends (...args: unknown[]) => void,
 >(func: T, element?: HTMLElement): T {
   let raqId: number | undefined = undefined;
   let latestArgs: unknown[] = [];

@@ -15,11 +15,10 @@ export function isNetworkError(error: Error): error is NetworkError {
 }
 
 export class BackendError extends Error {
-  get status() {
-    return this.originError.status;
-  }
-
-  constructor(public readonly originError: UserFriendlyError) {
+  constructor(
+    public readonly originError: UserFriendlyError,
+    public readonly status?: number
+  ) {
     super(`Server error: ${originError.message}`);
     this.stack = originError.stack;
   }

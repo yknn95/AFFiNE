@@ -1,4 +1,3 @@
-import { WorkspaceImpl } from '@affine/core/modules/workspace/impls/workspace';
 import { BlockStdScope, type EditorHost } from '@blocksuite/affine/block-std';
 import {
   type AffineAIPanelWidgetConfig,
@@ -6,7 +5,8 @@ import {
 } from '@blocksuite/affine/blocks';
 import { AffineSchemas } from '@blocksuite/affine/blocks/schemas';
 import { WithDisposable } from '@blocksuite/affine/global/utils';
-import { Schema, type Store } from '@blocksuite/affine/store';
+import type { Doc } from '@blocksuite/affine/store';
+import { DocCollection, Schema } from '@blocksuite/affine/store';
 import { css, html, LitElement, nothing } from 'lit';
 import { property, query } from 'lit/decorators.js';
 import { createRef, type Ref, ref } from 'lit/directives/ref.js';
@@ -52,9 +52,9 @@ export class AISlidesRenderer extends WithDisposable(LitElement) {
   private readonly _editorContainer: Ref<HTMLDivElement> =
     createRef<HTMLDivElement>();
 
-  private _doc!: Store;
+  private _doc!: Doc;
 
-  private _docCollection: WorkspaceImpl | null = null;
+  private _docCollection: DocCollection | null = null;
 
   @query('editor-host')
   private accessor _editorHost!: EditorHost;
@@ -207,7 +207,7 @@ export class AISlidesRenderer extends WithDisposable(LitElement) {
           ${ref(this._editorContainer)}
         >
           ${new BlockStdScope({
-            store: this._doc,
+            doc: this._doc,
             extensions:
               SpecProvider.getInstance().getSpec('edgeless:preview').value,
           }).render()}
@@ -220,11 +220,12 @@ export class AISlidesRenderer extends WithDisposable(LitElement) {
     super.connectedCallback();
 
     const schema = new Schema().register(AffineSchemas);
-    const collection = new WorkspaceImpl({
+    const collection = new DocCollection({
       schema,
       id: 'SLIDES_PREVIEW',
     });
     collection.meta.initialize();
+    collection.start();
     const doc = collection.createDoc();
 
     doc.load(() => {

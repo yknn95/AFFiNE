@@ -1,30 +1,28 @@
 import type { DNDData } from '@affine/component';
 
-export type AffineDNDEntity =
-  | {
-      type: 'doc';
-      id: string;
-    }
-  | {
-      type: 'folder';
-      id: string;
-    }
-  | {
-      type: 'collection';
-      id: string;
-    }
-  | {
-      type: 'tag';
-      id: string;
-    }
-  | {
-      type: 'custom-property';
-      id: string;
-    };
-
 export interface AffineDNDData extends DNDData {
   draggable: {
-    entity?: AffineDNDEntity;
+    entity?:
+      | {
+          type: 'doc';
+          id: string;
+        }
+      | {
+          type: 'folder';
+          id: string;
+        }
+      | {
+          type: 'collection';
+          id: string;
+        }
+      | {
+          type: 'tag';
+          id: string;
+        }
+      | {
+          type: 'custom-property';
+          id: string;
+        };
     from?:
       | {
           at: 'explorer:organize:folder-node';
@@ -82,19 +80,6 @@ export interface AffineDNDData extends DNDData {
           docId: string;
         }
       | {
-          at: 'workbench:view';
-          viewId: string;
-        }
-      | {
-          at: 'workbench:link';
-          to: string;
-        }
-      | {
-          at: 'workbench:resize-handle';
-          viewId: string;
-          edge: 'left' | 'right';
-        }
-      | {
           at: 'blocksuite-editor';
         }
       | {
@@ -128,10 +113,6 @@ export interface AffineDNDData extends DNDData {
       }
     | {
         at: 'app-header:tabs';
-      }
-    | {
-        at: 'workbench:view';
-        viewId: string;
       }
     | Record<string, unknown>;
 }

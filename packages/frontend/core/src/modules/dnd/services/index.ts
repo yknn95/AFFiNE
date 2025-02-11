@@ -1,17 +1,12 @@
 import {
   type ExternalGetDataFeedbackArgs,
   type fromExternalData,
-  monitorForElements,
-  type MonitorGetFeedback,
   type toExternalData,
 } from '@affine/component';
 import { createPageModeSpecs } from '@affine/core/components/blocksuite/block-suite-editor/specs/page';
 import type { AffineDNDData } from '@affine/core/types/dnd';
 import { BlockStdScope } from '@blocksuite/affine/block-std';
-import {
-  DndApiExtensionIdentifier,
-  type DragBlockPayload,
-} from '@blocksuite/affine/blocks';
+import { DndApiExtensionIdentifier } from '@blocksuite/affine/blocks';
 import { type SliceSnapshot } from '@blocksuite/affine/store';
 import { Service } from '@toeverything/infra';
 
@@ -23,10 +18,6 @@ type Entity = AffineDNDData['draggable']['entity'];
 type EntityResolver = (data: string) => Entity | null;
 
 type ExternalDragPayload = ExternalGetDataFeedbackArgs['source'];
-
-type MixedDNDData = AffineDNDData & {
-  draggable: DragBlockPayload;
-};
 
 export class DndService extends Service {
   constructor(
@@ -62,90 +53,6 @@ export class DndService extends Service {
         return null;
       });
     });
-
-    this.setupBlocksuiteAdapter();
-  }
-
-  private setupBlocksuiteAdapter() {
-    /**
-     * Migrate from affine to blocksuite
-     * For now, we only support doc
-     */
-    const affineToBlocksuite = (args: MonitorGetFeedback<MixedDNDData>) => {
-      const data = args.source.data;
-      if (data.entity && !data.bsEntity) {
-        if (data.entity.type !== 'doc') {
-          return;
-        }
-        const dndAPI = this.getBlocksuiteDndAPI();
-        if (!dndAPI) {
-          return;
-        }
-        const snapshotSlice = dndAPI.fromEntity({
-          docId: data.entity.id,
-          flavour: 'affine:embed-linked-doc',
-        });
-        if (!snapshotSlice) {
-          return;
-        }
-        data.bsEntity = {
-          type: 'blocks',
-          modelIds: [],
-          snapshot: snapshotSlice,
-        };
-      }
-    };
-
-    /**
-     * Migrate from blocksuite to affine
-     */
-    const blocksuiteToAffine = (args: MonitorGetFeedback<MixedDNDData>) => {
-      const data = args.source.data;
-      if (!data.entity && data.bsEntity) {
-        if (data.bsEntity.type !== 'blocks' || !data.bsEntity.snapshot) {
-          return;
-        }
-        const dndAPI = this.getBlocksuiteDndAPI();
-        if (!dndAPI) {
-          return;
-        }
-        const entity = this.resolveBlockSnapshot(data.bsEntity.snapshot);
-        if (!entity) {
-          return;
-        }
-        data.entity = entity;
-      }
-    };
-
-    function adaptDragEvent(args: MonitorGetFeedback<MixedDNDData>) {
-      affineToBlocksuite(args);
-      blocksuiteToAffine(args);
-    }
-
-    function canMonitor(args: MonitorGetFeedback<MixedDNDData>) {
-      return (
-        args.source.data.entity?.type === 'doc' ||
-        (args.source.data.bsEntity?.type === 'blocks' &&
-          !!args.source.data.bsEntity.snapshot)
-      );
-    }
-
-    this.disposables.push(
-      monitorForElements({
-        canMonitor: (args: MonitorGetFeedback<MixedDNDData>) => {
-          if (canMonitor(args)) {
-            // HACK ahead:
-            // canMonitor shall be used a pure function, which means
-            // we may need to adapt the drag event to make sure the data is applied onDragStart.
-            // However, canMonitor in blocksuite is also called BEFORE onDragStart,
-            // so we need to adapt it here in onMonitor
-            adaptDragEvent(args);
-            return true;
-          }
-          return false;
-        },
-      })
-    );
   }
 
   private readonly resolvers: ((
@@ -162,8 +69,8 @@ export class DndService extends Service {
     }
 
     const std = new BlockStdScope({
-      store: doc,
-      extensions: createPageModeSpecs(this.framework).value,
+      doc,
+      extensions: createPageModeSpecs(this.framework),
     });
     const dndAPI = std.get(DndApiExtensionIdentifier);
     return dndAPI;
@@ -254,9 +161,6 @@ export class DndService extends Service {
     return null;
   };
 
-  /**
-   * @deprecated Blocksuite DND is now using pragmatic-dnd as well
-   */
   private readonly resolveBlocksuiteExternalData = (
     source: ExternalDragPayload
   ): AffineDNDData['draggable'] | null => {

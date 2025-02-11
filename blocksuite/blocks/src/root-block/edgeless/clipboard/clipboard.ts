@@ -11,7 +11,6 @@ import {
   BookmarkStyles,
   DEFAULT_NOTE_HEIGHT,
   DEFAULT_NOTE_WIDTH,
-  FrameBlockModel,
   MAX_IMAGE_WIDTH,
   ReferenceInfoSchema,
 } from '@blocksuite/affine-model';
@@ -58,12 +57,12 @@ import {
 import {
   type BlockSnapshot,
   BlockSnapshotSchema,
+  DocCollection,
   fromJSON,
+  Job,
   type SliceSnapshot,
-  Transformer,
 } from '@blocksuite/store';
 import DOMPurify from 'dompurify';
-import * as Y from 'yjs';
 
 import { ExportManager } from '../../../_common/export-manager/export-manager.js';
 import { getRootByEditorHost } from '../../../_common/utils/query.js';
@@ -370,15 +369,7 @@ export class EdgelessClipboardController extends PageClipboard {
       if (mayBeSurfaceDataJson !== undefined) {
         const elementsRawData = JSON.parse(mayBeSurfaceDataJson);
         const { snapshot, blobs } = elementsRawData;
-        const job = new Transformer({
-          schema: this.std.workspace.schema,
-          blobCRUD: this.std.workspace.blobSync,
-          docCRUD: {
-            create: (id: string) => this.std.workspace.createDoc({ id }),
-            get: (id: string) => this.std.workspace.getDoc(id),
-            delete: (id: string) => this.std.workspace.removeDoc(id),
-          },
-        });
+        const job = new Job({ collection: this.std.collection });
         const map = job.assetsManager.getAssets();
         decodeClipboardBlobs(blobs, map);
         for (const blobId of map.keys()) {
@@ -476,7 +467,7 @@ export class EdgelessClipboardController extends PageClipboard {
     const { xywh, rotate, sourceId, name, size, type, embed, style } =
       attachment.props;
 
-    if (!(await this.host.std.workspace.blobSync.get(sourceId as string))) {
+    if (!(await this.host.std.collection.blobSync.get(sourceId as string))) {
       return null;
     }
     const attachmentId = this.crud.addBlock(
@@ -523,7 +514,7 @@ export class EdgelessClipboardController extends PageClipboard {
     newXYWH: SerializedXYWH
   ) {
     if (clipboardData.type === GROUP) {
-      const yMap = new Y.Map();
+      const yMap = new DocCollection.Y.Map();
       const children = clipboardData.children ?? {};
 
       for (const [key, value] of Object.entries(children)) {
@@ -537,7 +528,7 @@ export class EdgelessClipboardController extends PageClipboard {
       clipboardData.children = yMap;
       clipboardData.xywh = newXYWH;
     } else if (clipboardData.type === MINDMAP) {
-      const yMap = new Y.Map();
+      const yMap = new DocCollection.Y.Map();
       const children = clipboardData.children ?? {};
 
       for (const [oldKey, oldValue] of Object.entries(children)) {
@@ -742,7 +733,7 @@ export class EdgelessClipboardController extends PageClipboard {
     const { xywh, rotate, sourceId, size, width, height, caption } =
       image.props;
 
-    if (!(await this.host.std.workspace.blobSync.get(sourceId as string))) {
+    if (!(await this.host.std.collection.blobSync.get(sourceId as string))) {
       return null;
     }
     return this.crud.addBlock(
@@ -995,7 +986,7 @@ export class EdgelessClipboardController extends PageClipboard {
     for (const nodeElement of nodeElements) {
       await _drawTopLevelBlock(nodeElement);
 
-      if (matchFlavours(nodeElement, [FrameBlockModel])) {
+      if (matchFlavours(nodeElement, ['affine:frame'])) {
         const blocksInsideFrame: BlockSuite.EdgelessBlockModelType[] = [];
         this.edgeless.service.frame
           .getElementsInFrameBound(nodeElement, false)
@@ -1113,7 +1104,7 @@ export class EdgelessClipboardController extends PageClipboard {
       TextUtils.splitIntoLines(content).forEach((line, idx) => {
         this.crud.addBlock(
           'affine:paragraph',
-          { text: new Y.Text(line) },
+          { text: new DocCollection.Y.Text(line) },
           noteId,
           idx
         );
@@ -1374,14 +1365,8 @@ export async function prepareClipboardData(
   selectedAll: BlockSuite.EdgelessModel[],
   std: BlockStdScope
 ) {
-  const job = new Transformer({
-    schema: std.workspace.schema,
-    blobCRUD: std.workspace.blobSync,
-    docCRUD: {
-      create: (id: string) => std.workspace.createDoc({ id }),
-      get: (id: string) => std.workspace.getDoc(id),
-      delete: (id: string) => std.workspace.removeDoc(id),
-    },
+  const job = new Job({
+    collection: std.collection,
   });
   const selected = await Promise.all(
     selectedAll.map(async selected => {

@@ -11,8 +11,9 @@ export { AccountChanged } from './events/account-changed';
 export { AccountLoggedIn } from './events/account-logged-in';
 export { AccountLoggedOut } from './events/account-logged-out';
 export { ServerInitialized } from './events/server-initialized';
+export { RawFetchProvider } from './provider/fetch';
 export { ValidatorProvider } from './provider/validator';
-export { AcceptInviteService } from './services/accept-invite';
+export { WebSocketAuthProvider } from './provider/websocket-auth';
 export { AuthService } from './services/auth';
 export { CaptchaService } from './services/captcha';
 export { DefaultServerService } from './services/default-server';
@@ -20,14 +21,13 @@ export { EventSourceService } from './services/eventsource';
 export { FetchService } from './services/fetch';
 export { GraphQLService } from './services/graphql';
 export { InvoicesService } from './services/invoices';
-export { SelfhostGenerateLicenseService } from './services/selfhost-generate-license';
-export { SelfhostLicenseService } from './services/selfhost-license';
 export { ServerService } from './services/server';
 export { ServersService } from './services/servers';
 export { SubscriptionService } from './services/subscription';
 export { UserCopilotQuotaService } from './services/user-copilot-quota';
 export { UserFeatureService } from './services/user-feature';
 export { UserQuotaService } from './services/user-quota';
+export { WebSocketService } from './services/websocket';
 export { WorkspaceInvoicesService } from './services/workspace-invoices';
 export { WorkspaceServerService } from './services/workspace-server';
 export { WorkspaceSubscriptionService } from './services/workspace-subscription';
@@ -35,8 +35,7 @@ export type { ServerConfig } from './types';
 
 import { type Framework } from '@toeverything/infra';
 
-import { DocScope } from '../doc/scopes/doc';
-import { DocService } from '../doc/services/doc';
+import { DocScope, DocService } from '../doc';
 import { GlobalCache, GlobalState, GlobalStateService } from '../storage';
 import { UrlService } from '../url';
 import { WorkspaceScope, WorkspaceService } from '../workspace';
@@ -51,9 +50,10 @@ import { UserFeature } from './entities/user-feature';
 import { UserQuota } from './entities/user-quota';
 import { WorkspaceInvoices } from './entities/workspace-invoices';
 import { WorkspaceSubscription } from './entities/workspace-subscription';
+import { DefaultRawFetchProvider, RawFetchProvider } from './provider/fetch';
 import { ValidatorProvider } from './provider/validator';
+import { WebSocketAuthProvider } from './provider/websocket-auth';
 import { ServerScope } from './scopes/server';
-import { AcceptInviteService } from './services/accept-invite';
 import { AuthService } from './services/auth';
 import { CaptchaService } from './services/captcha';
 import { CloudDocMetaService } from './services/cloud-doc-meta';
@@ -62,24 +62,19 @@ import { EventSourceService } from './services/eventsource';
 import { FetchService } from './services/fetch';
 import { GraphQLService } from './services/graphql';
 import { InvoicesService } from './services/invoices';
-import { SelfhostGenerateLicenseService } from './services/selfhost-generate-license';
-import { SelfhostLicenseService } from './services/selfhost-license';
 import { ServerService } from './services/server';
 import { ServersService } from './services/servers';
 import { SubscriptionService } from './services/subscription';
 import { UserCopilotQuotaService } from './services/user-copilot-quota';
 import { UserFeatureService } from './services/user-feature';
 import { UserQuotaService } from './services/user-quota';
+import { WebSocketService } from './services/websocket';
 import { WorkspaceInvoicesService } from './services/workspace-invoices';
 import { WorkspaceServerService } from './services/workspace-server';
 import { WorkspaceSubscriptionService } from './services/workspace-subscription';
-import { AcceptInviteStore } from './stores/accept-invite';
 import { AuthStore } from './stores/auth';
 import { CloudDocMetaStore } from './stores/cloud-doc-meta';
-import { InviteInfoStore } from './stores/invite-info';
 import { InvoicesStore } from './stores/invoices';
-import { SelfhostGenerateLicenseStore } from './stores/selfhost-generate-license';
-import { SelfhostLicenseStore } from './stores/selfhost-license';
 import { ServerConfigStore } from './stores/server-config';
 import { ServerListStore } from './stores/server-list';
 import { SubscriptionStore } from './stores/subscription';
@@ -89,16 +84,26 @@ import { UserQuotaStore } from './stores/user-quota';
 
 export function configureCloudModule(framework: Framework) {
   framework
+    .impl(RawFetchProvider, DefaultRawFetchProvider)
     .service(ServersService, [ServerListStore, ServerConfigStore])
     .service(DefaultServerService, [ServersService])
     .store(ServerListStore, [GlobalStateService])
-    .store(ServerConfigStore)
+    .store(ServerConfigStore, [RawFetchProvider])
     .entity(Server, [ServerListStore])
     .scope(ServerScope)
     .service(ServerService, [ServerScope])
-    .service(FetchService, [ServerService])
+    .service(FetchService, [RawFetchProvider, ServerService])
     .service(EventSourceService, [ServerService])
     .service(GraphQLService, [FetchService])
+    .service(
+      WebSocketService,
+      f =>
+        new WebSocketService(
+          f.get(ServerService),
+          f.get(AuthService),
+          f.getOptional(WebSocketAuthProvider)
+        )
+    )
     .service(CaptchaService, f => {
       return new CaptchaService(
         f.get(ServerService),
@@ -138,12 +143,7 @@ export function configureCloudModule(framework: Framework) {
     .store(UserFeatureStore, [GraphQLService])
     .service(InvoicesService)
     .store(InvoicesStore, [GraphQLService])
-    .entity(Invoices, [InvoicesStore])
-    .service(SelfhostGenerateLicenseService, [SelfhostGenerateLicenseStore])
-    .store(SelfhostGenerateLicenseStore, [GraphQLService])
-    .store(InviteInfoStore, [GraphQLService])
-    .service(AcceptInviteService, [AcceptInviteStore, InviteInfoStore])
-    .store(AcceptInviteStore, [GraphQLService]);
+    .entity(Invoices, [InvoicesStore]);
 
   framework
     .scope(WorkspaceScope)
@@ -157,7 +157,5 @@ export function configureCloudModule(framework: Framework) {
     .service(WorkspaceSubscriptionService, [WorkspaceServerService])
     .entity(WorkspaceSubscription, [WorkspaceService, WorkspaceServerService])
     .service(WorkspaceInvoicesService)
-    .entity(WorkspaceInvoices, [WorkspaceService, WorkspaceServerService])
-    .service(SelfhostLicenseService, [SelfhostLicenseStore, WorkspaceService])
-    .store(SelfhostLicenseStore, [WorkspaceServerService]);
+    .entity(WorkspaceInvoices, [WorkspaceService, WorkspaceServerService]);
 }

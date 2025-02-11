@@ -1,29 +1,16 @@
-import { deleteTextCommand } from '@blocksuite/affine-components/rich-text';
 import {
   AttachmentAdapter,
   copyMiddleware,
   HtmlAdapter,
   ImageAdapter,
-  MixTextAdapter,
   NotionTextAdapter,
   pasteMiddleware,
 } from '@blocksuite/affine-shared/adapters';
-import {
-  clearAndSelectFirstModelCommand,
-  copySelectedModelsCommand,
-  deleteSelectedModelsCommand,
-  draftSelectedModelsCommand,
-  getBlockIndexCommand,
-  getBlockSelectionsCommand,
-  getImageSelectionsCommand,
-  getSelectedModelsCommand,
-  getTextSelectionCommand,
-  retainFirstModelCommand,
-} from '@blocksuite/affine-shared/commands';
 import type { BlockComponent, UIEventHandler } from '@blocksuite/block-std';
 import { DisposableGroup } from '@blocksuite/global/utils';
-import type { BlockSnapshot, Store } from '@blocksuite/store';
+import type { BlockSnapshot, Doc } from '@blocksuite/store';
 
+import { MixTextAdapter } from '../../_common/adapters/index.js';
 import {
   defaultImageProxyMiddleware,
   replaceIdMiddleware,
@@ -36,9 +23,9 @@ export class PageClipboard {
     return this._std.command
       .chain()
       .with({ onCopy })
-      .pipe(getSelectedModelsCommand)
-      .pipe(draftSelectedModelsCommand)
-      .pipe(copySelectedModelsCommand);
+      .getSelectedModels()
+      .draftSelectedModels()
+      .copySelectedModels();
   };
 
   protected _disposables = new DisposableGroup();
@@ -72,12 +59,8 @@ export class PageClipboard {
     const paste = pasteMiddleware(this._std);
     this._std.clipboard.use(copy);
     this._std.clipboard.use(paste);
-    this._std.clipboard.use(
-      replaceIdMiddleware(this._std.store.workspace.idGenerator)
-    );
-    this._std.clipboard.use(
-      titleMiddleware(this._std.store.workspace.meta.docMetas)
-    );
+    this._std.clipboard.use(replaceIdMiddleware);
+    this._std.clipboard.use(titleMiddleware);
     this._std.clipboard.use(defaultImageProxyMiddleware);
 
     this._disposables.add({
@@ -97,12 +80,8 @@ export class PageClipboard {
         this._std.clipboard.unregisterAdapter('*/*');
         this._std.clipboard.unuse(copy);
         this._std.clipboard.unuse(paste);
-        this._std.clipboard.unuse(
-          replaceIdMiddleware(this._std.store.workspace.idGenerator)
-        );
-        this._std.clipboard.unuse(
-          titleMiddleware(this._std.store.workspace.meta.docMetas)
-        );
+        this._std.clipboard.unuse(replaceIdMiddleware);
+        this._std.clipboard.unuse(titleMiddleware);
         this._std.clipboard.unuse(defaultImageProxyMiddleware);
       },
     });
@@ -112,7 +91,7 @@ export class PageClipboard {
 
   onBlockSnapshotPaste = async (
     snapshot: BlockSnapshot,
-    doc: Store,
+    doc: Doc,
     parent?: string,
     index?: number
   ) => {
@@ -139,9 +118,9 @@ export class PageClipboard {
     this._copySelected(() => {
       this._std.command
         .chain()
-        .try<{}>(cmd => [
-          cmd.pipe(getTextSelectionCommand).pipe(deleteTextCommand),
-          cmd.pipe(getSelectedModelsCommand).pipe(deleteSelectedModelsCommand),
+        .try(cmd => [
+          cmd.getTextSelection().deleteText(),
+          cmd.getSelectedModels().deleteSelectedModels(),
         ])
         .run();
     }).run();
@@ -151,26 +130,26 @@ export class PageClipboard {
     const e = ctx.get('clipboardState').raw;
     e.preventDefault();
 
-    this._std.store.captureSync();
+    this._std.doc.captureSync();
     this._std.command
       .chain()
       .try(cmd => [
-        cmd.pipe(getTextSelectionCommand),
+        cmd.getTextSelection(),
         cmd
-          .pipe(getSelectedModelsCommand)
-          .pipe(clearAndSelectFirstModelCommand)
-          .pipe(retainFirstModelCommand)
-          .pipe(deleteSelectedModelsCommand),
+          .getSelectedModels()
+          .clearAndSelectFirstModel()
+          .retainFirstModel()
+          .deleteSelectedModels(),
       ])
-      .try<{ currentSelectionPath: string }>(cmd => [
-        cmd.pipe(getTextSelectionCommand).pipe((ctx, next) => {
+      .try(cmd => [
+        cmd.getTextSelection().inline<'currentSelectionPath'>((ctx, next) => {
           const textSelection = ctx.currentTextSelection;
           if (!textSelection) {
             return;
           }
           next({ currentSelectionPath: textSelection.from.blockId });
         }),
-        cmd.pipe(getBlockSelectionsCommand).pipe((ctx, next) => {
+        cmd.getBlockSelections().inline<'currentSelectionPath'>((ctx, next) => {
           const currentBlockSelections = ctx.currentBlockSelections;
           if (!currentBlockSelections) {
             return;
@@ -181,7 +160,7 @@ export class PageClipboard {
           }
           next({ currentSelectionPath: blockSelection.blockId });
         }),
-        cmd.pipe(getImageSelectionsCommand).pipe((ctx, next) => {
+        cmd.getImageSelections().inline<'currentSelectionPath'>((ctx, next) => {
           const currentImageSelections = ctx.currentImageSelections;
           if (!currentImageSelections) {
             return;
@@ -193,15 +172,15 @@ export class PageClipboard {
           next({ currentSelectionPath: imageSelection.blockId });
         }),
       ])
-      .pipe(getBlockIndexCommand)
-      .pipe((ctx, next) => {
+      .getBlockIndex()
+      .inline((ctx, next) => {
         if (!ctx.parentBlock) {
           return;
         }
         this._std.clipboard
           .paste(
             e,
-            this._std.store,
+            this._std.doc,
             ctx.parentBlock.model.id,
             ctx.blockIndex ? ctx.blockIndex + 1 : 1
           )

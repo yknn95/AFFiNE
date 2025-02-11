@@ -1,53 +1,22 @@
-import { Injectable, Logger } from '@nestjs/common';
-import type { Prisma, WorkspaceDocUserPermission } from '@prisma/client';
+import { Injectable } from '@nestjs/common';
+import type { Prisma } from '@prisma/client';
 import { PrismaClient, WorkspaceMemberStatus } from '@prisma/client';
 import { groupBy } from 'lodash-es';
 
 import {
-  CanNotBatchGrantDocOwnerPermissions,
   DocAccessDenied,
-  EventBus,
-  OnEvent,
+  EventEmitter,
   SpaceAccessDenied,
   SpaceOwnerNotFound,
-  WorkspacePermissionNotFound,
 } from '../../base';
-import {
-  DocAction,
-  docActionRequiredRole,
-  docActionRequiredWorkspaceRole,
-  DocRole,
-  PublicDocMode,
-  WorkspaceRole,
-} from './types';
+import { Permission, PublicPageMode } from './types';
 
 @Injectable()
 export class PermissionService {
-  private readonly logger = new Logger(PermissionService.name);
-
   constructor(
     private readonly prisma: PrismaClient,
-    private readonly event: EventBus
+    private readonly event: EventEmitter
   ) {}
-
-  @OnEvent('doc.created')
-  async setDefaultPageOwner(payload: Events['doc.created']) {
-    const { workspaceId, docId, editor } = payload;
-
-    if (!editor) {
-      return;
-    }
-
-    await this.prisma.workspaceDocUserPermission.createMany({
-      data: {
-        workspaceId,
-        docId,
-        userId: editor,
-        type: DocRole.Owner,
-        createdAt: new Date(),
-      },
-    });
-  }
 
   private get acceptedCondition() {
     return [
@@ -61,7 +30,7 @@ export class PermissionService {
   }
 
   /// Start regin: workspace permission
-  async get(ws: string, user: string): Promise<WorkspaceRole> {
+  async get(ws: string, user: string) {
     const data = await this.prisma.workspaceUserPermission.findFirst({
       where: {
         workspaceId: ws,
@@ -70,11 +39,7 @@ export class PermissionService {
       },
     });
 
-    if (!data) {
-      throw new WorkspacePermissionNotFound({ spaceId: ws });
-    }
-
-    return data.type;
+    return data?.type as Permission;
   }
 
   /**
@@ -98,7 +63,7 @@ export class PermissionService {
       .findMany({
         where: {
           userId,
-          type: WorkspaceRole.Owner,
+          type: Permission.Owner,
           OR: this.acceptedCondition,
         },
         select: {
@@ -112,7 +77,7 @@ export class PermissionService {
     const owner = await this.prisma.workspaceUserPermission.findFirst({
       where: {
         workspaceId,
-        type: WorkspaceRole.Owner,
+        type: Permission.Owner,
       },
       include: {
         user: true,
@@ -130,7 +95,7 @@ export class PermissionService {
     const admin = await this.prisma.workspaceUserPermission.findMany({
       where: {
         workspaceId,
-        type: WorkspaceRole.Admin,
+        type: Permission.Admin,
       },
       include: {
         user: true,
@@ -152,7 +117,7 @@ export class PermissionService {
     return this.prisma.workspaceUserPermission.findFirst({
       where: {
         workspaceId,
-        type: WorkspaceRole.Owner,
+        type: Permission.Owner,
       },
       include: {
         user: true,
@@ -171,8 +136,8 @@ export class PermissionService {
     if (ws === id) {
       // if workspace is public or have any public page, then allow to access
       const [isPublicWorkspace, publicPages] = await Promise.all([
-        this.tryCheckWorkspace(ws, user, WorkspaceRole.Collaborator),
-        this.prisma.workspaceDoc.count({
+        this.tryCheckWorkspace(ws, user, Permission.Read),
+        this.prisma.workspacePage.count({
           where: {
             workspaceId: ws,
             public: true,
@@ -182,7 +147,7 @@ export class PermissionService {
       return isPublicWorkspace || publicPages > 0;
     }
 
-    return this.tryCheckPage(ws, id, 'Doc.Read', user);
+    return this.tryCheckPage(ws, id, user);
   }
 
   async getWorkspaceMemberStatus(ws: string, user: string) {
@@ -203,7 +168,7 @@ export class PermissionService {
   async isWorkspaceMember(
     ws: string,
     user: string,
-    permission: WorkspaceRole = WorkspaceRole.Collaborator
+    permission: Permission = Permission.Read
   ): Promise<boolean> {
     const count = await this.prisma.workspaceUserPermission.count({
       where: {
@@ -228,7 +193,7 @@ export class PermissionService {
   async checkCloudWorkspace(
     workspaceId: string,
     userId?: string,
-    permission: WorkspaceRole = WorkspaceRole.Collaborator
+    permission: Permission = Permission.Read
   ) {
     const hasWorkspace = await this.hasWorkspace(workspaceId);
     if (hasWorkspace) {
@@ -239,7 +204,7 @@ export class PermissionService {
   async checkWorkspace(
     ws: string,
     user?: string,
-    permission: WorkspaceRole = WorkspaceRole.Collaborator
+    permission: Permission = Permission.Read
   ) {
     if (!(await this.tryCheckWorkspace(ws, user, permission))) {
       throw new SpaceAccessDenied({ spaceId: ws });
@@ -249,10 +214,10 @@ export class PermissionService {
   async tryCheckWorkspace(
     ws: string,
     user?: string,
-    permission: WorkspaceRole = WorkspaceRole.Collaborator
+    permission: Permission = Permission.Read
   ) {
     // If the permission is read, we should check if the workspace is public
-    if (permission === WorkspaceRole.Collaborator) {
+    if (permission === Permission.Read) {
       const count = await this.prisma.workspace.count({
         where: { id: ws, public: true },
       });
@@ -277,18 +242,7 @@ export class PermissionService {
         },
       });
 
-      if (count > 0) {
-        return true;
-      } else {
-        const info = {
-          workspaceId: ws,
-          userId: user,
-          requiredRole: WorkspaceRole[permission],
-        };
-        this.logger.log(
-          `User's WorkspaceRole is lower than required (${JSON.stringify(info)})`
-        );
-      }
+      return count > 0;
     }
 
     // unsigned in, workspace is not public
@@ -299,7 +253,7 @@ export class PermissionService {
   async checkWorkspaceIs(
     ws: string,
     user: string,
-    permission: WorkspaceRole = WorkspaceRole.Collaborator
+    permission: Permission = Permission.Read
   ) {
     if (!(await this.tryCheckWorkspaceIs(ws, user, permission))) {
       throw new SpaceAccessDenied({ spaceId: ws });
@@ -309,7 +263,7 @@ export class PermissionService {
   async tryCheckWorkspaceIs(
     ws: string,
     user: string,
-    permission: WorkspaceRole = WorkspaceRole.Collaborator
+    permission: Permission = Permission.Read
   ) {
     const count = await this.prisma.workspaceUserPermission.count({
       where: {
@@ -353,7 +307,7 @@ export class PermissionService {
   async grant(
     ws: string,
     user: string,
-    permission: WorkspaceRole = WorkspaceRole.Collaborator,
+    permission: Permission = Permission.Read,
     status: WorkspaceMemberStatus = WorkspaceMemberStatus.Pending
   ): Promise<string> {
     const data = await this.prisma.workspaceUserPermission.findFirst({
@@ -361,7 +315,7 @@ export class PermissionService {
     });
 
     if (data) {
-      const toBeOwner = permission === WorkspaceRole.Owner;
+      const toBeOwner = permission === Permission.Owner;
       if (data.accepted && data.status === WorkspaceMemberStatus.Accepted) {
         const [p] = await this.prisma.$transaction(
           [
@@ -377,10 +331,10 @@ export class PermissionService {
               ? this.prisma.workspaceUserPermission.updateMany({
                   where: {
                     workspaceId: ws,
-                    type: WorkspaceRole.Owner,
+                    type: Permission.Owner,
                     userId: { not: user },
                   },
-                  data: { type: WorkspaceRole.Admin },
+                  data: { type: Permission.Admin },
                 })
               : null,
           ].filter(Boolean) as Prisma.PrismaPromise<any>[]
@@ -487,7 +441,7 @@ export class PermissionService {
 
     // We shouldn't revoke owner permission
     // should auto deleted by workspace/user delete cascading
-    if (!permission || permission.type === WorkspaceRole.Owner) {
+    if (!permission || permission.type === Permission.Owner) {
       return false;
     }
 
@@ -505,10 +459,6 @@ export class PermissionService {
     this.event.emit('workspace.members.updated', {
       workspaceId,
       count,
-    });
-    this.event.emit('workspace.members.removed', {
-      workspaceId,
-      userId: user,
     });
 
     if (
@@ -536,39 +486,38 @@ export class PermissionService {
   async checkCloudPagePermission(
     workspaceId: string,
     pageId: string,
-    action: DocAction,
-    userId?: string
+    userId?: string,
+    permission = Permission.Read
   ) {
     const hasWorkspace = await this.hasWorkspace(workspaceId);
     if (hasWorkspace) {
-      await this.checkPagePermission(workspaceId, pageId, action, userId);
+      await this.checkPagePermission(workspaceId, pageId, userId, permission);
     }
   }
 
   async checkPagePermission(
     ws: string,
     page: string,
-    action: DocAction,
-    user?: string
+    user?: string,
+    permission = Permission.Read
   ) {
-    if (!(await this.tryCheckPage(ws, page, action, user))) {
+    if (!(await this.tryCheckPage(ws, page, user, permission))) {
       throw new DocAccessDenied({ spaceId: ws, docId: page });
     }
   }
 
   async tryCheckPage(
     ws: string,
-    doc: string,
-    action: DocAction,
-    user?: string
+    page: string,
+    user?: string,
+    permission = Permission.Read
   ) {
-    const role = docActionRequiredRole(action);
     // check whether page is public
-    if (action === 'Doc.Read') {
-      const count = await this.prisma.workspaceDoc.count({
+    if (permission === Permission.Read) {
+      const count = await this.prisma.workspacePage.count({
         where: {
           workspaceId: ws,
-          docId: doc,
+          pageId: page,
           public: true,
         },
       });
@@ -581,100 +530,47 @@ export class PermissionService {
     }
 
     if (user) {
-      const [roleEntity, pageEntity, workspaceRoleEntity] = await Promise.all([
-        this.prisma.workspaceDocUserPermission.findFirst({
-          where: {
-            workspaceId: ws,
-            docId: doc,
-            userId: user,
+      const count = await this.prisma.workspacePageUserPermission.count({
+        where: {
+          workspaceId: ws,
+          pageId: page,
+          userId: user,
+          accepted: true,
+          type: {
+            gte: permission,
           },
-          select: {
-            type: true,
-          },
-        }),
-        this.prisma.workspaceDoc.findFirst({
-          where: {
-            workspaceId: ws,
-            docId: doc,
-          },
-          select: {
-            defaultRole: true,
-          },
-        }),
-        this.prisma.workspaceUserPermission.findFirst({
-          where: {
-            workspaceId: ws,
-            userId: user,
-            OR: this.acceptedCondition,
-          },
-          select: {
-            type: true,
-          },
-        }),
-      ]);
+        },
+      });
 
-      if (
-        // Page role exists, check it first
-        (roleEntity && roleEntity.type >= role) ||
-        // if
-        //   - page has a default role
-        //   - the user is in this workspace
-        //   - the user is not an external user in this workspace
-        // then use the max of the two
-        (workspaceRoleEntity &&
-          workspaceRoleEntity.type !== WorkspaceRole.External &&
-          Math.max(
-            roleEntity?.type ?? Number.MIN_SAFE_INTEGER,
-            pageEntity?.defaultRole ?? Number.MIN_SAFE_INTEGER
-          ) >= role)
-      ) {
+      // page shared to user
+      // accessible
+      if (count > 0) {
         return true;
       }
-      const info = {
-        workspaceId: ws,
-        docId: doc,
-        userId: user,
-        workspaceRole: workspaceRoleEntity
-          ? WorkspaceRole[workspaceRoleEntity.type]
-          : undefined,
-        pageRole: roleEntity ? DocRole[roleEntity.type] : undefined,
-        pageDefaultRole: pageEntity
-          ? DocRole[pageEntity.defaultRole]
-          : undefined,
-        requiredRole: DocRole[role],
-        action,
-      };
-      this.logger.log(
-        `User's role is lower than required (${JSON.stringify(info)})`
-      );
     }
 
     // check whether user has workspace related permission
-    return this.tryCheckWorkspace(
-      ws,
-      user,
-      docActionRequiredWorkspaceRole(action)
-    );
+    return this.tryCheckWorkspace(ws, user, permission);
   }
 
-  async isPublicPage(ws: string, doc: string) {
-    return this.prisma.workspaceDoc
+  async isPublicPage(ws: string, page: string) {
+    return this.prisma.workspacePage
       .count({
         where: {
           workspaceId: ws,
-          docId: doc,
+          pageId: page,
           public: true,
         },
       })
       .then(count => count > 0);
   }
 
-  async publishPage(ws: string, doc: string, mode = PublicDocMode.Page) {
-    return this.prisma.workspaceDoc.upsert({
+  async publishPage(ws: string, page: string, mode = PublicPageMode.Page) {
+    return this.prisma.workspacePage.upsert({
       where: {
-        workspaceId_docId: {
+        workspaceId_pageId: {
           workspaceId: ws,
-          docId: doc,
+          pageId: page,
         },
       },
       update: {
@@ -683,19 +579,19 @@ export class PermissionService {
       },
       create: {
         workspaceId: ws,
-        docId: doc,
+        pageId: page,
         mode,
         public: true,
       },
     });
   }
 
-  async revokePublicPage(ws: string, doc: string) {
-    return this.prisma.workspaceDoc.upsert({
+  async revokePublicPage(ws: string, page: string) {
+    return this.prisma.workspacePage.upsert({
       where: {
-        workspaceId_docId: {
+        workspaceId_pageId: {
           workspaceId: ws,
-          docId: doc,
+          pageId: page,
         },
       },
       update: {
@@ -703,96 +599,87 @@ export class PermissionService {
       },
       create: {
         workspaceId: ws,
-        docId: doc,
+        pageId: page,
         public: false,
       },
     });
   }
 
-  async grantPage(ws: string, doc: string, user: string, permission: DocRole) {
-    const [p] = await this.prisma.$transaction(
-      [
-        this.prisma.workspaceDocUserPermission.upsert({
-          where: {
-            workspaceId_docId_userId: {
-              workspaceId: ws,
-              docId: doc,
-              userId: user,
+  async grantPage(
+    ws: string,
+    page: string,
+    user: string,
+    permission: Permission = Permission.Read
+  ) {
+    const data = await this.prisma.workspacePageUserPermission.findFirst({
+      where: {
+        workspaceId: ws,
+        pageId: page,
+        userId: user,
+        accepted: true,
+      },
+    });
+
+    if (data) {
+      const [p] = await this.prisma.$transaction(
+        [
+          this.prisma.workspacePageUserPermission.update({
+            where: {
+              id: data.id,
             },
-          },
-          update: {
-            type: permission,
-          },
-          create: {
-            workspaceId: ws,
-            docId: doc,
-            userId: user,
-            type: permission,
-          },
-        }),
+            data: {
+              type: permission,
+            },
+          }),
 
-        // If the new permission is owner, we need to revoke old owner
-        permission === DocRole.Owner
-          ? this.prisma.workspaceDocUserPermission.updateMany({
-              where: {
-                workspaceId: ws,
-                docId: doc,
-                type: DocRole.Owner,
-                userId: {
-                  not: user,
+          // If the new permission is owner, we need to revoke old owner
+          permission === Permission.Owner
+            ? this.prisma.workspacePageUserPermission.updateMany({
+                where: {
+                  workspaceId: ws,
+                  pageId: page,
+                  type: Permission.Owner,
+                  userId: {
+                    not: user,
+                  },
                 },
-              },
-              data: {
-                type: DocRole.Manager,
-              },
-            })
-          : null,
-      ].filter(Boolean) as Prisma.PrismaPromise<any>[]
-    );
+                data: {
+                  type: Permission.Admin,
+                },
+              })
+            : null,
+        ].filter(Boolean) as Prisma.PrismaPromise<any>[]
+      );
 
-    return p as WorkspaceDocUserPermission;
+      return p.id;
+    }
+
+    return this.prisma.workspacePageUserPermission
+      .create({
+        data: {
+          workspaceId: ws,
+          pageId: page,
+          userId: user,
+          type: permission,
+        },
+      })
+      .then(p => p.id);
   }
 
-  async revokePage(ws: string, doc: string, user: string) {
-    const result = await this.prisma.workspaceDocUserPermission.deleteMany({
+  async revokePage(ws: string, page: string, user: string) {
+    const result = await this.prisma.workspacePageUserPermission.deleteMany({
       where: {
         workspaceId: ws,
-        docId: doc,
+        pageId: page,
         userId: user,
         type: {
           // We shouldn't revoke owner permission, should auto deleted by workspace/user delete cascading
-          not: DocRole.Owner,
+          not: Permission.Owner,
         },
       },
     });
 
     return result.count > 0;
   }
-
-  async batchGrantPage(
-    workspaceId: string,
-    docId: string,
-    userIds: string[],
-    role: DocRole
-  ) {
-    if (userIds.length === 0) {
-      return 0;
-    }
-
-    if (role === DocRole.Owner) {
-      throw new CanNotBatchGrantDocOwnerPermissions();
-    }
-
-    const result = await this.prisma.workspaceDocUserPermission.createMany({
-      skipDuplicates: true,
-      data: userIds.map(id => ({
-        workspaceId,
-        docId,
-        userId: id,
-        type: role,
-      })),
-    });
-
-    return result.count;
-  }
+  /// End regin: page permission
 }

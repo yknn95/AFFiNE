@@ -1,4 +1,5 @@
 import {
+  CommonUtils,
   EdgelessCRUDIdentifier,
   TextUtils,
 } from '@blocksuite/affine-block-surface';
@@ -14,16 +15,17 @@ import {
 import {
   assertExists,
   Bound,
-  toRadian,
   Vec,
   WithDisposable,
 } from '@blocksuite/global/utils';
+import { DocCollection } from '@blocksuite/store';
 import { html, nothing } from 'lit';
 import { property, query } from 'lit/decorators.js';
 import { styleMap } from 'lit/directives/style-map.js';
-import * as Y from 'yjs';
 
 import type { EdgelessRootBlockComponent } from '../../edgeless-root-block.js';
+
+const { toRadian } = CommonUtils;
 
 export class EdgelessShapeTextEditor extends WithDisposable(ShadowlessElement) {
   get crud() {
@@ -108,7 +110,7 @@ export class EdgelessShapeTextEditor extends WithDisposable(ShadowlessElement) {
       if (len === 0) {
         this.element.text = undefined;
       } else if (len < text.length) {
-        this.element.text = new Y.Text(trimed);
+        this.element.text = new DocCollection.Y.Text(trimed);
       }
     }
 

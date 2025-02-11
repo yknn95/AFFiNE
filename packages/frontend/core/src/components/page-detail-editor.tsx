@@ -2,16 +2,18 @@ import './page-detail-editor.css';
 
 import type { AffineEditorContainer } from '@blocksuite/affine/presets';
 import { useLiveData, useService } from '@toeverything/infra';
+import { cssVar } from '@toeverything/theme';
 import clsx from 'clsx';
-import { useEffect } from 'react';
+import type { CSSProperties } from 'react';
+import { useMemo } from 'react';
 
 import { DocService } from '../modules/doc';
 import { EditorService } from '../modules/editor';
-import { EditorSettingService } from '../modules/editor-setting';
 import {
-  BlockSuiteEditor as Editor,
-  CustomEditorWrapper,
-} from './blocksuite/block-suite-editor';
+  EditorSettingService,
+  fontStyleOptions,
+} from '../modules/editor-setting';
+import { BlockSuiteEditor as Editor } from './blocksuite/block-suite-editor';
 import * as styles from './page-detail-editor.css';
 
 declare global {
@@ -25,13 +27,9 @@ export type OnLoadEditor = (
 
 export interface PageDetailEditorProps {
   onLoad?: OnLoadEditor;
-  readonly?: boolean;
 }
 
-export const PageDetailEditor = ({
-  onLoad,
-  readonly,
-}: PageDetailEditorProps) => {
+export const PageDetailEditor = ({ onLoad }: PageDetailEditorProps) => {
   const editor = useService(EditorService).editor;
   const mode = useLiveData(editor.mode$);
   const defaultOpenProperty = useLiveData(editor.defaultOpenProperty$);
@@ -52,24 +50,36 @@ export const PageDetailEditor = ({
     ? pageWidth === 'fullWidth'
     : settings.fullWidthLayout;
 
-  useEffect(() => {
-    editor.doc.blockSuiteDoc.readonly = readonly ?? false;
-  }, [editor, readonly]);
+  const value = useMemo(() => {
+    const fontStyle = fontStyleOptions.find(
+      option => option.key === settings.fontFamily
+    );
+    if (!fontStyle) {
+      return cssVar('fontSansFamily');
+    }
+    const customFontFamily = settings.customFontFamily;
+
+    return customFontFamily && fontStyle.key === 'Custom'
+      ? `${customFontFamily}, ${fontStyle.value}`
+      : fontStyle.value;
+  }, [settings.customFontFamily, settings.fontFamily]);
 
   return (
-    <CustomEditorWrapper>
-      <Editor
-        className={clsx(styles.editor, {
-          'full-screen': !isSharedMode && fullWidthLayout,
-          'is-public': isSharedMode,
-        })}
-        mode={mode}
-        defaultOpenProperty={defaultOpenProperty}
-        page={editor.doc.blockSuiteDoc}
-        shared={isSharedMode}
-        readonly={readonly}
-        onEditorReady={onLoad}
-      />
-    </CustomEditorWrapper>
+    <Editor
+      className={clsx(styles.editor, {
+        'full-screen': !isSharedMode && fullWidthLayout,
+        'is-public': isSharedMode,
+      })}
+      style={
+        {
+          '--affine-font-family': value,
+        } as CSSProperties
+      }
+      mode={mode}
+      defaultOpenProperty={defaultOpenProperty}
+      page={editor.doc.blockSuiteDoc}
+      shared={isSharedMode}
+      onEditorReady={onLoad}
+    />
   );
 };

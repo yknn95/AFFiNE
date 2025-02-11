@@ -1,5 +1,5 @@
 import { test } from '@affine-test/kit/playwright';
-import { clickEdgelessModeButton } from '@affine-test/kit/utils/editor';
+import { locateModeSwitchButton } from '@affine-test/kit/utils/editor';
 import {
   pasteByKeyboard,
   writeTextToClipboard,
@@ -8,43 +8,16 @@ import { coreUrl, openHomePage } from '@affine-test/kit/utils/load-page';
 import {
   clickNewPageButton,
   createLinkedPage,
-  createTodayPage,
   getBlockSuiteEditorTitle,
-  waitForEditorLoad,
   waitForEmptyEditor,
 } from '@affine-test/kit/utils/page-logic';
-import {
-  confirmExperimentalPrompt,
-  openEditorSetting,
-  openExperimentalFeaturesPanel,
-} from '@affine-test/kit/utils/setting';
-import { expect, type Locator, type Page } from '@playwright/test';
+import { expect, type Locator } from '@playwright/test';
 
 test.beforeEach(async ({ page }) => {
   await openHomePage(page);
   await clickNewPageButton(page);
   await waitForEmptyEditor(page);
 });
-
-async function enableEmojiDocIcon(page: Page) {
-  // Opens settings panel
-  await openEditorSetting(page);
-  await openExperimentalFeaturesPanel(page);
-  await confirmExperimentalPrompt(page);
-
-  const settingModal = page.locator('[data-testid=setting-modal-content]');
-  const item = settingModal.locator('div').getByText('Emoji Doc Icon');
-  await item.waitFor({ state: 'attached' });
-  await expect(item).toBeVisible();
-  const button = item.locator('label');
-  const isChecked = await button.locator('input').isChecked();
-  if (!isChecked) {
-    await button.click();
-  }
-
-  // Closes settings panel
-  await page.keyboard.press('Escape');
-}
 
 async function notClickable(locator: Locator) {
   await expect(locator).toHaveAttribute('disabled', '');
@@ -89,7 +62,6 @@ test('not allowed to switch to embed view when linking to the same document', as
   await expect(peekViewModel.locator('page-editor')).toBeVisible();
   await page.keyboard.press('Escape');
   await expect(peekViewModel).not.toBeVisible();
-  await page.click('body');
 
   await cardLink.click();
   await cardToolbar.getByLabel('Switch view').click();
@@ -131,7 +103,6 @@ test('not allowed to switch to embed view when linking to block', async ({
   await page.keyboard.press('Escape');
   await expect(peekViewModel).not.toBeVisible();
 
-  await page.click('body');
   await cardLink.click();
 
   await cardToolbar.getByLabel('More').click();
@@ -160,7 +131,6 @@ test('not allowed to switch to embed view when linking to block', async ({
   await page.keyboard.press('Escape');
   await expect(peekViewModel).not.toBeVisible();
 
-  await page.click('body');
   await otherCardLink.click();
   await cardToolbar.getByLabel('Switch view').click();
 
@@ -473,21 +443,6 @@ test('@ popover with click "select a specific date" should show a date picker', 
   ).toBeVisible();
 });
 
-test('@ popover can auto focus on the "New Doc" item when query returns no items', async ({
-  page,
-}) => {
-  await page.keyboard.press('Enter');
-  await waitForEmptyEditor(page);
-  await page.keyboard.press('@');
-  await page.keyboard.type('nawowenni');
-  await expect(page.locator('.linked-doc-popover')).toBeVisible();
-  const newDocMenuItem = page
-    .locator('.linked-doc-popover')
-    .locator('[data-id="create-page"]');
-  await expect(newDocMenuItem).toBeVisible();
-  await expect(newDocMenuItem).toHaveAttribute('hover', 'true');
-});
-
 test('linked doc should show markdown preview in the backlink section', async ({
   page,
 }) => {
@@ -521,7 +476,7 @@ test('the viewport should be fit when the linked document is with edgeless mode'
 }) => {
   await page.keyboard.press('Enter');
 
-  await clickEdgelessModeButton(page);
+  await locateModeSwitchButton(page, 'edgeless').click();
 
   const note = page.locator('affine-edgeless-note');
   const noteBoundingBox = await note.boundingBox();
@@ -585,7 +540,7 @@ test('should show edgeless content when switching card view of linked mode doc i
 }) => {
   await page.keyboard.press('Enter');
 
-  await clickEdgelessModeButton(page);
+  await locateModeSwitchButton(page, 'edgeless').click();
 
   const note = page.locator('affine-edgeless-note');
   const noteBoundingBox = await note.boundingBox();
@@ -611,7 +566,7 @@ test('should show edgeless content when switching card view of linked mode doc i
   const url = new URL(page.url());
 
   await clickNewPageButton(page);
-  await clickEdgelessModeButton(page);
+  await locateModeSwitchButton(page, 'edgeless').click();
 
   await page.mouse.move(x, y);
   await writeTextToClipboard(page, url.toString());
@@ -949,66 +904,5 @@ test.describe('Customize linked doc title and description', () => {
     await expect(
       embedToolbar.getByRole('button', { name: 'Doc title' })
     ).toBeHidden();
-  });
-
-  test('should show emoji doc icon in normal document', async ({ page }) => {
-    await waitForEditorLoad(page);
-    await enableEmojiDocIcon(page);
-
-    await clickNewPageButton(page);
-    const title = getBlockSuiteEditorTitle(page);
-    await title.click();
-
-    await page.keyboard.press('Enter');
-    await createLinkedPage(page, 'Test Page');
-
-    const inlineLink = page.locator('affine-reference');
-    const inlineToolbar = page.locator('reference-popup');
-
-    await inlineLink.hover();
-
-    // Edits title
-    await inlineToolbar.getByRole('button', { name: 'Edit' }).click();
-
-    // Title alias
-    await page.keyboard.type('🦀hello');
-    await page.keyboard.press('Enter');
-
-    const a = inlineLink.locator('a');
-
-    await expect(a).toHaveText('🦀hello');
-    await expect(a.locator('svg')).toBeHidden();
-    await expect(a.locator('.affine-reference-title')).toHaveText('hello');
-  });
-
-  test('should show emoji doc icon in journal document', async ({ page }) => {
-    await waitForEditorLoad(page);
-    await enableEmojiDocIcon(page);
-
-    await clickNewPageButton(page);
-    const title = getBlockSuiteEditorTitle(page);
-    await title.click();
-
-    await page.keyboard.press('Enter');
-    await createTodayPage(page);
-
-    const inlineLink = page.locator('affine-reference');
-    const inlineToolbar = page.locator('reference-popup');
-
-    await inlineLink.hover();
-
-    // Edits title
-    await inlineToolbar.getByRole('button', { name: 'Edit' }).click();
-
-    // Title alias
-    await page.keyboard.type('🦀');
-    await page.keyboard.press('Enter');
-
-    const a = inlineLink.locator('a');
-
-    const year = String(new Date().getFullYear());
-    await expect(a).toContainText('🦀');
-    await expect(a.locator('svg')).toBeHidden();
-    await expect(a.locator('.affine-reference-title')).toContainText(year);
   });
 });

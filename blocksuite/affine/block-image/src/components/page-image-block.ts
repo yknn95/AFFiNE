@@ -1,20 +1,6 @@
-import { focusBlockEnd, focusBlockStart } from '@blocksuite/affine-block-note';
-import {
-  getNextBlockCommand,
-  getPrevBlockCommand,
-} from '@blocksuite/affine-shared/commands';
-import { ImageSelection } from '@blocksuite/affine-shared/selection';
-import type {
-  BlockComponent,
-  UIEventStateContext,
-} from '@blocksuite/block-std';
-import {
-  BlockSelection,
-  ShadowlessElement,
-  TextSelection,
-} from '@blocksuite/block-std';
+import type { BaseSelection, UIEventStateContext } from '@blocksuite/block-std';
+import { ShadowlessElement } from '@blocksuite/block-std';
 import { WithDisposable } from '@blocksuite/global/utils';
-import type { BaseSelection } from '@blocksuite/store';
 import { css, html, type PropertyValues } from 'lit';
 import { property, query, state } from 'lit/decorators.js';
 import { styleMap } from 'lit/directives/style-map.js';
@@ -80,9 +66,9 @@ export class ImageBlockPageComponent extends WithDisposable(ShadowlessElement) {
 
       selection.update(selList =>
         selList
-          .filter<BaseSelection>(sel => !sel.is(ImageSelection))
+          .filter<BaseSelection>(sel => !sel.is('image'))
           .concat(
-            selection.create(TextSelection, {
+            selection.create('text', {
               from: {
                 blockId,
                 index: 0,
@@ -100,11 +86,9 @@ export class ImageBlockPageComponent extends WithDisposable(ShadowlessElement) {
         selection.update(selList => {
           return selList.map(sel => {
             const current =
-              sel.is(ImageSelection) && sel.blockId === this.block.blockId;
+              sel.is('image') && sel.blockId === this.block.blockId;
             if (current) {
-              return selection.create(BlockSelection, {
-                blockId: this.block.blockId,
-              });
+              return selection.create('block', { blockId: this.block.blockId });
             }
             return sel;
           });
@@ -135,7 +119,7 @@ export class ImageBlockPageComponent extends WithDisposable(ShadowlessElement) {
         const std = this._host.std;
 
         // If the selection is not image selection, we should not handle it.
-        if (!std.selection.find(ImageSelection)) {
+        if (!std.selection.find('image')) {
           return false;
         }
 
@@ -144,14 +128,15 @@ export class ImageBlockPageComponent extends WithDisposable(ShadowlessElement) {
 
         std.command
           .chain()
-          .pipe(getNextBlockCommand, { path: this.block.blockId })
-          .pipe<{ focusBlock: BlockComponent }>((ctx, next) => {
+          .getNextBlock({ path: this.block.blockId })
+          .inline((ctx, next) => {
             const { nextBlock } = ctx;
             if (!nextBlock) return;
 
             return next({ focusBlock: nextBlock });
           })
-          .pipe(focusBlockStart)
+          // @ts-expect-error FIXME(command): BS-2216
+          .focusBlockStart()
           .run();
         return true;
       },
@@ -160,7 +145,7 @@ export class ImageBlockPageComponent extends WithDisposable(ShadowlessElement) {
 
         // If the selection is not image selection, we should not handle it.
 
-        if (!std.selection.find(ImageSelection)) {
+        if (!std.selection.find('image')) {
           return false;
         }
 
@@ -169,14 +154,15 @@ export class ImageBlockPageComponent extends WithDisposable(ShadowlessElement) {
 
         std.command
           .chain()
-          .pipe(getPrevBlockCommand, { path: this.block.blockId })
-          .pipe<{ focusBlock: BlockComponent }>((ctx, next) => {
+          .getPrevBlock({ path: this.block.blockId })
+          .inline((ctx, next) => {
             const { prevBlock } = ctx;
             if (!prevBlock) return;
 
             return next({ focusBlock: prevBlock });
           })
-          .pipe(focusBlockEnd)
+          // @ts-expect-error FIXME(command): BS-2216
+          .focusBlockEnd()
           .run();
         return true;
       },
@@ -192,7 +178,7 @@ export class ImageBlockPageComponent extends WithDisposable(ShadowlessElement) {
     this._disposables.add(
       selection.slots.changed.on(selList => {
         this._isSelected = selList.some(
-          sel => sel.blockId === this.block.blockId && sel.is(ImageSelection)
+          sel => sel.blockId === this.block.blockId && sel.is('image')
         );
       })
     );
@@ -214,9 +200,7 @@ export class ImageBlockPageComponent extends WithDisposable(ShadowlessElement) {
         selection.update(selList => {
           return selList
             .filter(sel => !['block', 'image', 'text'].includes(sel.type))
-            .concat(
-              selection.create(ImageSelection, { blockId: this.block.blockId })
-            );
+            .concat(selection.create('image', { blockId: this.block.blockId }));
         });
         return true;
       }
@@ -229,8 +213,7 @@ export class ImageBlockPageComponent extends WithDisposable(ShadowlessElement) {
 
         selection.update(selList =>
           selList.filter(
-            sel =>
-              !(sel.is(ImageSelection) && sel.blockId === this.block.blockId)
+            sel => !(sel.is('image') && sel.blockId === this.block.blockId)
           )
         );
       },

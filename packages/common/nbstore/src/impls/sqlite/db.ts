@@ -1,81 +1,9 @@
+import { apis } from '@affine/electron-api';
+
 import { AutoReconnectConnection } from '../../connection';
-import type {
-  BlobRecord,
-  DocClock,
-  DocRecord,
-  ListedBlobRecord,
-} from '../../storage';
-import { type SpaceType, universalId } from '../../utils/universal-id';
+import { type SpaceType, universalId } from '../../storage';
 
-export interface SqliteNativeDBOptions {
-  readonly flavour: string;
-  readonly type: SpaceType;
-  readonly id: string;
-}
-
-export type NativeDBApis = {
-  connect(id: string): Promise<void>;
-  disconnect(id: string): Promise<void>;
-  pushUpdate(id: string, docId: string, update: Uint8Array): Promise<Date>;
-  getDocSnapshot(id: string, docId: string): Promise<DocRecord | null>;
-  setDocSnapshot(id: string, snapshot: DocRecord): Promise<boolean>;
-  getDocUpdates(id: string, docId: string): Promise<DocRecord[]>;
-  markUpdatesMerged(
-    id: string,
-    docId: string,
-    updates: Date[]
-  ): Promise<number>;
-  deleteDoc(id: string, docId: string): Promise<void>;
-  getDocClocks(
-    id: string,
-    after?: Date | undefined | null
-  ): Promise<DocClock[]>;
-  getDocClock(id: string, docId: string): Promise<DocClock | null>;
-  getBlob(id: string, key: string): Promise<BlobRecord | null>;
-  setBlob(id: string, blob: BlobRecord): Promise<void>;
-  deleteBlob(id: string, key: string, permanently: boolean): Promise<void>;
-  releaseBlobs(id: string): Promise<void>;
-  listBlobs(id: string): Promise<ListedBlobRecord[]>;
-  getPeerRemoteClocks(id: string, peer: string): Promise<DocClock[]>;
-  getPeerRemoteClock(
-    id: string,
-    peer: string,
-    docId: string
-  ): Promise<DocClock | null>;
-  setPeerRemoteClock(
-    id: string,
-    peer: string,
-    docId: string,
-    clock: Date
-  ): Promise<void>;
-  getPeerPulledRemoteClocks(id: string, peer: string): Promise<DocClock[]>;
-  getPeerPulledRemoteClock(
-    id: string,
-    peer: string,
-    docId: string
-  ): Promise<DocClock | null>;
-  setPeerPulledRemoteClock(
-    id: string,
-    peer: string,
-    docId: string,
-    clock: Date
-  ): Promise<void>;
-  getPeerPushedClocks(id: string, peer: string): Promise<DocClock[]>;
-  getPeerPushedClock(
-    id: string,
-    peer: string,
-    docId: string
-  ): Promise<DocClock | null>;
-  setPeerPushedClock(
-    id: string,
-    peer: string,
-    docId: string,
-    clock: Date
-  ): Promise<void>;
-  clearClocks(id: string): Promise<void>;
-};
-
-type NativeDBApisWrapper = NativeDBApis extends infer APIs
+type NativeDBApis = NonNullable<typeof apis>['nbstore'] extends infer APIs
   ? {
       [K in keyof APIs]: APIs[K] extends (...args: any[]) => any
         ? Parameters<APIs[K]> extends [string, ...infer Rest]
@@ -85,56 +13,49 @@ type NativeDBApisWrapper = NativeDBApis extends infer APIs
     }
   : never;
 
-let apis: NativeDBApis | null = null;
-
-export function bindNativeDBApis(a: NativeDBApis) {
-  apis = a;
-}
-
 export class NativeDBConnection extends AutoReconnectConnection<void> {
-  readonly apis: NativeDBApisWrapper;
+  readonly apis: NativeDBApis;
 
-  readonly flavour = this.options.flavour;
-  readonly type = this.options.type;
-  readonly id = this.options.id;
-
-  constructor(private readonly options: SqliteNativeDBOptions) {
+  constructor(
+    private readonly peer: string,
+    private readonly type: SpaceType,
+    private readonly id: string
+  ) {
     super();
-
     if (!apis) {
-      throw new Error('Not in native context.');
+      throw new Error('Not in electron context.');
     }
 
-    this.apis = this.warpApis(apis);
+    this.apis = this.bindApis(apis.nbstore);
   }
 
   override get shareId(): string {
-    return `sqlite:${this.flavour}:${this.type}:${this.id}`;
+    return `sqlite:${this.peer}:${this.type}:${this.id}`;
   }
 
-  warpApis(originalApis: NativeDBApis): NativeDBApisWrapper {
+  bindApis(originalApis: NonNullable<typeof apis>['nbstore']): NativeDBApis {
     const id = universalId({
-      peer: this.flavour,
+      peer: this.peer,
       type: this.type,
       id: this.id,
     });
-    return new Proxy(
-      {},
-      {
-        get: (_target, key: keyof NativeDBApisWrapper) => {
-          const v = originalApis[key];
+    return new Proxy(originalApis, {
+      get: (target, key: keyof NativeDBApis) => {
+        const v = target[key];
+        if (typeof v !== 'function') {
+          return v;
+        }
 
-          return async (...args: any[]) => {
-            return v.call(
-              originalApis,
-              id,
-              // @ts-expect-error I don't know why it complains ts(2556)
-              ...args
-            );
-          };
-        },
-      }
-    ) as unknown as NativeDBApisWrapper;
+        return async (...args: any[]) => {
+          return v.call(
+            originalApis,
+            id,
+            // @ts-expect-error I don't know why it complains ts(2556)
+            ...args
+          );
+        };
+      },
+    }) as unknown as NativeDBApis;
   }
 
   override async doConnect() {
@@ -142,7 +63,7 @@ export class NativeDBConnection extends AutoReconnectConnection<void> {
   }
 
   override doDisconnect() {
-    this.apis.disconnect().catch(err => {
+    this.apis.close().catch(err => {
       console.error('NativeDBConnection close failed', err);
     });
   }

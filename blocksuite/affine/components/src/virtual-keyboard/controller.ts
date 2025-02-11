@@ -1,10 +1,7 @@
 import { IS_IOS } from '@blocksuite/global/env';
-import type * as GlobalTypes from '@blocksuite/global/types';
 import { DisposableGroup } from '@blocksuite/global/utils';
 import { signal } from '@preact/signals-core';
 import type { ReactiveController, ReactiveControllerHost } from 'lit';
-
-declare type _GLOBAL_ = typeof GlobalTypes;
 
 function notSupportedWarning() {
   console.warn('VirtualKeyboard API and VisualViewport API are not supported');

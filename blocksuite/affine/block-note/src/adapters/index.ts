@@ -1,21 +1,17 @@
-import type { ExtensionType } from '@blocksuite/store';
+import type { ExtensionType } from '@blocksuite/block-std';
 
 import {
   DocNoteBlockHtmlAdapterExtension,
   EdgelessNoteBlockHtmlAdapterExtension,
-} from './html';
+} from './html.js';
 import {
   DocNoteBlockMarkdownAdapterExtension,
   EdgelessNoteBlockMarkdownAdapterExtension,
-} from './markdown';
+} from './markdown.js';
 import {
   DocNoteBlockPlainTextAdapterExtension,
   EdgelessNoteBlockPlainTextAdapterExtension,
-} from './plain-text';
-
-export * from './html';
-export * from './markdown';
-export * from './plain-text';
+} from './plain-text.js';
 
 export const DocNoteBlockAdapterExtensions: ExtensionType[] = [
   DocNoteBlockMarkdownAdapterExtension,

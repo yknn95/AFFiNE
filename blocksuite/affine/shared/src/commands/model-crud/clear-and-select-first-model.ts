@@ -1,9 +1,9 @@
-import { type Command, TextSelection } from '@blocksuite/block-std';
-import type { BlockModel } from '@blocksuite/store';
+import type { Command } from '@blocksuite/block-std';
 
-export const clearAndSelectFirstModelCommand: Command<{
-  selectedModels?: BlockModel[];
-}> = (ctx, next) => {
+export const clearAndSelectFirstModelCommand: Command<'selectedModels'> = (
+  ctx,
+  next
+) => {
   const models = ctx.selectedModels;
 
   if (!models) {
@@ -17,7 +17,7 @@ export const clearAndSelectFirstModelCommand: Command<{
     const firstModel = models[0];
     if (firstModel.text) {
       firstModel.text.clear();
-      const selection = ctx.std.selection.create(TextSelection, {
+      const selection = ctx.std.selection.create('text', {
         from: {
           blockId: firstModel.id,
           index: 0,
@@ -31,3 +31,11 @@ export const clearAndSelectFirstModelCommand: Command<{
 
   return next();
 };
+
+declare global {
+  namespace BlockSuite {
+    interface Commands {
+      clearAndSelectFirstModel: typeof clearAndSelectFirstModelCommand;
+    }
+  }
+}

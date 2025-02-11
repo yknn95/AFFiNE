@@ -1,10 +1,9 @@
-import { FeatureFlagService } from '@blocksuite/affine-shared/services';
 import {
+  DocCollection,
+  Job,
+  type JobMiddleware,
   Schema,
-  Transformer,
-  type TransformerMiddleware,
 } from '@blocksuite/store';
-import { TestWorkspace } from '@blocksuite/store/test';
 
 import { defaultImageProxyMiddleware } from '../../_common/transformers/middlewares.js';
 import { AffineSchemas } from '../../schemas.js';
@@ -21,22 +20,12 @@ declare global {
   }
 }
 
-export function createJob(middlewares?: TransformerMiddleware[]) {
+export function createJob(middlewares?: JobMiddleware[]) {
   window.happyDOM.settings.fetch.disableSameOriginPolicy = true;
   const testMiddlewares = middlewares ?? [];
   testMiddlewares.push(defaultImageProxyMiddleware);
   const schema = new Schema().register(AffineSchemas);
-  const docCollection = new TestWorkspace({ schema });
-  docCollection.storeExtensions = [FeatureFlagService];
+  const docCollection = new DocCollection({ schema });
   docCollection.meta.initialize();
-  return new Transformer({
-    schema,
-    blobCRUD: docCollection.blobSync,
-    middlewares: testMiddlewares,
-    docCRUD: {
-      create: (id: string) => docCollection.createDoc({ id }),
-      get: (id: string) => docCollection.getDoc(id),
-      delete: (id: string) => docCollection.removeDoc(id),
-    },
-  });
+  return new Job({ collection: docCollection, middlewares: testMiddlewares });
 }

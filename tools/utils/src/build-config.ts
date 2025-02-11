@@ -1,3 +1,4 @@
+import type { BUILD_CONFIG_TYPE } from '@affine/env/global';
 import type { Package } from '@affine-tools/utils/workspace';
 
 import { PackageToDistribution } from './distribution';
@@ -36,13 +37,13 @@ export function getBuildConfig(
         isAdmin: distribution === 'admin',
 
         appBuildType: 'stable' as const,
+        serverUrlPrefix: 'https://app.affine.pro',
         appVersion: pkg.version,
         // editorVersion: pkg.dependencies['@blocksuite/affine'],
         editorVersion: pkg.version,
         githubUrl: 'https://github.com/toeverything/AFFiNE',
         changelogUrl: 'https://affine.pro/what-is-new',
         downloadUrl: 'https://affine.pro/download',
-        pricingUrl: 'https://affine.pro/pricing',
         imageProxyUrl: '/api/worker/image-proxy',
         linkPreviewUrl: '/api/worker/link-preview',
       };
@@ -51,6 +52,7 @@ export function getBuildConfig(
       return {
         ...this.stable,
         appBuildType: 'beta' as const,
+        serverUrlPrefix: 'https://insider.affine.pro',
         changelogUrl: 'https://github.com/toeverything/AFFiNE/releases',
       };
     },
@@ -58,6 +60,7 @@ export function getBuildConfig(
       return {
         ...this.stable,
         appBuildType: 'internal' as const,
+        serverUrlPrefix: 'https://insider.affine.pro',
         changelogUrl: 'https://github.com/toeverything/AFFiNE/releases',
       };
     },
@@ -66,6 +69,7 @@ export function getBuildConfig(
       return {
         ...this.stable,
         appBuildType: 'canary' as const,
+        serverUrlPrefix: 'https://affine.fail',
         changelogUrl: 'https://github.com/toeverything/AFFiNE/releases',
       };
     },
@@ -82,6 +86,10 @@ export function getBuildConfig(
   const environmentPreset = {
     changelogUrl: process.env.CHANGELOG_URL ?? currentBuildPreset.changelogUrl,
   };
+
+  if (buildFlags.mode === 'development') {
+    currentBuildPreset.serverUrlPrefix = 'http://localhost:8080';
+  }
 
   return {
     ...currentBuildPreset,

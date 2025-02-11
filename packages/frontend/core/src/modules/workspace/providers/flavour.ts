@@ -1,15 +1,24 @@
-import type {
-  BlobStorage,
-  DocStorage,
-  ListedBlobRecord,
-} from '@affine/nbstore';
-import type { WorkerInitOptions } from '@affine/nbstore/worker/client';
-import type { Workspace as BSWorkspace } from '@blocksuite/affine/store';
-import { createIdentifier, type LiveData } from '@toeverything/infra';
+import type { DocCollection } from '@blocksuite/affine/store';
+import {
+  type AwarenessConnection,
+  type BlobStorage,
+  createIdentifier,
+  type DocServer,
+  type DocStorage,
+  type LiveData,
+} from '@toeverything/infra';
 
 import type { WorkspaceProfileInfo } from '../entities/profile';
 import type { Workspace } from '../entities/workspace';
 import type { WorkspaceMetadata } from '../metadata';
+
+export interface WorkspaceEngineProvider {
+  getDocServer(): DocServer | null;
+  getDocStorage(): DocStorage;
+  getLocalBlobStorage(): BlobStorage;
+  getRemoteBlobStorages(): BlobStorage[];
+  getAwarenessConnections(): AwarenessConnection[];
+}
 
 export interface WorkspaceFlavourProvider {
   flavour: string;
@@ -18,7 +27,7 @@ export interface WorkspaceFlavourProvider {
 
   createWorkspace(
     initial: (
-      docCollection: BSWorkspace,
+      docCollection: DocCollection,
       blobStorage: BlobStorage,
       docStorage: DocStorage
     ) => Promise<void>
@@ -45,15 +54,7 @@ export interface WorkspaceFlavourProvider {
 
   getWorkspaceBlob(id: string, blob: string): Promise<Blob | null>;
 
-  listBlobs(workspaceId: string): Promise<ListedBlobRecord[]>;
-
-  deleteBlob(
-    workspaceId: string,
-    blob: string,
-    permanent: boolean
-  ): Promise<void>;
-
-  getEngineWorkerInitOptions(workspaceId: string): WorkerInitOptions;
+  getEngineProvider(workspaceId: string): WorkspaceEngineProvider;
 
   onWorkspaceInitialized?(workspace: Workspace): void;
 }

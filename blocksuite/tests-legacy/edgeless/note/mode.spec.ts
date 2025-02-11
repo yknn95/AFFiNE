@@ -1,3 +1,5 @@
+import { NoteDisplayMode } from '@blocksuite/affine-model';
+
 import {
   addNote,
   changeNoteDisplayModeWithId,
@@ -7,7 +9,6 @@ import {
   zoomResetByKeyboard,
 } from '../../utils/actions/index.js';
 import { assertBlockCount } from '../../utils/asserts.js';
-import { NoteDisplayMode } from '../../utils/bs-alternative.js';
 import { test } from '../../utils/playwright.js';
 
 test('Note added on doc mode should display on both modes by default', async ({

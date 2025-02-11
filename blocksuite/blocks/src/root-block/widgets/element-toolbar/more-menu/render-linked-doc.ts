@@ -1,20 +1,20 @@
-import { getSurfaceBlock, isNoteBlock } from '@blocksuite/affine-block-surface';
+import { getSurfaceBlock } from '@blocksuite/affine-block-surface';
 import type { FrameBlockModel, NoteBlockModel } from '@blocksuite/affine-model';
 import { NoteDisplayMode } from '@blocksuite/affine-model';
 import { DocModeProvider } from '@blocksuite/affine-shared/services';
 import { getBlockProps } from '@blocksuite/affine-shared/utils';
 import type { EditorHost } from '@blocksuite/block-std';
 import { GfxBlockElementModel } from '@blocksuite/block-std/gfx';
-import { type BlockModel, type Store, Text } from '@blocksuite/store';
+import { type BlockModel, type Doc } from '@blocksuite/store';
 
 import {
   getElementProps,
   mapFrameIds,
   sortEdgelessElements,
 } from '../../../edgeless/utils/clone-utils.js';
-import { isFrameBlock } from '../../../edgeless/utils/query.js';
+import { isFrameBlock, isNoteBlock } from '../../../edgeless/utils/query.js';
 
-function addBlocksToDoc(targetDoc: Store, model: BlockModel, parentId: string) {
+function addBlocksToDoc(targetDoc: Doc, model: BlockModel, parentId: string) {
   // Add current block to linked doc
   const blockProps = getBlockProps(model);
   const newModelId = targetDoc.addBlock(
@@ -32,14 +32,14 @@ function addBlocksToDoc(targetDoc: Store, model: BlockModel, parentId: string) {
 }
 
 export function createLinkedDocFromNote(
-  doc: Store,
+  doc: Doc,
   note: NoteBlockModel,
   docTitle?: string
 ) {
-  const linkedDoc = doc.workspace.createDoc({});
+  const linkedDoc = doc.collection.createDoc({});
   linkedDoc.load(() => {
     const rootId = linkedDoc.addBlock('affine:page', {
-      title: new Text(docTitle),
+      title: new doc.Text(docTitle),
     });
     linkedDoc.addBlock('affine:surface', {}, rootId);
     const blockProps = getBlockProps(note);
@@ -67,10 +67,10 @@ export function createLinkedDocFromEdgelessElements(
   elements: BlockSuite.EdgelessModel[],
   docTitle?: string
 ) {
-  const linkedDoc = host.doc.workspace.createDoc({});
+  const linkedDoc = host.doc.collection.createDoc({});
   linkedDoc.load(() => {
     const rootId = linkedDoc.addBlock('affine:page', {
-      title: new Text(docTitle),
+      title: new host.doc.Text(docTitle),
     });
     const surfaceId = linkedDoc.addBlock('affine:surface', {}, rootId);
     const surface = getSurfaceBlock(linkedDoc);

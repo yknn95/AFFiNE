@@ -1,13 +1,9 @@
-import { insertEdgelessTextCommand } from '@blocksuite/affine-block-edgeless-text';
 import type { TextElementModel } from '@blocksuite/affine-model';
-import {
-  FeatureFlagService,
-  TelemetryProvider,
-} from '@blocksuite/affine-shared/services';
+import { TelemetryProvider } from '@blocksuite/affine-shared/services';
 import type { PointerEventState } from '@blocksuite/block-std';
 import { BaseTool, type GfxController } from '@blocksuite/block-std/gfx';
 import { Bound } from '@blocksuite/global/utils';
-import * as Y from 'yjs';
+import { DocCollection } from '@blocksuite/store';
 
 import type { EdgelessRootBlockComponent } from '../edgeless-root-block.js';
 import { mountTextElementEditor } from '../utils/text.js';
@@ -26,11 +22,11 @@ export function addText(gfx: GfxController, event: PointerEventState) {
     const id = gfx.surface.addElement({
       type: 'text',
       xywh: new Bound(modelX, modelY, 32, 32).serialize(),
-      text: new Y.Text(),
+      text: new DocCollection.Y.Text(),
     });
     gfx.doc.captureSync();
     const textElement = gfx.getElementById(id) as TextElementModel;
-    const edgelessView = gfx.std.view.getBlock(gfx.std.store.root!.id);
+    const edgelessView = gfx.std.view.getBlock(gfx.std.doc.root!.id);
     mountTextElementEditor(
       textElement,
       edgelessView as EdgelessRootBlockComponent
@@ -42,13 +38,13 @@ export class TextTool extends BaseTool {
   static override toolName: string = 'text';
 
   override click(e: PointerEventState): void {
-    const textFlag = this.gfx.doc
-      .get(FeatureFlagService)
-      .getFlag('enable_edgeless_text');
+    const textFlag = this.gfx.doc.awarenessStore.getFlag(
+      'enable_edgeless_text'
+    );
 
     if (textFlag) {
       const [x, y] = this.gfx.viewport.toModelCoord(e.x, e.y);
-      this.gfx.std.command.exec(insertEdgelessTextCommand, { x, y });
+      this.gfx.std.command.exec('insertEdgelessText', { x, y });
       this.gfx.tool.setTool('default');
     } else {
       addText(this.gfx, e);

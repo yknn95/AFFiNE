@@ -1,19 +1,14 @@
+import type { ExtensionType } from '@blocksuite/block-std';
 import { createIdentifier } from '@blocksuite/global/di';
 import type { DeepPartial } from '@blocksuite/global/utils';
-import type { ExtensionType } from '@blocksuite/store';
 import type { Signal } from '@preact/signals-core';
-import { z } from 'zod';
+import type { z } from 'zod';
 
 import { NodePropsSchema } from '../utils/index.js';
 
-export const GeneralSettingSchema = z
-  .object({
-    edgelessScrollZoom: z.boolean().default(false),
-    edgelessDisableScheduleUpdate: z.boolean().default(false),
-  })
-  .merge(NodePropsSchema);
+export const EditorSettingSchema = NodePropsSchema;
 
-export type EditorSetting = z.infer<typeof GeneralSettingSchema>;
+export type EditorSetting = z.infer<typeof EditorSettingSchema>;
 
 export const EditorSettingProvider = createIdentifier<
   Signal<DeepPartial<EditorSetting>>

@@ -22,6 +22,20 @@ export const container = style({
   },
 });
 
+export const dividerContainer = style({
+  height: '16px',
+  width: '100%',
+  display: 'flex',
+  justifyContent: 'center',
+  alignItems: 'center',
+});
+
+export const divider = style({
+  background: cssVar('--affine-border-color'),
+  height: '0.5px',
+  width: '100%',
+});
+
 export const titleLine = style({
   display: 'flex',
   justifyContent: 'space-between',

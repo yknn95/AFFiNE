@@ -4,7 +4,7 @@ import {
   popMenu,
   popupTargetFromElement,
 } from '@blocksuite/affine-components/context-menu';
-import { DropIndicator } from '@blocksuite/affine-components/drop-indicator';
+import { DragIndicator } from '@blocksuite/affine-components/drag-indicator';
 import { PeekViewProvider } from '@blocksuite/affine-components/peek';
 import { toast } from '@blocksuite/affine-components/toast';
 import type { DatabaseBlockModel } from '@blocksuite/affine-model';
@@ -23,6 +23,7 @@ import {
 import {
   createRecordDetail,
   createUniComponentFromWebComponent,
+  DatabaseSelection,
   DataView,
   dataViewCommonStyle,
   type DataViewInstance,
@@ -51,13 +52,16 @@ import { popSideDetail } from './components/layout.js';
 import type { DatabaseOptionsConfig } from './config.js';
 import { HostContextKey } from './context/host-context.js';
 import { DatabaseBlockDataSource } from './data-source.js';
+import type { DatabaseBlockService } from './database-service.js';
 import { BlockRenderer } from './detail-panel/block-renderer.js';
 import { NoteRenderer } from './detail-panel/note-renderer.js';
-import { DatabaseSelection } from './selection.js';
 import { currentViewStorage } from './utils/current-view.js';
 import { getSingleDocIdFromText } from './utils/title-doc.js';
 
-export class DatabaseBlockComponent extends CaptionedBlockComponent<DatabaseBlockModel> {
+export class DatabaseBlockComponent extends CaptionedBlockComponent<
+  DatabaseBlockModel,
+  DatabaseBlockService
+> {
   static override styles = css`
     ${unsafeCSS(dataViewCommonStyle('affine-database'))}
     affine-database {
@@ -241,7 +245,7 @@ export class DatabaseBlockComponent extends CaptionedBlockComponent<DatabaseBloc
     }
   );
 
-  indicator = new DropIndicator();
+  indicator = new DragIndicator();
 
   onDrag = (evt: MouseEvent, id: string): (() => void) => {
     const result = getDropResult(evt);
@@ -258,7 +262,7 @@ export class DatabaseBlockComponent extends CaptionedBlockComponent<DatabaseBloc
         const model = this.doc.getBlock(id)?.model;
         const target = result.modelState.model;
         let parent = this.doc.getParent(target.id);
-        const shouldInsertIn = result.placement === 'in';
+        const shouldInsertIn = result.type === 'in';
         if (shouldInsertIn) {
           parent = target;
         }
@@ -270,7 +274,7 @@ export class DatabaseBlockComponent extends CaptionedBlockComponent<DatabaseBloc
               [model],
               parent,
               target,
-              result.placement === 'before'
+              result.type === 'before'
             );
           }
         }
@@ -333,7 +337,7 @@ export class DatabaseBlockComponent extends CaptionedBlockComponent<DatabaseBloc
       this._dataSource = new DatabaseBlockDataSource(this.model);
       this._dataSource.contextSet(HostContextKey, this.host);
       const id = currentViewStorage.getCurrentView(this.model.id);
-      if (id && this.dataSource.viewManager.viewGet(id)) {
+      if (id) {
         this.dataSource.viewManager.setCurrentView(id);
       }
     }

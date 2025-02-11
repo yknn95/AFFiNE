@@ -1,8 +1,8 @@
 import { Injectable } from '@nestjs/common';
 import { applyUpdate, Doc } from 'yjs';
 
-import { Cache } from '../../base';
-import { DocReader } from '../doc';
+import { Cache, type EventPayload, OnEvent } from '../../base';
+import { PgWorkspaceDocStorageAdapter } from '../doc';
 import {
   type PageDocContent,
   parsePageDoc,
@@ -14,7 +14,7 @@ import {
 export class DocContentService {
   constructor(
     private readonly cache: Cache,
-    private readonly docReader: DocReader
+    private readonly workspace: PgWorkspaceDocStorageAdapter
   ) {}
 
   async getPageContent(
@@ -28,7 +28,7 @@ export class DocContentService {
       return cachedResult;
     }
 
-    const docRecord = await this.docReader.getDoc(workspaceId, guid);
+    const docRecord = await this.workspace.getDoc(workspaceId, guid);
     if (!docRecord) {
       return null;
     }
@@ -61,7 +61,7 @@ export class DocContentService {
       return cachedResult;
     }
 
-    const docRecord = await this.docReader.getDoc(workspaceId, workspaceId);
+    const docRecord = await this.workspace.getDoc(workspaceId, workspaceId);
     if (!docRecord) {
       return null;
     }
@@ -78,11 +78,15 @@ export class DocContentService {
     return content;
   }
 
-  async markDocContentCacheStale(workspaceId: string, docId: string) {
+  @OnEvent('snapshot.updated')
+  async markDocContentCacheStale({
+    workspaceId,
+    id,
+  }: EventPayload<'snapshot.updated'>) {
     const key =
-      workspaceId === docId
+      workspaceId === id
         ? `workspace:${workspaceId}:content`
-        : `workspace:${workspaceId}:doc:${docId}:content`;
+        : `workspace:${workspaceId}:doc:${id}:content`;
     await this.cache.delete(key);
   }
 }

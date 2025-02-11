@@ -4,11 +4,19 @@ import type {
   DocMode,
   GroupElementModel,
 } from '@blocksuite/affine-model';
-import type { Store } from '@blocksuite/store';
+import type { Slot } from '@blocksuite/global/utils';
+import type { Doc } from '@blocksuite/store';
+
+/** Common context interface definition for block models. */
+
+type EditorSlots = {
+  docUpdated: Slot<{ newDocId: string }>;
+};
 
 export type AbstractEditor = {
-  doc: Store;
+  doc: Doc;
   mode: DocMode;
+  readonly slots: EditorSlots;
 } & HTMLElement;
 
 export type Connectable = Exclude<

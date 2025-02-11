@@ -11,7 +11,7 @@ import {
   LinkedPageIcon,
   PageIcon,
 } from '@blocksuite/icons/lit';
-import type { Store } from '@blocksuite/store';
+import type { Doc } from '@blocksuite/store';
 import { computed, type Signal, signal } from '@preact/signals-core';
 import type { TemplateResult } from 'lit';
 
@@ -70,9 +70,9 @@ export class DocDisplayMetaService
 
   readonly disposables: Disposable[] = [];
 
-  readonly iconMap = new WeakMap<Store, Signal<TemplateResult>>();
+  readonly iconMap = new WeakMap<Doc, Signal<TemplateResult>>();
 
-  readonly titleMap = new WeakMap<Store, Signal<string>>();
+  readonly titleMap = new WeakMap<Doc, Signal<string>>();
 
   static override setup(di: Container) {
     di.addImpl(DocDisplayMetaProvider, this, [StdIdentifier]);
@@ -88,7 +88,7 @@ export class DocDisplayMetaService
     pageId: string,
     { params, title, referenced }: DocDisplayMetaParams = {}
   ): Signal<TemplateResult> {
-    const doc = this.std.workspace.getDoc(pageId);
+    const doc = this.std.collection.getDoc(pageId);
 
     if (!doc) {
       return signal(DocDisplayMetaService.icons.deleted);
@@ -114,7 +114,7 @@ export class DocDisplayMetaService
 
       this.disposables.push(disposable);
       this.disposables.push(
-        this.std.workspace.slots.docRemoved
+        this.std.collection.slots.docRemoved
           .filter(docId => docId === doc.id)
           .once(() => {
             const index = this.disposables.findIndex(d => d === disposable);
@@ -152,7 +152,7 @@ export class DocDisplayMetaService
   }
 
   title(pageId: string, { title }: DocDisplayMetaParams = {}): Signal<string> {
-    const doc = this.std.workspace.getDoc(pageId);
+    const doc = this.std.collection.getDoc(pageId);
 
     if (!doc) {
       return signal(title || 'Deleted doc');
@@ -162,13 +162,13 @@ export class DocDisplayMetaService
     if (!title$) {
       title$ = signal(doc.meta?.title || 'Untitled');
 
-      const disposable = this.std.workspace.slots.docListUpdated.on(() => {
+      const disposable = this.std.collection.meta.docMetaUpdated.on(() => {
         title$!.value = doc.meta?.title || 'Untitled';
       });
 
       this.disposables.push(disposable);
       this.disposables.push(
-        this.std.workspace.slots.docRemoved
+        this.std.collection.slots.docRemoved
           .filter(docId => docId === doc.id)
           .once(() => {
             const index = this.disposables.findIndex(d => d === disposable);

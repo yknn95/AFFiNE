@@ -1,7 +1,3 @@
-import {
-  DividerBlockModel,
-  ParagraphBlockModel,
-} from '@blocksuite/affine-model';
 import { matchFlavours } from '@blocksuite/affine-shared/utils';
 import type { BlockStdScope } from '@blocksuite/block-std';
 import type { BlockModel } from '@blocksuite/store';
@@ -14,10 +10,10 @@ export function toDivider(
   model: BlockModel,
   prefix: string
 ) {
-  const { store: doc } = std;
+  const { doc } = std;
   if (
-    matchFlavours(model, [DividerBlockModel]) ||
-    (matchFlavours(model, [ParagraphBlockModel]) && model.type === 'quote')
+    matchFlavours(model, ['affine:divider']) ||
+    (matchFlavours(model, ['affine:paragraph']) && model.type === 'quote')
   ) {
     return;
   }

@@ -1,12 +1,12 @@
 import type { Slot } from '@blocksuite/global/utils';
 
-import type { DraftModel, Store } from '../model/index.js';
+import type { Doc, DocCollection } from '../store/index.js';
 import type { AssetsManager } from './assets.js';
+import type { DraftModel } from './draft.js';
 import type { Slice } from './slice.js';
 import type {
   BlockSnapshot,
   CollectionInfoSnapshot,
-  DocCRUD,
   DocSnapshot,
   SliceSnapshot,
 } from './type.js';
@@ -37,7 +37,7 @@ export type BeforeExportPayload =
       type: 'block';
     }
   | {
-      page: Store;
+      page: Doc;
       type: 'page';
     }
   | {
@@ -59,7 +59,7 @@ export type FinalPayload =
   | {
       snapshot: DocSnapshot;
       type: 'page';
-      page: Store;
+      page: Doc;
     }
   | {
       snapshot: SliceSnapshot;
@@ -71,20 +71,18 @@ export type FinalPayload =
       type: 'info';
     };
 
-export type TransformerSlots = {
+export type JobSlots = {
   beforeImport: Slot<BeforeImportPayload>;
   afterImport: Slot<FinalPayload>;
   beforeExport: Slot<BeforeExportPayload>;
   afterExport: Slot<FinalPayload>;
 };
 
-type TransformerMiddlewareOptions = {
+type JobMiddlewareOptions = {
+  collection: DocCollection;
   assetsManager: AssetsManager;
-  slots: TransformerSlots;
-  docCRUD: DocCRUD;
+  slots: JobSlots;
   adapterConfigs: Map<string, string>;
 };
 
-export type TransformerMiddleware = (
-  options: TransformerMiddlewareOptions
-) => void;
+export type JobMiddleware = (options: JobMiddlewareOptions) => void;

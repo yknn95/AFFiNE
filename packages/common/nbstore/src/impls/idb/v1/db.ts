@@ -15,26 +15,23 @@ export interface DocDBSchema extends DBSchema {
   };
 }
 
-export class DocIDBConnection extends AutoReconnectConnection<IDBPDatabase<DocDBSchema> | null> {
+export class DocIDBConnection extends AutoReconnectConnection<
+  IDBPDatabase<DocDBSchema>
+> {
   override get shareId() {
     return 'idb(old):affine-local';
   }
 
   override async doConnect() {
-    const dbs = await indexedDB.databases();
-    if (dbs.some(d => d.name === 'affine-local')) {
-      return openDB<DocDBSchema>('affine-local', 1, {
-        upgrade: db => {
-          db.createObjectStore('workspace', { keyPath: 'id' });
-        },
-      });
-    } else {
-      return null;
-    }
+    return openDB<DocDBSchema>('affine-local', 1, {
+      upgrade: db => {
+        db.createObjectStore('workspace', { keyPath: 'id' });
+      },
+    });
   }
 
-  override doDisconnect(conn: IDBPDatabase<DocDBSchema> | null) {
-    conn?.close();
+  override doDisconnect(conn: IDBPDatabase<DocDBSchema>) {
+    conn.close();
   }
 }
 
@@ -45,33 +42,26 @@ export interface BlobDBSchema extends DBSchema {
   };
 }
 
-export interface BlobIDBConnectionOptions {
-  id: string;
-}
-
-export class BlobIDBConnection extends AutoReconnectConnection<IDBPDatabase<BlobDBSchema> | null> {
-  constructor(private readonly options: BlobIDBConnectionOptions) {
+export class BlobIDBConnection extends AutoReconnectConnection<
+  IDBPDatabase<BlobDBSchema>
+> {
+  constructor(private readonly workspaceId: string) {
     super();
   }
 
   override get shareId() {
-    return `idb(old-blob):${this.options.id}`;
+    return `idb(old-blob):${this.workspaceId}`;
   }
 
   override async doConnect() {
-    const dbs = await indexedDB.databases();
-    if (dbs.some(d => d.name === `${this.options.id}_blob`)) {
-      return openDB<BlobDBSchema>(`${this.options.id}_blob`, 1, {
-        upgrade: db => {
-          db.createObjectStore('blob');
-        },
-      });
-    } else {
-      return null;
-    }
+    return openDB<BlobDBSchema>(`${this.workspaceId}_blob`, 1, {
+      upgrade: db => {
+        db.createObjectStore('blob');
+      },
+    });
   }
 
-  override doDisconnect(conn: IDBPDatabase<BlobDBSchema> | null) {
-    conn?.close();
+  override doDisconnect(conn: IDBPDatabase<BlobDBSchema>) {
+    conn.close();
   }
 }

@@ -26,7 +26,7 @@ import {
   StrokeStyle,
   TextAlign,
 } from '@blocksuite/affine/blocks';
-import type { Store } from '@blocksuite/affine/store';
+import type { Doc } from '@blocksuite/affine/store';
 import { useFramework, useLiveData } from '@toeverything/infra';
 import { isEqual } from 'lodash-es';
 import { useCallback, useMemo, useState } from 'react';
@@ -324,7 +324,7 @@ export const ShapeSettings = () => {
       const handler = () => {
         editorSetting.set(`shape:${currentShape}`, { color: value });
       };
-      const isSelected = isEqual(color, value);
+      const isSelected = color === value;
       return (
         <MenuItem
           key={key}
@@ -339,7 +339,7 @@ export const ShapeSettings = () => {
   }, [editorSetting, settings, currentShape, strokeColorPalettes]);
 
   const getElements = useCallback(
-    (doc: Store) => {
+    (doc: Doc) => {
       const surface = getSurfaceBlock(doc);
       if (!surface) return [];
       return surface.getElementsByType('shape').filter(node => {
@@ -353,13 +353,13 @@ export const ShapeSettings = () => {
   );
 
   const firstUpdate = useCallback(
-    (doc: Store, editorHost: EditorHost) => {
+    (doc: Doc, editorHost: EditorHost) => {
       const edgelessService = editorHost.std.getService(
         'affine:page'
       ) as EdgelessRootService;
       const surface = getSurfaceBlock(doc);
       if (!surface) return;
-      doc.readonly = false;
+      doc.awarenessStore.setReadonly(doc.blockCollection, false);
       surface.getElementsByType('shape').forEach(node => {
         const shape = node as ShapeElementModel;
         const { shapeType, radius } = shape;
@@ -367,7 +367,7 @@ export const ShapeSettings = () => {
         const props = editorSetting.get(`shape:${shapeName}`);
         edgelessService.crud.updateElement(shape.id, props);
       });
-      doc.readonly = true;
+      doc.awarenessStore.setReadonly(doc.blockCollection, true);
     },
     [editorSetting]
   );

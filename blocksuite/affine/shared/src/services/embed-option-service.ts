@@ -1,7 +1,7 @@
 import type { EmbedCardStyle } from '@blocksuite/affine-model';
+import { Extension } from '@blocksuite/block-std';
 import type { Container } from '@blocksuite/global/di';
 import { createIdentifier } from '@blocksuite/global/di';
-import { Extension } from '@blocksuite/store';
 
 export type EmbedOptions = {
   flavour: string;

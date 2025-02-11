@@ -1,13 +1,6 @@
 import type { Command } from '@blocksuite/block-std';
 import type { BlockModel } from '@blocksuite/store';
 
-import { getSelectedBlocksCommand } from '../block-crud/get-selected-blocks';
-import {
-  getBlockSelectionsCommand,
-  getImageSelectionsCommand,
-  getTextSelectionCommand,
-} from '../selection';
-
 /**
  * Retrieves the selected models based on the provided selection types and mode.
  *
@@ -36,12 +29,11 @@ import {
  * @returns An object containing the selected models as an array of BlockModel instances.
  */
 export const getSelectedModelsCommand: Command<
+  never,
+  'selectedModels',
   {
-    types?: Array<'image' | 'text' | 'block'>;
+    types?: Extract<BlockSuite.SelectionType, 'block' | 'text' | 'image'>[];
     mode?: 'all' | 'flat' | 'highest';
-  },
-  {
-    selectedModels: BlockModel[];
   }
 > = (ctx, next) => {
   const types = ctx.types ?? ['block', 'text', 'image'];
@@ -50,12 +42,15 @@ export const getSelectedModelsCommand: Command<
   ctx.std.command
     .chain()
     .tryAll(chain => [
-      chain.pipe(getTextSelectionCommand),
-      chain.pipe(getBlockSelectionsCommand),
-      chain.pipe(getImageSelectionsCommand),
+      chain.getTextSelection(),
+      chain.getBlockSelections(),
+      chain.getImageSelections(),
     ])
-    .pipe(getSelectedBlocksCommand, { types, mode })
-    .pipe(ctx => {
+    .getSelectedBlocks({
+      types,
+      mode,
+    })
+    .inline(ctx => {
       const { selectedBlocks = [] } = ctx;
       selectedModels.push(...selectedBlocks.map(el => el.model));
     })
@@ -63,3 +58,15 @@ export const getSelectedModelsCommand: Command<
 
   next({ selectedModels });
 };
+
+declare global {
+  namespace BlockSuite {
+    interface CommandContext {
+      selectedModels?: BlockModel[];
+    }
+
+    interface Commands {
+      getSelectedModels: typeof getSelectedModelsCommand;
+    }
+  }
+}

@@ -1,9 +1,9 @@
-import { ListBlockModel } from '@blocksuite/affine-model';
+import type { ListBlockModel } from '@blocksuite/affine-model';
 import {
   getNextContinuousNumberedLists,
   matchFlavours,
 } from '@blocksuite/affine-shared/utils';
-import type { BlockModel, Store } from '@blocksuite/store';
+import type { BlockModel, Doc } from '@blocksuite/store';
 
 /**
  * correct target is a numbered list, which is divided into two steps:
@@ -12,7 +12,7 @@ import type { BlockModel, Store } from '@blocksuite/store';
  * 2. find continuous lists starting from the target list and keep their order continuous
  */
 export function correctNumberedListsOrderToPrev(
-  doc: Store,
+  doc: Doc,
   modelOrId: BlockModel | string,
   transact = true
 ) {
@@ -22,7 +22,7 @@ export function correctNumberedListsOrderToPrev(
   if (!model) return;
 
   if (
-    !matchFlavours(model, [ListBlockModel]) ||
+    !matchFlavours(model, ['affine:list']) ||
     model.type$.value !== 'numbered'
   ) {
     return;
@@ -33,7 +33,7 @@ export function correctNumberedListsOrderToPrev(
     const previousSibling = doc.getPrev(model);
     if (
       previousSibling &&
-      matchFlavours(previousSibling, [ListBlockModel]) &&
+      matchFlavours(previousSibling, ['affine:list']) &&
       previousSibling.type === 'numbered'
     ) {
       if (!previousSibling.order) previousSibling.order = 1;
@@ -58,7 +58,7 @@ export function correctNumberedListsOrderToPrev(
   }
 }
 
-export function correctListOrder(doc: Store, model: ListBlockModel) {
+export function correctListOrder(doc: Doc, model: ListBlockModel) {
   // old numbered list has no order
   if (model.type === 'numbered' && !Number.isInteger(model.order)) {
     correctNumberedListsOrderToPrev(doc, model, false);

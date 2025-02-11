@@ -1,5 +1,5 @@
 import type { Collection, Tag } from '@affine/env/filter';
-import type { DocMeta, Workspace } from '@blocksuite/affine/store';
+import type { DocCollection, DocMeta } from '@blocksuite/affine/store';
 import type { JSX, PropsWithChildren, ReactNode } from 'react';
 import type { To } from 'react-router-dom';
 
@@ -91,7 +91,7 @@ export type PageGroupByType =
 export interface ListProps<T> {
   // required data:
   items: T[];
-  docCollection: Workspace;
+  docCollection: DocCollection;
   className?: string;
   hideHeader?: boolean; // whether or not to hide the header. default is false (showing header)
   groupBy?: ItemGroupDefinition<T>[];

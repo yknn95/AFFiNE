@@ -1,5 +1,5 @@
 import { toGfxBlockComponent } from '@blocksuite/affine/block-std';
-import { Bound } from '@blocksuite/affine/global/utils';
+import { Bound } from '@blocksuite/global/utils';
 import { html } from 'lit';
 import { styleMap } from 'lit/directives/style-map.js';
 

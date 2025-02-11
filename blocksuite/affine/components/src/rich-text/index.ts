@@ -13,7 +13,17 @@ export {
 } from './dom';
 export * from './effects';
 export * from './extension';
-export * from './format';
+export {
+  clearMarksOnDiscontinuousInput,
+  FORMAT_BLOCK_SUPPORT_FLAVOURS,
+  FORMAT_NATIVE_SUPPORT_FLAVOURS,
+  FORMAT_TEXT_SUPPORT_FLAVOURS,
+  insertContent,
+  isFormatSupported,
+  textCommands,
+  type TextFormatConfig,
+  textFormatConfigs,
+} from './format';
 export * from './inline';
 export { textKeymap } from './keymap';
 export { insertLinkedNode } from './linked-node';

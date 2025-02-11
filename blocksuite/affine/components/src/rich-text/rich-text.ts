@@ -11,12 +11,12 @@ import {
   type KeyboardBindingContext,
   type VLine,
 } from '@blocksuite/inline';
-import { Text } from '@blocksuite/store';
+import type { Y } from '@blocksuite/store';
+import { DocCollection, Text } from '@blocksuite/store';
 import { effect } from '@preact/signals-core';
 import { css, html, type TemplateResult } from 'lit';
 import { property, query } from 'lit/decorators.js';
 import { classMap } from 'lit/directives/class-map.js';
-import * as Y from 'yjs';
 import { z } from 'zod';
 
 import { onVBeforeinput, onVCompositionEnd } from './hooks.js';
@@ -289,7 +289,7 @@ export class RichText extends WithDisposable(ShadowlessElement) {
     }
 
     if (!this.undoManager) {
-      this.undoManager = new Y.UndoManager(this._yText, {
+      this.undoManager = new DocCollection.Y.UndoManager(this._yText, {
         trackedOrigins: new Set([this._yText.doc.clientID]),
       });
     }

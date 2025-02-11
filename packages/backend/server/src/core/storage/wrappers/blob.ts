@@ -4,7 +4,8 @@ import { PrismaClient } from '@prisma/client';
 import {
   autoMetadata,
   Config,
-  EventBus,
+  EventEmitter,
+  type EventPayload,
   type GetObjectMetadata,
   ListObjectsMetadata,
   OnEvent,
@@ -20,7 +21,7 @@ export class WorkspaceBlobStorage {
 
   constructor(
     private readonly config: Config,
-    private readonly event: EventBus,
+    private readonly event: EventEmitter,
     private readonly storageFactory: StorageProviderFactory,
     private readonly db: PrismaClient
   ) {
@@ -104,7 +105,7 @@ export class WorkspaceBlobStorage {
     });
 
     deletedBlobs.forEach(blob => {
-      this.event.emit('workspace.blob.delete', {
+      this.event.emit('workspace.blob.deleted', {
         workspaceId: workspaceId,
         key: blob.key,
       });
@@ -112,17 +113,8 @@ export class WorkspaceBlobStorage {
   }
 
   async totalSize(workspaceId: string) {
-    const sum = await this.db.blob.aggregate({
-      where: {
-        workspaceId,
-        deletedAt: null,
-      },
-      _sum: {
-        size: true,
-      },
-    });
-
-    return sum._sum.size ?? 0;
+    const blobs = await this.list(workspaceId);
+    return blobs.reduce((acc, item) => acc + item.size, 0);
   }
 
   private trySyncBlobsMeta(workspaceId: string, blobs: ListObjectsMetadata[]) {
@@ -160,7 +152,10 @@ export class WorkspaceBlobStorage {
   }
 
   @OnEvent('workspace.blob.sync')
-  async syncBlobMeta({ workspaceId, key }: Events['workspace.blob.sync']) {
+  async syncBlobMeta({
+    workspaceId,
+    key,
+  }: EventPayload<'workspace.blob.sync'>) {
     try {
       const meta = await this.provider.head(`${workspaceId}/${key}`);
 
@@ -181,23 +176,23 @@ export class WorkspaceBlobStorage {
   }
 
   @OnEvent('workspace.deleted')
-  async onWorkspaceDeleted({ id }: Events['workspace.deleted']) {
-    const blobs = await this.list(id);
+  async onWorkspaceDeleted(workspaceId: EventPayload<'workspace.deleted'>) {
+    const blobs = await this.list(workspaceId);
 
     // to reduce cpu time holding
     blobs.forEach(blob => {
-      this.event.emit('workspace.blob.delete', {
-        workspaceId: id,
+      this.event.emit('workspace.blob.deleted', {
+        workspaceId: workspaceId,
         key: blob.key,
       });
     });
   }
 
-  @OnEvent('workspace.blob.delete')
+  @OnEvent('workspace.blob.deleted')
   async onDeleteWorkspaceBlob({
     workspaceId,
     key,
-  }: Events['workspace.blob.delete']) {
+  }: EventPayload<'workspace.blob.deleted'>) {
     await this.delete(workspaceId, key, true);
   }
 }

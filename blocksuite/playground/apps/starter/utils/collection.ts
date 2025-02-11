@@ -1,10 +1,14 @@
-import { AffineSchemas, SpecProvider, TestUtils } from '@blocksuite/blocks';
-import { nanoid, Schema, Transformer } from '@blocksuite/store';
+import { AffineSchemas, TestUtils } from '@blocksuite/blocks';
+import type { BlockSuiteFlags } from '@blocksuite/global/types';
+import { assertExists } from '@blocksuite/global/utils';
 import {
-  createAutoIncrementIdGenerator,
+  type BlockCollection,
+  DocCollection,
   type DocCollectionOptions,
-  TestWorkspace,
-} from '@blocksuite/store/test';
+  IdGeneratorType,
+  Job,
+  Schema,
+} from '@blocksuite/store';
 import {
   type BlobSource,
   BroadcastChannelAwarenessSource,
@@ -12,7 +16,6 @@ import {
   IndexedDBBlobSource,
   MemoryBlobSource,
 } from '@blocksuite/sync';
-import * as Y from 'yjs';
 
 import { MockServerBlobSource } from '../../_common/sync/blob/mock-server.js';
 import type { InitFn } from '../data/utils.js';
@@ -26,7 +29,9 @@ export function createStarterDocCollection() {
   const collectionId = room ?? 'starter';
   const schema = new Schema();
   schema.register(AffineSchemas);
-  const idGenerator = isE2E ? createAutoIncrementIdGenerator() : nanoid;
+  const idGenerator = isE2E
+    ? IdGeneratorType.AutoIncrement
+    : IdGeneratorType.NanoID;
 
   let docSources: DocCollectionOptions['docSources'];
   if (room) {
@@ -47,42 +52,75 @@ export function createStarterDocCollection() {
     blobSources.shadows.push(new IndexedDBBlobSource(collectionId));
   }
 
+  const flags: Partial<BlockSuiteFlags> = Object.fromEntries(
+    [...params.entries()]
+      .filter(([key]) => key.startsWith('enable_'))
+      .map(([k, v]) => [k, v === 'true'])
+  );
+
   const options: DocCollectionOptions = {
     id: collectionId,
     schema,
     idGenerator,
+    defaultFlags: {
+      enable_synced_doc_block: true,
+      enable_pie_menu: true,
+      enable_lasso_tool: true,
+      enable_edgeless_text: true,
+      enable_color_picker: true,
+      enable_mind_map_import: true,
+      enable_advanced_block_visibility: true,
+      enable_shape_shadow_blur: false,
+      ...flags,
+    },
     awarenessSources: [new BroadcastChannelAwarenessSource(id)],
     docSources,
     blobSources,
   };
-  const collection = new TestWorkspace(options);
-  collection.storeExtensions =
-    SpecProvider.getInstance().getSpec('store').value;
+  const collection = new DocCollection(options);
   collection.start();
 
   // debug info
   window.collection = collection;
   window.blockSchemas = AffineSchemas;
-  window.job = new Transformer({
-    schema: collection.schema,
-    blobCRUD: collection.blobSync,
-    docCRUD: {
-      create: (id: string) => collection.createDoc({ id }),
-      get: (id: string) => collection.getDoc(id),
-      delete: (id: string) => collection.removeDoc(id),
-    },
-  });
-  window.Y = Y;
+  window.job = new Job({ collection: collection });
+  window.Y = DocCollection.Y;
   window.testUtils = new TestUtils();
 
   return collection;
 }
 
-export async function initStarterDocCollection(collection: TestWorkspace) {
+export async function initStarterDocCollection(collection: DocCollection) {
+  // init from other clients
+  if (room && !params.has('init')) {
+    const firstCollection = collection.docs.values().next().value as
+      | BlockCollection
+      | undefined;
+    let firstDoc = firstCollection?.getDoc();
+    if (!firstDoc) {
+      await new Promise<string>(resolve =>
+        collection.slots.docAdded.once(resolve)
+      );
+      const firstCollection = collection.docs.values().next().value as
+        | BlockCollection
+        | undefined;
+      firstDoc = firstCollection?.getDoc();
+    }
+    assertExists(firstDoc);
+    const doc = firstDoc;
+
+    doc.load();
+    if (!doc.root) {
+      await new Promise(resolve => doc.slots.rootAdded.once(resolve));
+    }
+    doc.resetHistory();
+    return;
+  }
+
   // use built-in init function
   const functionMap = new Map<
     string,
-    (collection: TestWorkspace, id: string) => Promise<void> | void
+    (collection: DocCollection, id: string) => Promise<void> | void
   >();
   Object.values(
     (await import('../data/index.js')) as Record<string, InitFn>

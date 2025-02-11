@@ -1,11 +1,11 @@
 import type { DocModeProvider } from '@blocksuite/blocks';
 import { assertExists } from '@blocksuite/global/utils';
 import type { AffineEditorContainer } from '@blocksuite/presets';
-import type { Doc, Store, Workspace } from '@blocksuite/store';
+import type { BlockCollection, Doc, DocCollection } from '@blocksuite/store';
 import type { LitElement } from 'lit';
 
-export function getDocFromUrlParams(collection: Workspace, url: URL) {
-  let doc: Store | null = null;
+export function getDocFromUrlParams(collection: DocCollection, url: URL) {
+  let doc: Doc | null = null;
 
   const docId = decodeURIComponent(url.hash.slice(1));
 
@@ -13,14 +13,16 @@ export function getDocFromUrlParams(collection: Workspace, url: URL) {
     doc = collection.getDoc(docId);
   }
   if (!doc) {
-    const blockCollection = collection.docs.values().next().value as Doc;
+    const blockCollection = collection.docs.values().next()
+      .value as BlockCollection;
     assertExists(blockCollection, 'Need to create a doc first');
-    doc = blockCollection.getStore();
+    doc = blockCollection.getDoc();
   }
 
   doc.load();
   doc.resetHistory();
 
+  assertExists(doc.ready, 'Doc is not ready');
   assertExists(doc.root, 'Doc root is not ready');
 
   return doc;
@@ -40,7 +42,7 @@ export function setDocModeFromUrlParams(
 }
 
 export function listenHashChange(
-  collection: Workspace,
+  collection: DocCollection,
   editor: AffineEditorContainer,
   panel?: LitElement
 ) {

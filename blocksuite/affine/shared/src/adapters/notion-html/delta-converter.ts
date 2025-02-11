@@ -1,10 +1,10 @@
+import type { ExtensionType } from '@blocksuite/block-std';
 import {
   createIdentifier,
   type ServiceIdentifier,
 } from '@blocksuite/global/di';
 import { isEqual } from '@blocksuite/global/utils';
 import type { DeltaInsert } from '@blocksuite/inline';
-import type { ExtensionType } from '@blocksuite/store';
 
 import type { AffineTextAttributes } from '../../types/index.js';
 import {

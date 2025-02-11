@@ -15,8 +15,8 @@ import GraphQLUpload from 'graphql-upload/GraphQLUpload.mjs';
 import type { FileUpload } from '../../../base';
 import { BlobQuotaExceeded, CloudThrottlerGuard } from '../../../base';
 import { CurrentUser } from '../../auth';
-import { PermissionService, WorkspaceRole } from '../../permission';
-import { QuotaService } from '../../quota';
+import { Permission, PermissionService } from '../../permission';
+import { QuotaManagementService } from '../../quota';
 import { WorkspaceBlobStorage } from '../../storage';
 import { WorkspaceBlobSizes, WorkspaceType } from '../types';
 
@@ -41,7 +41,7 @@ export class WorkspaceBlobResolver {
   logger = new Logger(WorkspaceBlobResolver.name);
   constructor(
     private readonly permissions: PermissionService,
-    private readonly quota: QuotaService,
+    private readonly quota: QuotaManagementService,
     private readonly storage: WorkspaceBlobStorage
   ) {}
 
@@ -102,11 +102,11 @@ export class WorkspaceBlobResolver {
     await this.permissions.checkWorkspace(
       workspaceId,
       user.id,
-      WorkspaceRole.Collaborator
+      Permission.Write
     );
 
     const checkExceeded =
-      await this.quota.getWorkspaceQuotaCalculator(workspaceId);
+      await this.quota.getQuotaCalculatorByWorkspace(workspaceId);
 
     // TODO(@darksky): need a proper way to separate `BlobQuotaExceeded` and `BlobSizeTooLarge`
     if (checkExceeded(0)) {
@@ -174,7 +174,7 @@ export class WorkspaceBlobResolver {
     await this.permissions.checkWorkspace(
       workspaceId,
       user.id,
-      WorkspaceRole.Collaborator
+      Permission.Write
     );
 
     await this.storage.release(workspaceId);

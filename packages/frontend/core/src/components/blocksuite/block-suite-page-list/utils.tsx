@@ -5,11 +5,11 @@ import { DocsService } from '@affine/core/modules/doc';
 import { EditorSettingService } from '@affine/core/modules/editor-setting';
 import { WorkbenchService } from '@affine/core/modules/workbench';
 import { type DocMode } from '@blocksuite/affine/blocks';
-import type { Workspace } from '@blocksuite/affine/store';
+import type { DocCollection } from '@blocksuite/affine/store';
 import { useServices } from '@toeverything/infra';
 import { useCallback, useMemo } from 'react';
 
-export const usePageHelper = (docCollection: Workspace) => {
+export const usePageHelper = (docCollection: DocCollection) => {
   const {
     docsService,
     workbenchService,
@@ -26,16 +26,7 @@ export const usePageHelper = (docCollection: Workspace) => {
   const appSidebar = appSidebarService.sidebar;
 
   const createPageAndOpen = useCallback(
-    (
-      mode?: DocMode,
-      options: {
-        at?: 'new-tab' | 'tail' | 'active';
-        show?: boolean;
-      } = {
-        at: 'active',
-        show: true,
-      }
-    ) => {
+    (mode?: DocMode, open?: boolean | 'new-tab') => {
       appSidebar.setHovering(false);
       const docProps: DocProps = {
         note: editorSettingService.editorSetting.get('affine:note'),
@@ -46,12 +37,10 @@ export const usePageHelper = (docCollection: Workspace) => {
         docRecordList.doc$(page.id).value?.setPrimaryMode(mode);
       }
 
-      if (options.show !== false) {
+      if (open !== false)
         workbench.openDoc(page.id, {
-          at: options.at,
-          show: options.show,
+          at: open === 'new-tab' ? 'new-tab' : 'active',
         });
-      }
       return page;
     },
     [
@@ -64,16 +53,8 @@ export const usePageHelper = (docCollection: Workspace) => {
   );
 
   const createEdgelessAndOpen = useCallback(
-    (
-      options: {
-        at?: 'new-tab' | 'tail' | 'active';
-        show?: boolean;
-      } = {
-        at: 'active',
-        show: true,
-      }
-    ) => {
-      return createPageAndOpen('edgeless', options);
+    (open?: boolean | 'new-tab') => {
+      return createPageAndOpen('edgeless', open);
     },
     [createPageAndOpen]
   );
@@ -122,13 +103,8 @@ export const usePageHelper = (docCollection: Workspace) => {
 
   return useMemo(() => {
     return {
-      createPage: (
-        mode?: DocMode,
-        options?: {
-          at?: 'new-tab' | 'tail' | 'active';
-          show?: boolean;
-        }
-      ) => createPageAndOpen(mode, options),
+      createPage: (mode?: DocMode, open?: boolean | 'new-tab') =>
+        createPageAndOpen(mode, open),
       createEdgeless: createEdgelessAndOpen,
       importFile: importFileAndOpen,
     };

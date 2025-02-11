@@ -1,21 +1,21 @@
-import { NotionHtmlInlineToDeltaAdapterExtensions } from '@blocksuite/affine-components/rich-text';
 import { NotionHtmlAdapter } from '@blocksuite/affine-shared/adapters';
 import { Container } from '@blocksuite/global/di';
 import { sha } from '@blocksuite/global/utils';
-import { extMimeMap, Transformer, type Workspace } from '@blocksuite/store';
+import { type DocCollection, extMimeMap, Job } from '@blocksuite/store';
 
 import { defaultBlockNotionHtmlAdapterMatchers } from '../adapters/notion-html/block-matcher.js';
+import { notionHtmlInlineToDeltaMatchers } from '../adapters/notion-html/delta-converter/html-inline.js';
 import { defaultImageProxyMiddleware } from './middlewares.js';
 import { Unzip } from './utils.js';
 
 type ImportNotionZipOptions = {
-  collection: Workspace;
+  collection: DocCollection;
   imported: Blob;
 };
 
 const container = new Container();
 [
-  ...NotionHtmlInlineToDeltaAdapterExtensions,
+  ...notionHtmlInlineToDeltaMatchers,
   ...defaultBlockNotionHtmlAdapterMatchers,
 ].forEach(ext => {
   ext.setup(container);
@@ -26,11 +26,12 @@ const provider = container.provider();
 /**
  * Imports a Notion zip file into the BlockSuite collection.
  *
- * @param options - The options for importing.
- * @param options.collection - The BlockSuite document collection.
- * @param options.imported - The imported zip file as a Blob.
+ * @param {ImportNotionZipOptions} options - The options for importing.
+ * @param {DocCollection} options.collection - The BlockSuite document collection.
+ * @param {Blob} options.imported - The imported zip file as a Blob.
  *
- * @returns A promise that resolves to an object containing:
+ * @returns {Promise<{entryId: string | undefined, pageIds: string[], isWorkspaceFile: boolean, hasMarkdown: boolean}>}
+ *          A promise that resolves to an object containing:
  *          - entryId: The ID of the entry page (if any).
  *          - pageIds: An array of imported page IDs.
  *          - isWorkspaceFile: Whether the imported file is a workspace file.
@@ -117,14 +118,8 @@ async function importNotionZip({
       pendingAssets.set(key, new File([blob], fileName, { type: mime }));
     }
     const pagePromises = Array.from(pagePaths).map(async path => {
-      const job = new Transformer({
-        schema: collection.schema,
-        blobCRUD: collection.blobSync,
-        docCRUD: {
-          create: (id: string) => collection.createDoc({ id }),
-          get: (id: string) => collection.getDoc(id),
-          delete: (id: string) => collection.removeDoc(id),
-        },
+      const job = new Job({
+        collection: collection,
         middlewares: [defaultImageProxyMiddleware],
       });
       const htmlAdapter = new NotionHtmlAdapter(job, provider);

@@ -12,7 +12,8 @@ import { useNavigateHelper } from '../use-navigate-helper';
 
 export function useBlockSuiteMetaHelper() {
   const workspace = useService(WorkspaceService).workspace;
-  const { setDocMeta, getDocMeta, setDocTitle } = useDocMetaHelper();
+  const { setDocMeta, getDocMeta, setDocTitle, setDocReadonly } =
+    useDocMetaHelper();
   const { createDoc } = useDocCollectionHelper(workspace.docCollection);
   const { openPage } = useNavigateHelper();
   const docRecordList = useService(DocsService).list;
@@ -24,9 +25,10 @@ export function useBlockSuiteMetaHelper() {
       const docRecord = docRecordList.doc$(docId).value;
       if (docRecord) {
         docRecord.moveToTrash();
+        setDocReadonly(docId, true);
       }
     },
-    [docRecordList]
+    [docRecordList, setDocReadonly]
   );
 
   const restoreFromTrash = useCallback(
@@ -34,9 +36,10 @@ export function useBlockSuiteMetaHelper() {
       const docRecord = docRecordList.doc$(docId).value;
       if (docRecord) {
         docRecord.restoreFromTrash();
+        setDocReadonly(docId, false);
       }
     },
-    [docRecordList]
+    [docRecordList, setDocReadonly]
   );
 
   const permanentlyDeletePage = useCallback(

@@ -1,9 +1,9 @@
-import { Divider, Loading, toast } from '@affine/component';
+import { toast } from '@affine/component';
 import { Button, IconButton } from '@affine/component/ui/button';
 import { useAsyncCallback } from '@affine/core/components/hooks/affine-async-hooks';
-import { useI18n } from '@affine/i18n';
 import type { ImageBlockModel } from '@blocksuite/affine/blocks';
-import type { BlockModel, Workspace } from '@blocksuite/affine/store';
+import { assertExists } from '@blocksuite/affine/global/utils';
+import type { BlockModel } from '@blocksuite/affine/store';
 import {
   ArrowLeftSmallIcon,
   ArrowRightSmallIcon,
@@ -17,15 +17,18 @@ import {
 } from '@blocksuite/icons/rc';
 import { useService } from '@toeverything/infra';
 import clsx from 'clsx';
-import type { ImgHTMLAttributes, ReactElement } from 'react';
+import { useErrorBoundary } from 'foxact/use-error-boundary';
+import type { PropsWithChildren, ReactElement } from 'react';
 import {
-  forwardRef,
+  Suspense,
   useCallback,
   useEffect,
   useMemo,
   useRef,
   useState,
 } from 'react';
+import type { FallbackProps } from 'react-error-boundary';
+import { ErrorBoundary } from 'react-error-boundary';
 import useSWR from 'swr';
 
 import {
@@ -59,80 +62,6 @@ export type ImagePreviewModalProps = {
   docId: string;
   blockId: string;
 };
-
-function useImageBlob(
-  docCollection: Workspace,
-  docId: string,
-  blockId: string
-) {
-  const { data, error, isLoading } = useSWR(
-    ['workspace', 'image', docId, blockId],
-    {
-      fetcher: async ([_, __, pageId, blockId]) => {
-        const page = docCollection.getDoc(pageId);
-        const block = page?.getBlock(blockId);
-        if (!block) {
-          return null;
-        }
-        const blockModel = block.model as ImageBlockModel;
-        return await docCollection.blobSync.get(blockModel.sourceId as string);
-      },
-      suspense: false,
-    }
-  );
-
-  return { data, error, isLoading };
-}
-
-const ImagePreview = forwardRef<
-  HTMLImageElement,
-  {
-    docCollection: Workspace;
-    docId: string;
-    blockId: string;
-  } & ImgHTMLAttributes<HTMLImageElement>
->(function ImagePreview({ docCollection, docId, blockId, ...props }, ref) {
-  const { data, error, isLoading } = useImageBlob(
-    docCollection,
-    docId,
-    blockId
-  );
-
-  const [blobUrl, setBlobUrl] = useState<string | null>(null);
-
-  const t = useI18n();
-
-  useEffect(() => {
-    let blobUrl = null;
-    if (data) {
-      blobUrl = URL.createObjectURL(data);
-      setBlobUrl(blobUrl);
-    }
-    return () => {
-      if (blobUrl) {
-        URL.revokeObjectURL(blobUrl);
-      }
-    };
-  }, [data]);
-
-  if (error) {
-    return <div>{t['error.NOT_FOUND']()}</div>;
-  }
-
-  if (!blobUrl || isLoading) {
-    return <Loading size={24} />;
-  }
-
-  return (
-    <img
-      data-blob-id={blockId}
-      data-testid="image-content"
-      src={blobUrl}
-      ref={ref}
-      {...props}
-    />
-  );
-});
 
 const ImagePreviewModalImpl = ({
   docId,
@@ -174,6 +103,9 @@ const ImagePreviewModalImpl = ({
 
   const goto = useCallback(
     (index: number) => {
+      const page = docCollection.getDoc(docId);
+      assertExists(page);
+
       const block = blocks[index];
 
       if (!block) return;
@@ -182,7 +114,7 @@ const ImagePreviewModalImpl = ({
       onBlockIdChange(block.id);
       resetZoom();
     },
-    [blocks, onBlockIdChange, resetZoom]
+    [docCollection, docId, blocks, onBlockIdChange, resetZoom]
   );
 
   const deleteHandler = useCallback(
@@ -247,6 +179,21 @@ const ImagePreviewModalImpl = ({
     setCursor(blocks.length ? prevs.length : 0);
   }, [setBlocks, blockModel, blocksuiteDoc]);
 
+  const { data, error } = useSWR(['workspace', 'image', docId, blockId], {
+    fetcher: ([_, __, pageId, blockId]) => {
+      const page = docCollection.getDoc(pageId);
+      assertExists(page);
+
+      const block = page.getBlock(blockId);
+      if (!block) {
+        return null;
+      }
+      const blockModel = block.model as ImageBlockModel;
+      return docCollection.blobSync.get(blockModel.sourceId as string);
+    },
+    suspense: true,
+  });
+
   useEffect(() => {
     const handleKeyUp = (event: KeyboardEvent) => {
       if (!blocksuiteDoc || !blockModel) {
@@ -295,6 +242,26 @@ const ImagePreviewModalImpl = ({
     };
   }, [blockModel, blocksuiteDoc, copyHandler, onBlockIdChange]);
 
+  useErrorBoundary(error);
+
+  const [prevData, setPrevData] = useState<string | null>(() => data);
+  const [url, setUrl] = useState<string | null>(null);
+
+  if (data === null) {
+    return null;
+  } else if (prevData !== data) {
+    if (url) {
+      URL.revokeObjectURL(url);
+    }
+    setUrl(URL.createObjectURL(data));
+
+    setPrevData(data);
+  } else if (!url) {
+    setUrl(URL.createObjectURL(data));
+  }
+  if (!url) {
+    return null;
+  }
   return (
     <div
       data-testid="image-preview-modal"
@@ -307,12 +274,10 @@ const ImagePreviewModalImpl = ({
           ref={zoomRef}
         >
           <div className={styles.imagePreviewModalCenterStyle}>
-            <ImagePreview
+            <img
               data-blob-id={blockId}
               data-testid="image-content"
-              docCollection={docCollection}
-              docId={docId}
-              blockId={blockId}
+              src={url}
               alt={caption}
               tabIndex={0}
               ref={imageRef}
@@ -361,7 +326,7 @@ const ImagePreviewModalImpl = ({
             disabled={cursor + 1 === blocks.length}
             onClick={() => goto(cursor + 1)}
           />
-          <Divider size="thinner" orientation="vertical" />
+          <div className={styles.dividerStyle}></div>
           <IconButton
             data-testid="fit-to-screen-button"
             tooltip="Fit to screen"
@@ -382,13 +347,14 @@ const ImagePreviewModalImpl = ({
           >
             {`${(currentScale * 100).toFixed(0)}%`}
           </Button>
+
           <IconButton
             data-testid="zoom-in-button"
             tooltip="Zoom in"
             icon={<PlusIcon />}
             onClick={zoomIn}
           />
-          <Divider size="thinner" orientation="vertical" />
+          <div className={styles.dividerStyle}></div>
           <IconButton
             data-testid="download-button"
             tooltip="Download"
@@ -403,7 +369,7 @@ const ImagePreviewModalImpl = ({
           />
           {blockModel && !blockModel.doc.readonly && (
             <>
-              <Divider size="thinner" orientation="vertical" />
+              <div className={styles.dividerStyle}></div>
               <IconButton
                 data-testid="delete-button"
                 tooltip="Delete"
@@ -420,6 +386,19 @@ const ImagePreviewModalImpl = ({
   );
 };
 
+const ErrorLogger = (props: FallbackProps) => {
+  console.error('image preview modal error', props.error);
+  return null;
+};
+
+export const ImagePreviewErrorBoundary = (
+  props: PropsWithChildren
+): ReactElement => {
+  return (
+    <ErrorBoundary fallbackRender={ErrorLogger}>{props.children}</ErrorBoundary>
+  );
+};
+
 export const ImagePreviewPeekView = (
   props: ImagePreviewModalProps
 ): ReactElement | null => {
@@ -433,23 +412,25 @@ export const ImagePreviewPeekView = (
   }, [props.blockId]);
 
   return (
-    <>
-      {blockId ? (
-        <ImagePreviewModalImpl
-          {...props}
-          onClose={onClose}
-          blockId={blockId}
-          onBlockIdChange={setBlockId}
-        />
-      ) : null}
-      <button
-        ref={buttonRef}
-        data-testid="image-preview-close-button"
-        onClick={onClose}
-        className={styles.imagePreviewModalCloseButtonStyle}
-      >
-        <CloseIcon />
-      </button>
-    </>
+    <ImagePreviewErrorBoundary>
+      <Suspense>
+        {blockId ? (
+          <ImagePreviewModalImpl
+            {...props}
+            onClose={onClose}
+            blockId={blockId}
+            onBlockIdChange={setBlockId}
+          />
+        ) : null}
+        <button
+          ref={buttonRef}
+          data-testid="image-preview-close-button"
+          onClick={onClose}
+          className={styles.imagePreviewModalCloseButtonStyle}
+        >
+          <CloseIcon />
+        </button>
+      </Suspense>
+    </ImagePreviewErrorBoundary>
   );
 };

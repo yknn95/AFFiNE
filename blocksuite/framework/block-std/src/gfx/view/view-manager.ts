@@ -60,12 +60,9 @@ export class ViewManager extends GfxExtension {
       this._disposable.add(
         surface.elementAdded.on(payload => {
           const model = surface.getElementById(payload.id)!;
-          const ViewCtor =
-            this._viewCtorMap.get(model.type) ?? GfxElementModelView;
-          const view = new ViewCtor(model, this.gfx);
+          const View = this._viewCtorMap.get(model.type) ?? GfxElementModelView;
 
-          this._viewMap.set(model.id, view);
-          view.onCreated();
+          this._viewMap.set(model.id, new View(model, this.gfx));
         })
       );
 
@@ -110,7 +107,7 @@ export class ViewManager extends GfxExtension {
       updateViewOnElementChange(this.gfx.surface);
     } else {
       this._disposable.add(
-        onSurfaceAdded(this.std.store, surface => {
+        onSurfaceAdded(this.std.doc, surface => {
           if (surface) {
             updateViewOnElementChange(surface);
           }

@@ -1,5 +1,5 @@
-import type { Text } from '@blocksuite/store';
-import { BlockModel, defineBlockSchema } from '@blocksuite/store';
+import type { SchemaToModel, Text } from '@blocksuite/store';
+import { defineBlockSchema } from '@blocksuite/store';
 
 // `toggle` type has been deprecated, do not use it
 export type ListType = 'bulleted' | 'numbered' | 'todo' | 'toggle';
@@ -35,12 +35,9 @@ export const ListBlockSchema = defineBlockSchema({
       'affine:edgeless-text',
     ],
   },
-  toModel: () => new ListBlockModel(),
 });
 
-export class ListBlockModel extends BlockModel<ListProps> {
-  override text!: Text;
-}
+export type ListBlockModel = SchemaToModel<typeof ListBlockSchema>;
 
 declare global {
   namespace BlockSuite {

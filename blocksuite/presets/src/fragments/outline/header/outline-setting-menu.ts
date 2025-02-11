@@ -1,43 +1,90 @@
-import { ShadowlessElement } from '@blocksuite/block-std';
-import { SignalWatcher, WithDisposable } from '@blocksuite/global/utils';
-import { consume } from '@lit/context';
-import { html } from 'lit';
+import { WithDisposable } from '@blocksuite/global/utils';
+import { css, html, LitElement } from 'lit';
+import { property } from 'lit/decorators.js';
 
-import { type TocContext, tocContext } from '../config';
-import * as styles from './outline-setting-menu.css';
+const styles = css`
+  :host {
+    display: block;
+    box-sizing: border-box;
+    padding: 8px;
+    width: 220px;
+  }
+
+  .note-preview-setting-menu-container {
+    display: flex;
+    flex-direction: column;
+    box-sizing: border-box;
+    width: 100%;
+  }
+
+  .note-preview-setting-menu-item {
+    display: flex;
+    box-sizing: border-box;
+    width: 100%;
+    height: 28px;
+    padding: 4px 12px;
+    align-items: center;
+  }
+
+  .note-preview-setting-menu-item .setting-label {
+    font-family: sans-serif;
+    font-size: 12px;
+    font-weight: 500;
+    line-height: 20px;
+    color: var(--affine-text-secondary-color);
+    padding: 0 4px;
+  }
+
+  .note-preview-setting-menu-item.action {
+    gap: 4px;
+  }
+
+  .note-preview-setting-menu-item .action-label {
+    width: 138px;
+    height: 20px;
+    padding: 0 4px;
+    font-size: 12px;
+    font-weight: 500;
+    line-height: 20px;
+    color: var(--affine-text-primary-color);
+  }
+
+  .note-preview-setting-menu-item .toggle-button {
+    display: flex;
+  }
+`;
 
 export const AFFINE_OUTLINE_NOTE_PREVIEW_SETTING_MENU =
   'affine-outline-note-preview-setting-menu';
 
-export class OutlineNotePreviewSettingMenu extends SignalWatcher(
-  WithDisposable(ShadowlessElement)
-) {
-  override render() {
-    const showPreviewIcon = this._context.showIcons$.value;
+export class OutlineNotePreviewSettingMenu extends WithDisposable(LitElement) {
+  static override styles = styles;
 
+  override render() {
     return html`<div
-      class=${styles.notePreviewSettingMenuContainer}
+      class="note-preview-setting-menu-container"
       @click=${(e: MouseEvent) => e.stopPropagation()}
     >
-      <div class=${styles.notePreviewSettingMenuItem}>
-        <div class=${styles.settingLabel}>Settings</div>
+      <div class="note-preview-setting-menu-item">
+        <div class="setting-label">Settings</div>
       </div>
-      <div class="${styles.notePreviewSettingMenuItem} ${styles.action}">
-        <div class=${styles.actionLabel}>Show type icon</div>
-        <div class=${styles.toggleButton}>
+      <div class="note-preview-setting-menu-item action">
+        <div class="action-label">Show type icon</div>
+        <div class="toggle-button">
           <toggle-switch
-            .on=${showPreviewIcon}
-            .onChange=${() => {
-              this._context.showIcons$.value = !showPreviewIcon;
-            }}
+            .on=${this.showPreviewIcon}
+            .onChange=${this.toggleShowPreviewIcon}
           ></toggle-switch>
         </div>
       </div>
     </div>`;
   }
 
-  @consume({ context: tocContext })
-  private accessor _context!: TocContext;
+  @property({ attribute: false })
+  accessor showPreviewIcon!: boolean;
+
+  @property({ attribute: false })
+  accessor toggleShowPreviewIcon!: (on: boolean) => void;
 }
 
 declare global {

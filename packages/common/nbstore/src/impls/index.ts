@@ -1,27 +1,47 @@
 import type { Storage } from '../storage';
-import type { broadcastChannelStorages } from './broadcast-channel';
-import type { cloudStorages } from './cloud';
-import type { idbStorages } from './idb';
-import type { idbV1Storages } from './idb/v1';
-import type { sqliteStorages } from './sqlite';
-import type { sqliteV1Storages } from './sqlite/v1';
+import { BroadcastChannelAwarenessStorage } from './broadcast-channel/awareness';
+import {
+  CloudAwarenessStorage,
+  CloudBlobStorage,
+  CloudDocStorage,
+} from './cloud';
+import {
+  IndexedDBBlobStorage,
+  IndexedDBDocStorage,
+  IndexedDBSyncStorage,
+} from './idb';
+import { IndexedDBV1BlobStorage, IndexedDBV1DocStorage } from './idb/v1';
 
-export type StorageConstructor = {
-  new (...args: any[]): Storage;
-  readonly identifier: string;
-};
+type StorageConstructor = new (...args: any[]) => Storage;
 
-type Storages =
-  | typeof cloudStorages
-  | typeof idbV1Storages
-  | typeof idbStorages
-  | typeof sqliteStorages
-  | typeof sqliteV1Storages
-  | typeof broadcastChannelStorages;
+const idb: StorageConstructor[] = [
+  IndexedDBDocStorage,
+  IndexedDBBlobStorage,
+  IndexedDBSyncStorage,
+  BroadcastChannelAwarenessStorage,
+];
 
-// oxlint-disable-next-line no-redeclare
-export type AvailableStorageImplementations = {
-  [key in Storages[number]['identifier']]: Storages[number] & {
-    identifier: key;
-  };
+const idbv1: StorageConstructor[] = [
+  IndexedDBV1DocStorage,
+  IndexedDBV1BlobStorage,
+];
+
+const cloud: StorageConstructor[] = [
+  CloudDocStorage,
+  CloudBlobStorage,
+  CloudAwarenessStorage,
+];
+
+export const storages: StorageConstructor[] = cloud.concat(idbv1, idb);
+
+const AvailableStorageImplementations = storages.reduce(
+  (acc, curr) => {
+    acc[curr.name] = curr;
+    return acc;
+  },
+  {} as Record<string, StorageConstructor>
+);
+
+export const getAvailableStorageImplementations = (name: string) => {
+  return AvailableStorageImplementations[name];
 };

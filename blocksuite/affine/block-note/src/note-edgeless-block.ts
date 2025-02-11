@@ -1,33 +1,159 @@
 import { EdgelessLegacySlotIdentifier } from '@blocksuite/affine-block-surface';
-import type { DocTitle } from '@blocksuite/affine-components/doc-title';
 import { MoreIndicatorIcon } from '@blocksuite/affine-components/icons';
-import { NoteDisplayMode } from '@blocksuite/affine-model';
+import type { NoteBlockModel } from '@blocksuite/affine-model';
+import {
+  DefaultTheme,
+  NoteDisplayMode,
+  StrokeStyle,
+} from '@blocksuite/affine-model';
 import { EDGELESS_BLOCK_CHILD_PADDING } from '@blocksuite/affine-shared/consts';
-import { stopPropagation } from '@blocksuite/affine-shared/utils';
-import { toGfxBlockComponent } from '@blocksuite/block-std';
-import { Bound } from '@blocksuite/global/utils';
-import { html, nothing } from 'lit';
-import { query, state } from 'lit/decorators.js';
+import { ThemeProvider } from '@blocksuite/affine-shared/services';
+import {
+  getClosestBlockComponentByPoint,
+  handleNativeRangeAtPoint,
+  matchFlavours,
+  stopPropagation,
+} from '@blocksuite/affine-shared/utils';
+import type { BlockComponent, EditorHost } from '@blocksuite/block-std';
+import { ShadowlessElement, toGfxBlockComponent } from '@blocksuite/block-std';
+import {
+  almostEqual,
+  Bound,
+  clamp,
+  Point,
+  WithDisposable,
+} from '@blocksuite/global/utils';
+import type { BlockModel } from '@blocksuite/store';
+import { computed } from '@preact/signals-core';
+import { css, html, nothing } from 'lit';
+import { property, query, state } from 'lit/decorators.js';
 import { classMap } from 'lit/directives/class-map.js';
-import { ifDefined } from 'lit/directives/if-defined.js';
 import { styleMap } from 'lit/directives/style-map.js';
 
-import { NoteBlockComponent } from './note-block';
-import { ACTIVE_NOTE_EXTRA_PADDING } from './note-edgeless-block.css';
-import * as styles from './note-edgeless-block.css';
-import { isPageBlock } from './utils';
+import { NoteBlockComponent } from './note-block.js';
 
-export const AFFINE_EDGELESS_NOTE = 'affine-edgeless-note';
+export class EdgelessNoteMask extends WithDisposable(ShadowlessElement) {
+  protected override firstUpdated() {
+    const maskDOM = this.renderRoot!.querySelector('.affine-note-mask');
+    const observer = new ResizeObserver(entries => {
+      for (const entry of entries) {
+        if (!this.model.edgeless.collapse) {
+          const bound = Bound.deserialize(this.model.xywh);
+          const scale = this.model.edgeless.scale ?? 1;
+          const height = entry.contentRect.height * scale;
+
+          if (!height || almostEqual(bound.h, height)) {
+            return;
+          }
+
+          bound.h = height;
+          this.model.stash('xywh');
+          this.model.xywh = bound.serialize();
+          this.model.pop('xywh');
+        }
+      }
+    });
+
+    observer.observe(maskDOM!);
+
+    this._disposables.add(() => {
+      observer.disconnect();
+    });
+  }
+
+  override render() {
+    const extra = this.editing ? ACTIVE_NOTE_EXTRA_PADDING : 0;
+    return html`
+      <div
+        class="affine-note-mask"
+        style=${styleMap({
+          position: 'absolute',
+          top: `${-extra}px`,
+          left: `${-extra}px`,
+          bottom: `${-extra}px`,
+          right: `${-extra}px`,
+          zIndex: '1',
+          pointerEvents: this.display ? 'auto' : 'none',
+          borderRadius: `${
+            this.model.edgeless.style.borderRadius * this.zoom
+          }px`,
+        })}
+      ></div>
+    `;
+  }
+
+  @property({ attribute: false })
+  accessor display!: boolean;
+
+  @property({ attribute: false })
+  accessor editing!: boolean;
+
+  @property({ attribute: false })
+  accessor host!: EditorHost;
+
+  @property({ attribute: false })
+  accessor model!: NoteBlockModel;
+
+  @property({ attribute: false })
+  accessor zoom!: number;
+}
+
+const ACTIVE_NOTE_EXTRA_PADDING = 20;
 
 export class EdgelessNoteBlockComponent extends toGfxBlockComponent(
   NoteBlockComponent
 ) {
-  private get _isShowCollapsedContent() {
-    return (
-      this.model.edgeless.collapse &&
-      this.gfx.selection.has(this.model.id) &&
-      (this._isResizing || this._isHover)
+  static override styles = css`
+    .edgeless-note-collapse-button {
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      width: 28px;
+      height: 28px;
+      z-index: 2;
+      position: absolute;
+      bottom: 0;
+      left: 50%;
+      transform: translateX(-50%);
+      opacity: 0.2;
+      transition: opacity 0.3s;
+    }
+    .edgeless-note-collapse-button:hover {
+      opacity: 1;
+    }
+    .edgeless-note-collapse-button.flip {
+      transform: translateX(-50%) rotate(180deg);
+    }
+    .edgeless-note-collapse-button.hide {
+      display: none;
+    }
+
+    .edgeless-note-container:has(.affine-embed-synced-doc-container.editing)
+      > .note-background {
+      left: ${-ACTIVE_NOTE_EXTRA_PADDING}px !important;
+      top: ${-ACTIVE_NOTE_EXTRA_PADDING}px !important;
+      width: calc(100% + ${ACTIVE_NOTE_EXTRA_PADDING * 2}px) !important;
+      height: calc(100% + ${ACTIVE_NOTE_EXTRA_PADDING * 2}px) !important;
+    }
+
+    .edgeless-note-container:has(.affine-embed-synced-doc-container.editing)
+      > edgeless-note-mask {
+      display: none;
+    }
+  `;
+
+  private readonly _backgroundColor$ = computed(() => {
+    const themeProvider = this.std.get(ThemeProvider);
+    const theme = themeProvider.theme$.value;
+    return themeProvider.generateColorProperty(
+      this.model.background$.value,
+      DefaultTheme.noteBackgrounColor,
+      theme
     );
+  });
+
+  private get _isShowCollapsedContent() {
+    return this.model.edgeless.collapse && (this._isResizing || this._isHover);
   }
 
   get _zoom() {
@@ -66,21 +192,38 @@ export class EdgelessNoteBlockComponent extends toGfxBlockComponent(
 
     return html`
       <div
-        class=${styles.collapsedContent}
         style=${styleMap({
           width: `${width}px`,
           height: `${this._noteFullHeight - height}px`,
+          position: 'absolute',
           left: `${-(extraPadding + extraBorder / 2)}px`,
           top: `${height + extraPadding + extraBorder / 2}px`,
+          background: 'var(--affine-white)',
+          opacity: 0.5,
+          pointerEvents: 'none',
+          borderLeft: '2px var(--affine-blue) solid',
+          borderBottom: '2px var(--affine-blue) solid',
+          borderRight: '2px var(--affine-blue) solid',
+          borderRadius: '0 0 8px 8px',
         })}
       ></div>
     `;
   }
 
-  private _handleKeyDown(e: KeyboardEvent) {
-    if (e.key === 'ArrowUp') {
-      this._docTitle?.inlineEditor?.focusEnd();
-    }
+  private _handleClickAtBackground(e: MouseEvent) {
+    e.stopPropagation();
+    if (!this._editing) return;
+
+    const rect = this.getBoundingClientRect();
+    const offsetY = 16 * this._zoom;
+    const offsetX = 2 * this._zoom;
+    const x = clamp(e.x, rect.left + offsetX, rect.right - offsetX);
+    const y = clamp(e.y, rect.top + offsetY, rect.bottom - offsetY);
+    handleNativeRangeAtPoint(x, y);
+
+    if (this.doc.readonly) return;
+
+    this._tryAddParagraph(x, y);
   }
 
   private _hovered() {
@@ -121,6 +264,61 @@ export class EdgelessNoteBlockComponent extends toGfxBlockComponent(
     this.selection.clear();
   }
 
+  private _tryAddParagraph(x: number, y: number) {
+    const nearest = getClosestBlockComponentByPoint(
+      new Point(x, y)
+    ) as BlockComponent | null;
+    if (!nearest) return;
+
+    const nearestBBox = nearest.getBoundingClientRect();
+    const yRel = y - nearestBBox.top;
+
+    const insertPos: 'before' | 'after' =
+      yRel < nearestBBox.height / 2 ? 'before' : 'after';
+
+    const nearestModel = nearest.model as BlockModel;
+    const nearestModelIdx = this.model.children.indexOf(nearestModel);
+
+    const children = this.model.children;
+    const siblingModel =
+      children[
+        clamp(
+          nearestModelIdx + (insertPos === 'before' ? -1 : 1),
+          0,
+          children.length
+        )
+      ];
+
+    if (
+      (!nearestModel.text ||
+        !matchFlavours(nearestModel, ['affine:paragraph', 'affine:list'])) &&
+      (!siblingModel ||
+        !siblingModel.text ||
+        !matchFlavours(siblingModel, ['affine:paragraph', 'affine:list']))
+    ) {
+      const [pId] = this.doc.addSiblingBlocks(
+        nearestModel,
+        [{ flavour: 'affine:paragraph' }],
+        insertPos
+      );
+
+      this.updateComplete
+        .then(() => {
+          this.std.selection.setGroup('note', [
+            this.std.selection.create('text', {
+              from: {
+                blockId: pId,
+                index: 0,
+                length: 0,
+              },
+              to: null,
+            }),
+          ]);
+        })
+        .catch(console.error);
+    }
+  }
+
   override connectedCallback(): void {
     super.connectedCallback();
 
@@ -136,8 +334,6 @@ export class EdgelessNoteBlockComponent extends toGfxBlockComponent(
         }
       })
     );
-
-    this.disposables.addFromEvent(this, 'keydown', this._handleKeyDown);
   }
 
   get edgelessSlots() {
@@ -200,18 +396,48 @@ export class EdgelessNoteBlockComponent extends toGfxBlockComponent(
       return nothing;
 
     const { xywh, edgeless } = model;
-    const { borderRadius } = edgeless.style;
-    const { collapse = false, collapsedHeight, scale = 1 } = edgeless;
+    const { borderRadius, borderSize, borderStyle, shadowType } =
+      edgeless.style;
+    const { collapse, collapsedHeight, scale = 1 } = edgeless;
 
     const bound = Bound.deserialize(xywh);
+    const width = bound.w / scale;
     const height = bound.h / scale;
 
     const style = {
+      height: '100%',
+      padding: `${EDGELESS_BLOCK_CHILD_PADDING}px`,
+      boxSizing: 'border-box',
       borderRadius: borderRadius + 'px',
+      pointerEvents: 'all',
+      transformOrigin: '0 0',
       transform: `scale(${scale})`,
+      fontWeight: '400',
+      lineHeight: 'var(--affine-line-height)',
     };
 
     const extra = this._editing ? ACTIVE_NOTE_EXTRA_PADDING : 0;
+
+    const backgroundStyle = {
+      position: 'absolute',
+      left: `${-extra}px`,
+      top: `${-extra}px`,
+      width: `${width + extra * 2}px`,
+      height: `calc(100% + ${extra * 2}px)`,
+      borderRadius: borderRadius + 'px',
+      transition: this._editing
+        ? 'left 0.3s, top 0.3s, width 0.3s, height 0.3s'
+        : 'none',
+      backgroundColor: this._backgroundColor$.value,
+      border: `${borderSize}px ${
+        borderStyle === StrokeStyle.Dash ? 'dashed' : borderStyle
+      } var(--affine-black-10)`,
+      boxShadow: this._editing
+        ? 'var(--affine-active-shadow)'
+        : !shadowType
+          ? 'none'
+          : `var(${shadowType})`,
+    };
 
     const isCollapsable =
       collapse != null &&
@@ -224,24 +450,19 @@ export class EdgelessNoteBlockComponent extends toGfxBlockComponent(
 
     return html`
       <div
-        class=${styles.edgelessNoteContainer}
+        class="edgeless-note-container"
         style=${styleMap(style)}
         data-model-height="${bound.h}"
-        data-editing=${this._editing}
-        data-collapse=${ifDefined(collapse)}
-        data-testid="edgeless-note-container"
         @mouseleave=${this._leaved}
         @mousemove=${this._hovered}
         data-scale="${scale}"
       >
-        <edgeless-note-background
-          .editing=${this._editing}
-          .note=${this.model}
-        ></edgeless-note-background>
-
-        <edgeless-page-block-title
-          .note=${this.model}
-        ></edgeless-page-block-title>
+        <div
+          class="note-background"
+          style=${styleMap(backgroundStyle)}
+          @pointerdown=${stopPropagation}
+          @click=${this._handleClickAtBackground}
+        ></div>
 
         <div
           class="edgeless-note-page-content"
@@ -254,23 +475,16 @@ export class EdgelessNoteBlockComponent extends toGfxBlockComponent(
           ${this.renderPageContent()}
         </div>
 
-        <edgeless-note-mask
-          .model=${this.model}
-          .host=${this.host}
-          .zoom=${this.gfx.viewport.zoom ?? 1}
-          .editing=${this._editing}
-        ></edgeless-note-mask>
-
-        ${isCollapsable && !isPageBlock(this.std, this.model)
+        ${isCollapsable
           ? html`<div
               class="${classMap({
-                [styles.collapseButton]: true,
+                'edgeless-note-collapse-button': true,
                 flip: isCollapseArrowUp,
+                hide: this._isSelected,
               })}"
               style=${styleMap({
                 bottom: this._editing ? `${-extra}px` : '0',
               })}
-              data-testid="edgeless-note-collapse-button"
               @mousedown=${stopPropagation}
               @mouseup=${stopPropagation}
               @click=${this._setCollapse}
@@ -279,6 +493,14 @@ export class EdgelessNoteBlockComponent extends toGfxBlockComponent(
             </div>`
           : nothing}
         ${this._collapsedContent()}
+
+        <edgeless-note-mask
+          .model=${this.model}
+          .display=${!this._editing}
+          .host=${this.host}
+          .zoom=${this.gfx.viewport.zoom ?? 1}
+          .editing=${this._editing}
+        ></edgeless-note-mask>
       </div>
     `;
   }
@@ -293,17 +515,17 @@ export class EdgelessNoteBlockComponent extends toGfxBlockComponent(
   private accessor _isResizing = false;
 
   @state()
+  private accessor _isSelected = false;
+
+  @state()
   private accessor _noteFullHeight = 0;
 
   @query('.edgeless-note-page-content .affine-note-block-container')
   private accessor _notePageContent: HTMLElement | null = null;
-
-  @query('doc-title')
-  private accessor _docTitle: DocTitle | null = null;
 }
 
 declare global {
   interface HTMLElementTagNameMap {
-    [AFFINE_EDGELESS_NOTE]: EdgelessNoteBlockComponent;
+    'affine-edgeless-note': EdgelessNoteBlockComponent;
   }
 }

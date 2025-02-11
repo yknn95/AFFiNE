@@ -1,3 +1,4 @@
+import { press } from '@inline/__tests__/utils.js';
 import { expect, type Page } from '@playwright/test';
 
 import { type } from '../utils/actions/index.js';
@@ -8,12 +9,7 @@ import {
   waitNextFrame,
 } from '../utils/actions/misc.js';
 import { test } from '../utils/playwright.js';
-import {
-  changeColumnType,
-  moveToCenterOf,
-  press,
-  pressKey,
-} from './actions.js';
+import { changeColumnType, moveToCenterOf, pressKey } from './actions.js';
 
 const addRow = async (page: Page, count: number = 1) => {
   await waitNextFrame(page);

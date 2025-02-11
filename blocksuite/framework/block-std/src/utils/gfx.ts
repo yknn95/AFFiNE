@@ -1,10 +1,10 @@
-import type { Store } from '@blocksuite/store';
+import type { Doc } from '@blocksuite/store';
 import { effect } from '@preact/signals-core';
 
 import { SurfaceBlockModel } from '../gfx/model/surface/surface-model.js';
 
 export function onSurfaceAdded(
-  doc: Store,
+  doc: Doc,
   callback: (model: SurfaceBlockModel | null) => void
 ) {
   let found = false;

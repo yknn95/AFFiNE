@@ -1,10 +1,11 @@
-import type { Workspace as WorkspaceInterface } from '@blocksuite/affine/store';
+import { DocCollection } from '@blocksuite/affine/store';
 import { Entity, LiveData } from '@toeverything/infra';
+import { nanoid } from 'nanoid';
 import { Observable } from 'rxjs';
 import type { Awareness } from 'y-protocols/awareness.js';
 
+import { WorkspaceDBService } from '../../db';
 import { getAFFiNEWorkspaceSchema } from '../global-schema';
-import { WorkspaceImpl } from '../impls/workspace';
 import type { WorkspaceScope } from '../scopes/workspace';
 import { WorkspaceEngineService } from '../services/engine';
 
@@ -21,43 +22,27 @@ export class Workspace extends Entity {
 
   readonly flavour = this.meta.flavour;
 
-  _docCollection: WorkspaceInterface | null = null;
+  _docCollection: DocCollection | null = null;
 
   get docCollection() {
     if (!this._docCollection) {
-      this._docCollection = new WorkspaceImpl({
+      this._docCollection = new DocCollection({
         id: this.openOptions.metadata.id,
-        blobSource: {
-          get: async key => {
-            const record = await this.engine.blob.get(key);
-            return record
-              ? new Blob([record.data], { type: record.mime })
-              : null;
-          },
-          delete: async () => {
-            return;
-          },
-          list: async () => {
-            return [];
-          },
-          set: async (id, blob) => {
-            await this.engine.blob.set({
-              key: id,
-              data: new Uint8Array(await blob.arrayBuffer()),
-              mime: blob.type,
-            });
-            return id;
-          },
-          name: 'blob',
-          readonly: false,
+        blobSources: {
+          main: this.engine.blob,
         },
+        idGenerator: () => nanoid(),
         schema: getAFFiNEWorkspaceSchema(),
-        onLoadDoc: doc => this.engine.doc.connectDoc(doc),
-        onLoadAwareness: awareness =>
-          this.engine.awareness.connectAwareness(awareness),
+      });
+      this._docCollection.slots.docCreated.on(id => {
+        this.engine.doc.markAsReady(id);
       });
     }
     return this._docCollection;
+  }
+
+  get db() {
+    return this.framework.get(WorkspaceDBService).db;
   }
 
   get awareness() {

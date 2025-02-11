@@ -14,9 +14,6 @@
   "author": "toeverything",
   "license": "MIT",
   "dependencies": {
-    "@atlaskit/pragmatic-drag-and-drop": "^1.4.0",
-    "@atlaskit/pragmatic-drag-and-drop-auto-scroll": "^2.1.0",
-    "@atlaskit/pragmatic-drag-and-drop-hitbox": "^1.0.3",
     "@blocksuite/global": "workspace:*",
     "@blocksuite/inline": "workspace:*",
     "@blocksuite/store": "workspace:*",
@@ -31,11 +28,7 @@
     "rehype-parse": "^9.0.0",
     "unified": "^11.0.5",
     "w3c-keyname": "^2.2.8",
-    "yjs": "^13.6.21",
     "zod": "^3.23.8"
-  },
-  "devDependencies": {
-    "vitest": "3.0.5"
   },
   "exports": {
     ".": "./src/index.ts",

@@ -1,8 +1,4 @@
-import {
-  type BlockStdScope,
-  TextSelection,
-  type UIEventHandler,
-} from '@blocksuite/block-std';
+import type { BlockStdScope, UIEventHandler } from '@blocksuite/block-std';
 
 import { textFormatConfigs } from '../format/index.js';
 
@@ -14,10 +10,10 @@ export const textFormatKeymap = (std: BlockStdScope) =>
         return {
           ...acc,
           [config.hotkey as string]: ctx => {
-            const { store: doc, selection } = std;
+            const { doc, selection } = std;
             if (doc.readonly) return;
 
-            const textSelection = selection.find(TextSelection);
+            const textSelection = selection.find('text');
             if (!textSelection) return;
 
             config.action(std.host);

@@ -2,29 +2,27 @@ import {
   focusTextModel,
   getInlineEditorByModel,
 } from '@blocksuite/affine-components/rich-text';
-import { ParagraphBlockModel } from '@blocksuite/affine-model';
 import { matchFlavours } from '@blocksuite/affine-shared/utils';
-import { type Command, TextSelection } from '@blocksuite/block-std';
+import type { Command } from '@blocksuite/block-std';
 
 export const splitParagraphCommand: Command<
+  never,
+  'paragraphConvertedId',
   {
     blockId?: string;
-  },
-  {
-    paragraphConvertedId: string;
   }
 > = (ctx, next) => {
   const { std } = ctx;
-  const { store, host, selection } = std;
+  const { doc, host, selection } = std;
   let blockId = ctx.blockId;
   if (!blockId) {
-    const text = selection.find(TextSelection);
+    const text = selection.find('text');
     blockId = text?.blockId;
   }
   if (!blockId) return;
 
-  const model = store.getBlock(blockId)?.model;
-  if (!model || !matchFlavours(model, [ParagraphBlockModel])) return;
+  const model = doc.getBlock(blockId)?.model;
+  if (!model || !matchFlavours(model, ['affine:paragraph'])) return;
 
   const inlineEditor = getInlineEditorByModel(host, model);
   const range = inlineEditor?.getInlineRange();
@@ -40,9 +38,9 @@ export const splitParagraphCommand: Command<
   if (model.text.yText.length < splitIndex + splitLength) return;
 
   if (model.children.length > 0 && splitIndex > 0) {
-    store.captureSync();
+    doc.captureSync();
     const right = model.text.split(splitIndex, splitLength);
-    const id = store.addBlock(
+    const id = doc.addBlock(
       model.flavour as BlockSuite.Flavour,
       {
         text: right,
@@ -55,14 +53,14 @@ export const splitParagraphCommand: Command<
     return next({ paragraphConvertedId: id });
   }
 
-  const parent = store.getParent(model);
+  const parent = doc.getParent(model);
   if (!parent) return;
   const index = parent.children.indexOf(model);
   if (index < 0) return;
-  store.captureSync();
+  doc.captureSync();
   const right = model.text.split(splitIndex, splitLength);
-  const id = store.addBlock(
-    model.flavour as BlockSuite.Flavour,
+  const id = doc.addBlock(
+    model.flavour,
     {
       text: right,
       type: model.type,
@@ -70,9 +68,9 @@ export const splitParagraphCommand: Command<
     parent,
     index + 1
   );
-  const newModel = store.getBlock(id)?.model;
+  const newModel = doc.getBlock(id)?.model;
   if (newModel) {
-    store.moveBlocks(model.children, newModel);
+    doc.moveBlocks(model.children, newModel);
   } else {
     console.error('Failed to find the new model split from the paragraph');
   }

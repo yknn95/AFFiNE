@@ -69,10 +69,6 @@ export const topLevelRoutes = [
         lazy: () => import('./pages/upgrade-success/team'),
       },
       {
-        path: '/upgrade-success/self-hosted-team',
-        lazy: () => import('./pages/upgrade-success/self-host-team'),
-      },
-      {
         path: '/ai-upgrade-success',
         lazy: () => import('./pages/ai-upgrade-success'),
       },

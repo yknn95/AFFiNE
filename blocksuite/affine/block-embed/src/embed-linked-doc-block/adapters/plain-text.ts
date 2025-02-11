@@ -2,8 +2,9 @@ import { EmbedLinkedDocBlockSchema } from '@blocksuite/affine-model';
 import {
   BlockPlainTextAdapterExtension,
   type BlockPlainTextAdapterMatcher,
-  TextUtils,
 } from '@blocksuite/affine-shared/adapters';
+
+import { generateDocUrl } from '../../common/adapters/utils.js';
 
 export const embedLinkedDocBlockPlainTextAdapterMatcher: BlockPlainTextAdapterMatcher =
   {
@@ -19,7 +20,7 @@ export const embedLinkedDocBlockPlainTextAdapterMatcher: BlockPlainTextAdapterMa
           return;
         }
         const title = configs.get('title:' + o.node.props.pageId) ?? 'untitled';
-        const url = TextUtils.generateDocUrl(
+        const url = generateDocUrl(
           configs.get('docLinkBaseUrl') ?? '',
           String(o.node.props.pageId),
           o.node.props.params ?? Object.create(null)

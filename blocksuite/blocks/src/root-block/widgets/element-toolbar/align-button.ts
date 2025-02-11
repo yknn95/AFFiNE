@@ -1,6 +1,4 @@
 import {
-  autoArrangeElementsCommand,
-  autoResizeElementsCommand,
   EdgelessCRUDIdentifier,
   updateXYWH,
 } from '@blocksuite/affine-block-surface';
@@ -136,10 +134,10 @@ export class EdgelessAlignButton extends WithDisposable(LitElement) {
         this._alignDistributeVertically();
         break;
       case Alignment.AutoArrange:
-        this.edgeless.std.command.exec(autoArrangeElementsCommand);
+        this.edgeless.std.command.exec('autoArrangeElements');
         break;
       case Alignment.AutoResize:
-        this.edgeless.std.command.exec(autoResizeElementsCommand);
+        this.edgeless.std.command.exec('autoResizeElements');
         break;
     }
   }

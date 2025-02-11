@@ -22,7 +22,7 @@ export interface ViewManager {
 
   views$: ReadonlySignal<string[]>;
 
-  viewGet(id: string): SingleView | undefined;
+  viewGet(id: string): SingleView;
 
   viewAdd(type: DataViewMode): string;
 
@@ -86,7 +86,7 @@ export class ViewManagerBase implements ViewManager {
   }
 
   viewChangeType(id: string, type: string): void {
-    const from = this.viewGet(id)?.type;
+    const from = this.viewGet(id).type;
     const meta = this.dataSource.viewMetaGet(type);
     this.dataSource.viewDataUpdate(id, old => {
       let data = {
@@ -122,9 +122,8 @@ export class ViewManagerBase implements ViewManager {
     this.setCurrentView(newId);
   }
 
-  viewGet(id: string): SingleView | undefined {
+  viewGet(id: string): SingleView {
     const meta = this.dataSource.viewMetaGetById(id);
-    if (!meta) return;
     return new meta.model.dataViewManager(this, id);
   }
 }

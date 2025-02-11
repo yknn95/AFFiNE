@@ -2,10 +2,7 @@ import { Scrollable } from '@affine/component';
 import { PageDetailSkeleton } from '@affine/component/page-detail-skeleton';
 import { AIProvider } from '@affine/core/blocksuite/presets/ai';
 import { AffineErrorBoundary } from '@affine/core/components/affine/affine-error-boundary';
-import {
-  BlockSuiteEditor,
-  CustomEditorWrapper,
-} from '@affine/core/components/blocksuite/block-suite-editor';
+import { BlockSuiteEditor } from '@affine/core/components/blocksuite/block-suite-editor';
 import { EditorOutlineViewer } from '@affine/core/components/blocksuite/outline-viewer';
 import { PageNotFound } from '@affine/core/desktop/pages/404';
 import { EditorService } from '@affine/core/modules/editor';
@@ -14,11 +11,7 @@ import {
   type EdgelessRootService,
   RefNodeSlotsProvider,
 } from '@blocksuite/affine/blocks';
-import {
-  Bound,
-  type Disposable,
-  DisposableGroup,
-} from '@blocksuite/affine/global/utils';
+import { Bound, DisposableGroup } from '@blocksuite/affine/global/utils';
 import type { AffineEditorContainer } from '@blocksuite/affine/presets';
 import {
   FrameworkScope,
@@ -64,9 +57,12 @@ function fitViewport(
         false
       );
     } else {
-      rootService.gfx.fitToScreen({
-        smooth: false,
-      });
+      const data = rootService.getFitToScreenData();
+      rootService.viewport.setViewport(
+        data.zoom,
+        [data.centerX, data.centerY],
+        false
+      );
     }
   } catch (e) {
     logger.warn('failed to fitViewPort', e);
@@ -103,9 +99,6 @@ function DocPeekPreviewEditor({
       disposableGroup.add(
         // todo(@pengx17): seems not working
         refNodeSlots.docLinkClicked.on(options => {
-          if (options.host !== editorContainer.host) {
-            return;
-          }
           peekView
             .open({
               docRef: { docId: options.pageId },
@@ -130,17 +123,17 @@ function DocPeekPreviewEditor({
   );
 
   useEffect(() => {
-    const disposables: Disposable[] = [];
-    const openHandler = () => {
+    const disposable = AIProvider.slots.requestOpenWithChat.on(() => {
       if (doc) {
         workbench.openDoc(doc.id);
         peekView.close();
         // chat panel open is already handled in <DetailPageImpl />
       }
+    });
+
+    return () => {
+      disposable.dispose();
     };
-    disposables.push(AIProvider.slots.requestOpenWithChat.on(openHandler));
-    disposables.push(AIProvider.slots.requestSendWithChat.on(openHandler));
-    return () => disposables.forEach(d => d.dispose());
   }, [doc, peekView, workbench, workspace.id]);
 
   const openOutlinePanel = useCallback(() => {
@@ -156,15 +149,13 @@ function DocPeekPreviewEditor({
         <Scrollable.Viewport
           className={clsx('affine-page-viewport', styles.affineDocViewport)}
         >
-          <CustomEditorWrapper>
-            <BlockSuiteEditor
-              className={styles.editor}
-              mode={mode}
-              page={doc.blockSuiteDoc}
-              onEditorReady={handleOnEditorReady}
-              defaultOpenProperty={defaultOpenProperty}
-            />
-          </CustomEditorWrapper>
+          <BlockSuiteEditor
+            className={styles.editor}
+            mode={mode}
+            page={doc.blockSuiteDoc}
+            onEditorReady={handleOnEditorReady}
+            defaultOpenProperty={defaultOpenProperty}
+          />
         </Scrollable.Viewport>
         <Scrollable.Scrollbar />
       </Scrollable.Root>
@@ -179,13 +170,7 @@ function DocPeekPreviewEditor({
   );
 }
 
-export function DocPeekPreview({
-  docRef,
-  animating,
-}: {
-  docRef: DocReferenceInfo;
-  animating?: boolean;
-}) {
+export function DocPeekPreview({ docRef }: { docRef: DocReferenceInfo }) {
   const {
     docId,
     blockIds,
@@ -210,8 +195,7 @@ export function DocPeekPreview({
           databaseRowId,
           type: 'database',
         }
-      : undefined,
-    !animating
+      : undefined
   );
 
   // if sync engine has been synced and the page is null, show 404 page.

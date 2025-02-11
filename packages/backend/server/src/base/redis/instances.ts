@@ -1,35 +1,15 @@
-import {
-  Injectable,
-  Logger,
-  OnModuleDestroy,
-  OnModuleInit,
-} from '@nestjs/common';
+import { Injectable, OnModuleDestroy } from '@nestjs/common';
 import { Redis as IORedis, RedisOptions } from 'ioredis';
 
 import { Config } from '../../base/config';
 
-class Redis extends IORedis implements OnModuleInit, OnModuleDestroy {
-  private readonly logger = new Logger(this.constructor.name);
+class Redis extends IORedis implements OnModuleDestroy {
   constructor(opts: RedisOptions) {
     super(opts);
   }
 
-  errorHandler = (err: Error) => {
-    this.logger.error(err);
-  };
-
-  onModuleInit() {
-    this.on('error', this.errorHandler);
-  }
-
   onModuleDestroy() {
     this.disconnect();
-  }
-
-  override duplicate(override?: Partial<RedisOptions>): IORedis {
-    const client = super.duplicate(override);
-    client.on('error', this.errorHandler);
-    return client;
   }
 }
 

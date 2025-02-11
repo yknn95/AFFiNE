@@ -17,9 +17,6 @@
     "idb-keyval": "^6.2.1",
     "y-protocols": "^1.0.6"
   },
-  "devDependencies": {
-    "vitest": "3.0.5"
-  },
   "peerDependencies": {
     "yjs": "*"
   },

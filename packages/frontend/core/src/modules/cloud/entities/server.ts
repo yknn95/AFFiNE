@@ -100,16 +100,11 @@ export class Server extends Entity<{
   );
 
   async waitForConfigRevalidation(signal?: AbortSignal) {
-    try {
-      this.revalidateConfig();
-      await this.isConfigRevalidating$.waitFor(
-        isRevalidating => !isRevalidating,
-        signal
-      );
-    } catch (error) {
-      if (error instanceof Event && error.type === 'abort') return;
-      console.error('Config revalidation failed:', error);
-    }
+    this.revalidateConfig();
+    await this.isConfigRevalidating$.waitFor(
+      isRevalidating => !isRevalidating,
+      signal
+    );
   }
 
   override dispose(): void {

@@ -35,8 +35,7 @@ export interface LinkedWidgetConfig {
    * [[ -> @
    */
   convertTriggerKey: boolean;
-  ignoreBlockTypes: string[];
-  ignoreSelector: string;
+  ignoreBlockTypes: (keyof BlockSuite.BlockModels)[];
   getMenus: (
     query: string,
     abort: () => void,
@@ -44,23 +43,6 @@ export interface LinkedWidgetConfig {
     inlineEditor: AffineInlineEditor,
     abortSignal: AbortSignal
   ) => Promise<LinkedMenuGroup[]> | LinkedMenuGroup[];
-
-  /**
-   * Auto focused item
-   *
-   * Will be called when the menu is
-   * - opened
-   * - query changed
-   * - menu group or its items changed
-   *
-   * If the return value is not null, no action will be taken.
-   */
-  autoFocusedItem?: (
-    menus: LinkedMenuGroup[],
-    query: string,
-    editorHost: EditorHost,
-    inlineEditor: AffineInlineEditor
-  ) => LinkedMenuItem | null;
 
   mobile: {
     useScreenHeight?: boolean;
@@ -86,10 +68,8 @@ export type LinkedMenuItem = {
   icon: TemplateResult<1>;
   suffix?: string | TemplateResult<1>;
   // disabled?: boolean;
-  action: LinkedMenuAction;
+  action: () => Promise<void> | void;
 };
-
-export type LinkedMenuAction = () => Promise<void> | void;
 
 export type LinkedMenuGroup = {
   name: string;
@@ -124,7 +104,7 @@ export function createLinkedDocMenuGroup(
   inlineEditor: AffineInlineEditor
 ) {
   const doc = editorHost.doc;
-  const { docMetas } = doc.workspace.meta;
+  const { docMetas } = doc.collection.meta;
   const filteredDocList = docMetas
     .filter(({ id }) => id !== doc.id)
     .filter(({ title }) => isFuzzyMatch(title, query));
@@ -183,7 +163,7 @@ export function createNewDocMenuGroup(
         action: () => {
           abort();
           const docName = query;
-          const newDoc = createDefaultDoc(doc.workspace, {
+          const newDoc = createDefaultDoc(doc.collection, {
             title: docName,
           });
           insertLinkedNode({
@@ -232,7 +212,7 @@ export function createNewDocMenuGroup(
             toast(editorHost, message);
           };
           showImportModal({
-            collection: doc.workspace,
+            collection: doc.collection,
             onSuccess,
             onFail,
           });

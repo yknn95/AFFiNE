@@ -12,7 +12,7 @@ import {
   StorageProviderFactory,
   URLHelper,
 } from '../../base';
-import { QuotaService } from '../../core/quota';
+import { QuotaManagementService } from '../../core/quota';
 
 @Injectable()
 export class CopilotStorage {
@@ -22,7 +22,7 @@ export class CopilotStorage {
     private readonly config: Config,
     private readonly url: URLHelper,
     private readonly storageFactory: StorageProviderFactory,
-    private readonly quota: QuotaService
+    private readonly quota: QuotaManagementService
   ) {
     this.provider = this.storageFactory.create(
       this.config.plugins.copilot.storage
@@ -57,7 +57,7 @@ export class CopilotStorage {
 
   @CallMetric('ai', 'blob_upload')
   async handleUpload(userId: string, blob: FileUpload) {
-    const checkExceeded = await this.quota.getUserQuotaCalculator(userId);
+    const checkExceeded = await this.quota.getQuotaCalculator(userId);
 
     if (checkExceeded(0)) {
       throw new BlobQuotaExceeded();

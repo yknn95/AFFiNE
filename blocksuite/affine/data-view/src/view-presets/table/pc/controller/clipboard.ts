@@ -4,11 +4,11 @@ import type { ReactiveController } from 'lit';
 import type { Cell } from '../../../../core/view-manager/cell.js';
 import type { Row } from '../../../../core/view-manager/row.js';
 import {
-  TableViewAreaSelection,
-  TableViewRowSelection,
+  TableAreaSelection,
+  TableRowSelection,
   type TableViewSelection,
   type TableViewSelectionWithType,
-} from '../../selection';
+} from '../../types.js';
 import type { DataViewTable } from '../table-view.js';
 
 const BLOCKSUITE_DATABASE_TABLE = 'blocksuite/database/table';
@@ -85,39 +85,15 @@ export class TableClipboardController implements ReactiveController {
     if (!clipboardData) return;
 
     const tableSelection = this.host.selectionController.selection;
-    if (TableViewRowSelection.is(tableSelection)) {
+    if (TableRowSelection.is(tableSelection)) {
       return;
     }
     if (tableSelection) {
-      try {
-        // First try to read internal format data
-        const json = await this.clipboard.readFromClipboard(clipboardData);
-        const dataString = json[BLOCKSUITE_DATABASE_TABLE];
-
-        if (dataString) {
-          // If internal format data exists, use it
-          const jsonAreaData = JSON.parse(dataString) as JsonAreaData;
-          pasteToCells(view, jsonAreaData, tableSelection);
-          return true;
-        }
-      } catch {
-        // Ignore error when reading internal format, will fallback to plain text
-        console.debug('No internal format data found, trying plain text');
-      }
-
-      // Try reading plain text (possibly copied from Excel)
-      const plainText = clipboardData.getData('text/plain');
-      if (plainText) {
-        // Split text by newlines and then by tabs for each line
-        const rows = plainText
-          .split(/\r?\n/)
-          .map(line => line.split('\t').map(cell => cell.trim()))
-          .filter(row => row.some(cell => cell !== '')); // Filter out empty rows
-
-        if (rows.length > 0) {
-          pasteToCells(view, rows, tableSelection);
-        }
-      }
+      const json = await this.clipboard.readFromClipboard(clipboardData);
+      const dataString = json[BLOCKSUITE_DATABASE_TABLE];
+      if (!dataString) return;
+      const jsonAreaData = JSON.parse(dataString) as JsonAreaData;
+      pasteToCells(view, jsonAreaData, tableSelection);
     }
 
     return true;
@@ -196,8 +172,8 @@ function getSelectedArea(
   table: DataViewTable
 ): SelectedArea | undefined {
   const view = table.props.view;
-  if (TableViewRowSelection.is(selection)) {
-    const rows = TableViewRowSelection.rows(selection)
+  if (TableRowSelection.is(selection)) {
+    const rows = TableRowSelection.rows(selection)
       .map(row => {
         const y =
           table.selectionController
@@ -255,11 +231,11 @@ type SelectedArea = {
 }[];
 
 function getTargetRangeFromSelection(
-  selection: TableViewAreaSelection,
+  selection: TableAreaSelection,
   data: JsonAreaData
 ) {
   const { rowsSelection, columnsSelection, focus } = selection;
-  return TableViewAreaSelection.isFocus(selection)
+  return TableAreaSelection.isFocus(selection)
     ? {
         row: {
           start: focus.rowIndex,
@@ -285,7 +261,7 @@ function getTargetRangeFromSelection(
 function pasteToCells(
   table: DataViewTable,
   rows: JsonAreaData,
-  selection: TableViewAreaSelection
+  selection: TableAreaSelection
 ) {
   const srcRowLength = rows.length;
   const srcColumnLength = rows[0]?.length ?? 0;

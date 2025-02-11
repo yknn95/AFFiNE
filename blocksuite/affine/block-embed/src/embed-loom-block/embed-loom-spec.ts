@@ -1,5 +1,8 @@
-import { BlockViewExtension, FlavourExtension } from '@blocksuite/block-std';
-import type { ExtensionType } from '@blocksuite/store';
+import {
+  BlockViewExtension,
+  type ExtensionType,
+  FlavourExtension,
+} from '@blocksuite/block-std';
 import { literal } from 'lit/static-html.js';
 
 import { EmbedLoomBlockAdapterExtensions } from './adapters/extension.js';

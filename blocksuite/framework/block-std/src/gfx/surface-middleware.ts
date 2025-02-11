@@ -1,7 +1,7 @@
 import { type Container, createIdentifier } from '@blocksuite/global/di';
 import { BlockSuiteError, ErrorCode } from '@blocksuite/global/exceptions';
-import { Extension } from '@blocksuite/store';
 
+import { Extension } from '../extension/extension.js';
 import { LifeCycleWatcher } from '../extension/lifecycle-watcher.js';
 import { StdIdentifier } from '../identifier.js';
 import type { BlockStdScope } from '../scope/block-std-scope.js';
@@ -51,7 +51,7 @@ export class SurfaceMiddlewareExtension extends LifeCycleWatcher {
       this.std.provider.getAll(SurfaceMiddlewareBuilderIdentifier).values()
     );
 
-    const dispose = onSurfaceAdded(this.std.store, surface => {
+    const dispose = onSurfaceAdded(this.std.doc, surface => {
       if (surface) {
         surface.applyMiddlewares(builders.map(builder => builder.middleware));
         queueMicrotask(() => dispose());

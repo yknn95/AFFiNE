@@ -1,8 +1,9 @@
 import type {
   RichTextCell,
   RichTextCellEditing,
-} from '@blocksuite/affine-block-database';
-import { ZERO_WIDTH_SPACE } from '@blocksuite/inline';
+} from '@blocks/database-block/properties/rich-text/cell-renderer.js';
+import { press } from '@inline/__tests__/utils.js';
+import { ZERO_WIDTH_SPACE } from '@inline/consts.js';
 import { expect, type Locator, type Page } from '@playwright/test';
 
 import {
@@ -16,11 +17,6 @@ import {
   getEditorLocator,
   waitNextFrame,
 } from '../utils/actions/misc.js';
-
-export async function press(page: Page, content: string) {
-  await page.keyboard.press(content, { delay: 50 });
-  await page.waitForTimeout(50);
-}
 
 export async function initDatabaseColumn(page: Page, title = '') {
   const editor = getEditorLocator(page);
@@ -269,7 +265,7 @@ export async function assertDatabaseCellLink(
           'affine-database-link-cell-editing'
         );
       if (!richText) throw new Error('Missing database rich text cell');
-      return richText.inlineEditor!.yText.toString();
+      return richText.inlineEditor.yText.toString();
     },
     { rowIndex, columnIndex }
   );

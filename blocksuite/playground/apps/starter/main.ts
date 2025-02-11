@@ -1,6 +1,8 @@
 import '../../style.css';
+import '../dev-format.js';
 
 import {
+  type ExtensionType,
   WidgetViewMapExtension,
   WidgetViewMapIdentifier,
 } from '@blocksuite/block-std';
@@ -17,14 +19,10 @@ import { effects as blocksEffects } from '@blocksuite/blocks/effects';
 import * as globalUtils from '@blocksuite/global/utils';
 import * as editor from '@blocksuite/presets';
 import { effects as presetsEffects } from '@blocksuite/presets/effects';
-import type { ExtensionType } from '@blocksuite/store';
 // eslint-disable-next-line @typescript-eslint/no-restricted-imports
 import * as store from '@blocksuite/store';
 
-import {
-  mockDocModeService,
-  mockEditorSetting,
-} from '../_common/mock-services.js';
+import { mockDocModeService } from '../_common/mock-services.js';
 import { setupEdgelessTemplate } from '../_common/setup.js';
 import {
   createStarterDocCollection,
@@ -61,7 +59,6 @@ async function main() {
         },
         defaultExtensions: (): ExtensionType[] => [
           FontConfigExtension(CommunityCanvasTextFonts),
-          blocks.EditorSettingExtension(mockEditorSetting()),
         ],
         extensions: {
           FontConfigExtension: FontConfigExtension(CommunityCanvasTextFonts),
@@ -72,6 +69,14 @@ async function main() {
         },
       }),
     });
+
+    // test if blocksuite can run in a web worker, SEE: tests/worker.spec.ts
+    // window.testWorker = new Worker(
+    //   new URL('./utils/test-worker.ts', import.meta.url),
+    //   {
+    //     type: 'module',
+    //   }
+    // );
 
     return;
   }

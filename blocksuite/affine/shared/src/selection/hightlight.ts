@@ -2,7 +2,7 @@ import {
   type ReferenceParams,
   ReferenceParamsSchema,
 } from '@blocksuite/affine-model';
-import { BaseSelection, SelectionExtension } from '@blocksuite/store';
+import { BaseSelection, SelectionExtension } from '@blocksuite/block-std';
 
 export class HighlightSelection extends BaseSelection {
   static override group = 'scene';
@@ -47,6 +47,14 @@ export class HighlightSelection extends BaseSelection {
       blockIds: this.blockIds,
       elementIds: this.elementIds,
     };
+  }
+}
+
+declare global {
+  namespace BlockSuite {
+    interface Selection {
+      highlight: typeof HighlightSelection;
+    }
   }
 }
 

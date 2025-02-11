@@ -1,32 +1,23 @@
 import { sha } from '@blocksuite/global/utils';
-import type { DocSnapshot, Store, Workspace } from '@blocksuite/store';
-import { extMimeMap, getAssetName, Transformer } from '@blocksuite/store';
+import type { Doc, DocCollection, DocSnapshot } from '@blocksuite/store';
+import { extMimeMap, getAssetName, Job } from '@blocksuite/store';
 
 import { download, Unzip, Zip } from '../transformers/utils.js';
 import { replaceIdMiddleware, titleMiddleware } from './middlewares.js';
 
-async function exportDocs(collection: Workspace, docs: Store[]) {
+async function exportDocs(collection: DocCollection, docs: Doc[]) {
   const zip = new Zip();
-  const job = new Transformer({
-    schema: collection.schema,
-    blobCRUD: collection.blobSync,
-    docCRUD: {
-      create: (id: string) => collection.createDoc({ id }),
-      get: (id: string) => collection.getDoc(id),
-      delete: (id: string) => collection.removeDoc(id),
-    },
-    middlewares: [
-      replaceIdMiddleware(collection.idGenerator),
-      titleMiddleware(collection.meta.docMetas),
-    ],
-  });
+  const job = new Job({ collection });
   const snapshots = await Promise.all(docs.map(job.docToSnapshot));
+
+  const collectionInfo = job.collectionInfoToSnapshot();
+  await zip.file('info.json', JSON.stringify(collectionInfo, null, 2));
 
   await Promise.all(
     snapshots
       .filter((snapshot): snapshot is DocSnapshot => !!snapshot)
       .map(async snapshot => {
-        const snapshotName = `${snapshot.meta.title || 'untitled'}.snapshot.json`;
+        const snapshotName = `${snapshot.meta.id}.snapshot.json`;
         await zip.file(snapshotName, JSON.stringify(snapshot, null, 2));
       })
   );
@@ -50,7 +41,7 @@ async function exportDocs(collection: Workspace, docs: Store[]) {
   return download(downloadBlob, `${collection.id}.bs.zip`);
 }
 
-async function importDocs(collection: Workspace, imported: Blob) {
+async function importDocs(collection: DocCollection, imported: Blob) {
   const unzip = new Unzip();
   await unzip.load(imported);
 
@@ -77,18 +68,9 @@ async function importDocs(collection: Workspace, imported: Blob) {
     }
   }
 
-  const job = new Transformer({
-    schema: collection.schema,
-    blobCRUD: collection.blobSync,
-    docCRUD: {
-      create: (id: string) => collection.createDoc({ id }),
-      get: (id: string) => collection.getDoc(id),
-      delete: (id: string) => collection.removeDoc(id),
-    },
-    middlewares: [
-      replaceIdMiddleware(collection.idGenerator),
-      titleMiddleware(collection.meta.docMetas),
-    ],
+  const job = new Job({
+    collection,
+    middlewares: [replaceIdMiddleware, titleMiddleware],
   });
   const assetsMap = job.assets;
 

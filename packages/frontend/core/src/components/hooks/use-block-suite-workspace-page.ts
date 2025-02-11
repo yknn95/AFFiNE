@@ -1,14 +1,14 @@
 import { DebugLogger } from '@affine/debug';
 import { DisposableGroup } from '@blocksuite/affine/global/utils';
-import type { Store, Workspace } from '@blocksuite/affine/store';
+import type { Doc, DocCollection } from '@blocksuite/affine/store';
 import { useEffect, useState } from 'react';
 
 const logger = new DebugLogger('use-doc-collection-page');
 
 export function useDocCollectionPage(
-  docCollection: Workspace,
+  docCollection: DocCollection,
   pageId: string | null
-): Store | null {
+): Doc | null {
   const [page, setPage] = useState(
     pageId ? docCollection.getDoc(pageId) : null
   );
@@ -16,7 +16,7 @@ export function useDocCollectionPage(
   useEffect(() => {
     const group = new DisposableGroup();
     group.add(
-      docCollection.slots.docCreated.on(id => {
+      docCollection.slots.docAdded.on(id => {
         if (pageId === id) {
           setPage(docCollection.getDoc(id));
         }

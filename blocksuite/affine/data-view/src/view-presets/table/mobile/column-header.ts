@@ -123,7 +123,9 @@ export class MobileTableColumnHeader extends SignalWatcher(
               menu.action({
                 name: 'Hide In View',
                 prefix: ViewIcon(),
-                hide: () => !this.column.hideCanSet,
+                hide: () =>
+                  this.column.hide$.value ||
+                  this.column.type$.value === 'title',
                 select: () => {
                   this.column.hideSet(true);
                 },
@@ -218,7 +220,8 @@ export class MobileTableColumnHeader extends SignalWatcher(
               menu.action({
                 name: 'Duplicate',
                 prefix: DuplicateIcon(),
-                hide: () => !this.column.canDuplicate,
+                hide: () =>
+                  !this.column.duplicate || this.column.type$.value === 'title',
                 select: () => {
                   this.column.duplicate?.();
                 },
@@ -226,7 +229,8 @@ export class MobileTableColumnHeader extends SignalWatcher(
               menu.action({
                 name: 'Delete',
                 prefix: DeleteIcon(),
-                hide: () => !this.column.canDelete,
+                hide: () =>
+                  !this.column.delete || this.column.type$.value === 'title',
                 select: () => {
                   this.column.delete?.();
                 },

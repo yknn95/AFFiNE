@@ -9,14 +9,10 @@ export const codeBlockStyles = css`
     font-size: var(--affine-font-xs);
     line-height: var(--affine-line-height);
     position: relative;
-    padding: 28px 24px;
+    padding: 12px;
     background: var(--affine-background-code-block);
     border-radius: 10px;
     box-sizing: border-box;
-  }
-
-  .affine-code-block-container.mobile {
-    padding: 12px;
   }
 
   .affine-code-block-container .inline-editor {

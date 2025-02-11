@@ -2,7 +2,7 @@ import { toReactNode } from '@affine/component';
 import { AIChatBlockPeekViewTemplate } from '@affine/core/blocksuite/presets/ai';
 import { BlockComponent } from '@blocksuite/affine/block-std';
 import { useLiveData, useService } from '@toeverything/infra';
-import { useCallback, useEffect, useMemo, useState } from 'react';
+import { useEffect, useMemo } from 'react';
 
 import type { ActivePeekView } from '../entities/peek-view';
 import { PeekViewService } from '../services/peek-view';
@@ -19,12 +19,12 @@ import {
   DocPeekViewControls,
 } from './peek-view-controls';
 
-function renderPeekView({ info }: ActivePeekView, animating?: boolean) {
+function renderPeekView({ info }: ActivePeekView) {
   if (info.type === 'template') {
     return toReactNode(info.template);
   }
   if (info.type === 'doc') {
-    return <DocPeekPreview docRef={info.docRef} animating={animating} />;
+    return <DocPeekPreview docRef={info.docRef} />;
   }
 
   if (info.type === 'attachment' && info.docRef.blockIds?.[0]) {
@@ -77,14 +77,13 @@ const getMode = (info: ActivePeekView['info']) => {
 };
 
 const getRendererProps = (
-  activePeekView?: ActivePeekView,
-  animating?: boolean
+  activePeekView?: ActivePeekView
 ): Partial<PeekViewModalContainerProps> | undefined => {
   if (!activePeekView) {
     return;
   }
 
-  const preview = renderPeekView(activePeekView, animating);
+  const preview = renderPeekView(activePeekView);
   const controls = renderControls(activePeekView);
   return {
     children: preview,
@@ -107,24 +106,12 @@ export const PeekViewManagerModal = () => {
   const activePeekView = useLiveData(peekViewEntity.active$);
   const show = useLiveData(peekViewEntity.show$);
 
-  const [animating, setAnimating] = useState(false);
-
-  const onAnimationStart = useCallback(() => {
-    console.log('onAnimationStart');
-    setAnimating(true);
-  }, []);
-
-  const onAnimationEnd = useCallback(() => {
-    console.log('onAnimationEnd');
-    setAnimating(false);
-  }, []);
-
   const renderProps = useMemo(() => {
     if (!activePeekView) {
       return;
     }
-    return getRendererProps(activePeekView, animating);
-  }, [activePeekView, animating]);
+    return getRendererProps(activePeekView);
+  }, [activePeekView]);
 
   useEffect(() => {
     const subscription = peekViewEntity.show$.subscribe(() => {
@@ -148,8 +135,6 @@ export const PeekViewManagerModal = () => {
           peekViewEntity.close();
         }
       }}
-      onAnimationStart={onAnimationStart}
-      onAnimationEnd={onAnimationEnd}
     >
       {renderProps?.children}
     </PeekViewModalContainer>

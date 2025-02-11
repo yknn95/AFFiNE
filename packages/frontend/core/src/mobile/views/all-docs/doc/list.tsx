@@ -9,7 +9,7 @@ import type { Tag } from '@affine/core/modules/tag';
 import { WorkspaceService } from '@affine/core/modules/workspace';
 import type { Collection, Filter } from '@affine/env/filter';
 import type { DocMeta } from '@blocksuite/affine/store';
-import { ToggleDownIcon } from '@blocksuite/icons/rc';
+import { ToggleExpandIcon } from '@blocksuite/icons/rc';
 import * as Collapsible from '@radix-ui/react-collapsible';
 import { useLiveData, useService } from '@toeverything/infra';
 import { useMemo } from 'react';
@@ -29,7 +29,7 @@ export const DocGroup = ({ group }: { group: ItemGroupProps<DocMeta> }) => {
     <Collapsible.Root defaultOpen>
       <Collapsible.Trigger className={styles.groupTitle}>
         {group.label}
-        <ToggleDownIcon className={styles.groupTitleIcon} />
+        <ToggleExpandIcon className={styles.groupTitleIcon} />
       </Collapsible.Trigger>
       <Collapsible.Content>
         <MasonryDocs items={group.items} showTags={showTags} />

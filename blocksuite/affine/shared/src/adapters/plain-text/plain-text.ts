@@ -1,4 +1,5 @@
 import { DefaultTheme, NoteDisplayMode } from '@blocksuite/affine-model';
+import type { ExtensionType } from '@blocksuite/block-std';
 import type { ServiceProvider } from '@blocksuite/global/di';
 import {
   type AssetsManager,
@@ -7,18 +8,17 @@ import {
   type BlockSnapshot,
   BlockSnapshotSchema,
   type DocSnapshot,
-  type ExtensionType,
   type FromBlockSnapshotPayload,
   type FromBlockSnapshotResult,
   type FromDocSnapshotPayload,
   type FromDocSnapshotResult,
   type FromSliceSnapshotPayload,
   type FromSliceSnapshotResult,
+  type Job,
   nanoid,
   type SliceSnapshot,
   type ToBlockSnapshotPayload,
   type ToDocSnapshotPayload,
-  type Transformer,
 } from '@blocksuite/store';
 
 import {
@@ -40,6 +40,7 @@ export type PlainText = string;
 type PlainTextToSliceSnapshotPayload = {
   file: PlainText;
   assets?: AssetsManager;
+  blockVersions: Record<string, number>;
   workspaceId: string;
   pageId: string;
 };
@@ -50,7 +51,7 @@ export class PlainTextAdapter extends BaseAdapter<PlainText> {
   readonly blockMatchers: BlockPlainTextAdapterMatcher[];
 
   constructor(
-    job: Transformer,
+    job: Job,
     readonly provider: ServiceProvider
   ) {
     super(job);
@@ -321,7 +322,7 @@ export const PlainTextAdapterFactoryIdentifier =
 export const PlainTextAdapterFactoryExtension: ExtensionType = {
   setup: di => {
     di.addImpl(PlainTextAdapterFactoryIdentifier, provider => ({
-      get: (job: Transformer) => new PlainTextAdapter(job, provider),
+      get: (job: Job) => new PlainTextAdapter(job, provider),
     }));
   },
 };

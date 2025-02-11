@@ -1,13 +1,9 @@
-import {
-  getBlockSelectionsCommand,
-  getSelectedBlocksCommand,
-  getTextSelectionCommand,
-} from '@blocksuite/affine-shared/commands';
 import type { AffineTextAttributes } from '@blocksuite/affine-shared/types';
 import {
   BLOCK_ID_ATTR,
   type BlockComponent,
   type Chain,
+  type CommandKeyToData,
   type EditorHost,
   type InitCommandCtx,
 } from '@blocksuite/block-std';
@@ -75,22 +71,24 @@ function getSelectedInlineEditors(
   });
 }
 
-function handleCurrentSelection(
+function handleCurrentSelection<
+  InlineOut extends BlockSuite.CommandDataName = never,
+>(
   chain: Chain<InitCommandCtx>,
   handler: (
     type: 'text' | 'block' | 'native',
     inlineEditors: InlineEditor<AffineTextAttributes>[]
-  ) => { textStyle: AffineTextAttributes } | boolean | void
-): Chain<InitCommandCtx & { textStyle: AffineTextAttributes }> {
-  return chain.try(chain => [
+  ) => CommandKeyToData<InlineOut> | boolean | void
+) {
+  return chain.try<InlineOut>(chain => [
     // text selection, corresponding to `formatText` command
     chain
-      .pipe(getTextSelectionCommand)
-      .pipe(getSelectedBlocksCommand, {
+      .getTextSelection()
+      .getSelectedBlocks({
         types: ['text'],
         filter: el => FORMAT_TEXT_SUPPORT_FLAVOURS.includes(el.model.flavour),
       })
-      .pipe((ctx, next) => {
+      .inline<InlineOut>((ctx, next) => {
         const { selectedBlocks } = ctx;
         assertExists(selectedBlocks);
 
@@ -112,12 +110,12 @@ function handleCurrentSelection(
       }),
     // block selection, corresponding to `formatBlock` command
     chain
-      .pipe(getBlockSelectionsCommand)
-      .pipe(getSelectedBlocksCommand, {
+      .getBlockSelections()
+      .getSelectedBlocks({
         types: ['block'],
         filter: el => FORMAT_BLOCK_SUPPORT_FLAVOURS.includes(el.model.flavour),
       })
-      .pipe((ctx, next) => {
+      .inline<InlineOut>((ctx, next) => {
         const { selectedBlocks } = ctx;
         assertExists(selectedBlocks);
 
@@ -137,7 +135,7 @@ function handleCurrentSelection(
         return next(result);
       }),
     // native selection, corresponding to `formatNative` command
-    chain.pipe((ctx, next) => {
+    chain.inline<InlineOut>((ctx, next) => {
       const selectedInlineEditors = Array.from<InlineRootElement>(
         ctx.std.host.querySelectorAll(`[${INLINE_ROOT_ATTR}]`)
       )
@@ -168,7 +166,7 @@ function handleCurrentSelection(
 }
 
 export function getCombinedTextStyle(chain: Chain<InitCommandCtx>) {
-  return handleCurrentSelection(chain, (type, inlineEditors) => {
+  return handleCurrentSelection<'textStyle'>(chain, (type, inlineEditors) => {
     if (type === 'text') {
       return {
         textStyle: getCombinedFormatFromInlineEditors(

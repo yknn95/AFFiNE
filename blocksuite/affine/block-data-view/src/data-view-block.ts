@@ -1,8 +1,4 @@
-import {
-  BlockRenderer,
-  DatabaseSelection,
-  NoteRenderer,
-} from '@blocksuite/affine-block-database';
+import { BlockRenderer, NoteRenderer } from '@blocksuite/affine-block-database';
 import { CaptionedBlockComponent } from '@blocksuite/affine-components/caption';
 import {
   menu,
@@ -30,6 +26,7 @@ import {
 import {
   createRecordDetail,
   createUniComponentFromWebComponent,
+  DatabaseSelection,
   type DataSource,
   DataView,
   dataViewCommonStyle,

@@ -23,19 +23,12 @@ import { getMindMaps } from './assets.js';
 import {
   type DraggableTool,
   getMindmapRender,
-  mediaConfig,
-  mediaRender,
   mindmapConfig,
   textConfig,
   textRender,
   toolConfig2StyleObj,
 } from './basket-elements.js';
-import {
-  basketIconDark,
-  basketIconLight,
-  mindmapMenuMediaIcon,
-  textIcon,
-} from './icons.js';
+import { basketIconDark, basketIconLight, textIcon } from './icons.js';
 import { importMindmap } from './utils/import-mindmap.js';
 
 export class EdgelessMindmapToolButton extends EdgelessToolbarToolMixin(
@@ -150,13 +143,6 @@ export class EdgelessMindmapToolButton extends EdgelessToolbarToolMixin(
       this.mindmaps.find(m => m.style === style) || this.mindmaps[0];
     return [
       {
-        name: 'media',
-        icon: mindmapMenuMediaIcon,
-        config: mediaConfig,
-        standardWidth: 100,
-        render: mediaRender,
-      },
-      {
         name: 'text',
         icon: textIcon,
         config: textConfig,
@@ -258,22 +244,14 @@ export class EdgelessMindmapToolButton extends EdgelessToolbarToolMixin(
         this.readyToDrop = false;
       },
       onDrop: (el, bound) => {
-        el.data
-          .render(bound, this.edgeless.service, this.edgeless)
-          .then(id => {
-            if (!id) return;
-            this.readyToDrop = false;
-            if (el.data.name === 'mindmap') {
-              this.setEdgelessTool({ type: 'default' });
-              this.edgeless.gfx.selection.set({
-                elements: [id],
-                editing: false,
-              });
-            } else if (el.data.name === 'text') {
-              this.setEdgelessTool({ type: 'default' });
-            }
-          })
-          .catch(console.error);
+        const id = el.data.render(bound, this.edgeless.service, this.edgeless);
+        this.readyToDrop = false;
+        if (el.data.name === 'mindmap') {
+          this.setEdgelessTool({ type: 'default' });
+          this.edgeless.gfx.selection.set({ elements: [id], editing: false });
+        } else if (el.data.name === 'text') {
+          this.setEdgelessTool({ type: 'default' });
+        }
       },
     });
 

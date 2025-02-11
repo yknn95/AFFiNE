@@ -1,4 +1,4 @@
-import { RadioGroup, type RadioItem } from '@affine/component';
+import { RadioGroup, type RadioItem, Tooltip } from '@affine/component';
 import { registerAffineCommand } from '@affine/core/commands';
 import { EditorService } from '@affine/core/modules/editor';
 import { ViewService, WorkbenchService } from '@affine/core/modules/workbench';
@@ -92,12 +92,21 @@ export const EditorModeSwitch = () => {
   }, [currentMode, isActiveView, isSharedMode, onModeChange, t, trash]);
 
   return (
-    <PureEditorModeSwitch
-      mode={currentMode}
-      setMode={onModeChange}
-      hidePage={shouldHide('page')}
-      hideEdgeless={shouldHide('edgeless')}
-    />
+    <Tooltip
+      content={t['Switch']()}
+      shortcut={['$alt', 'S']}
+      side="bottom"
+      options={{ hidden: trash || isSharedMode }}
+    >
+      <div>
+        <PureEditorModeSwitch
+          mode={currentMode}
+          setMode={onModeChange}
+          hidePage={shouldHide('page')}
+          hideEdgeless={shouldHide('edgeless')}
+        />
+      </div>
+    </Tooltip>
   );
 };
 

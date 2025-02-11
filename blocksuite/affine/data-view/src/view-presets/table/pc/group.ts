@@ -18,8 +18,8 @@ import { createDndContext } from '../../../core/utils/wc-dnd/dnd-context.js';
 import { defaultActivators } from '../../../core/utils/wc-dnd/sensors/index.js';
 import { linearMove } from '../../../core/utils/wc-dnd/utils/linear-move.js';
 import { LEFT_TOOL_BAR_WIDTH } from '../consts.js';
-import { TableViewAreaSelection } from '../selection';
 import type { TableSingleView } from '../table-view-manager.js';
+import { TableAreaSelection } from '../types.js';
 import { DataViewColumnPreview } from './header/column-renderer.js';
 import { getVerticalIndicator } from './header/vertical-indicator.js';
 import type { DataViewTable } from './table-view.js';
@@ -74,7 +74,7 @@ export class TableGroup extends SignalWatcher(
       const index = this.view.properties$.value.findIndex(
         v => v.type$.value === 'title'
       );
-      selectionController.selection = TableViewAreaSelection.create({
+      selectionController.selection = TableAreaSelection.create({
         groupKey: this.group?.key,
         focus: {
           rowIndex: this.rows.length - 1,
@@ -92,7 +92,7 @@ export class TableGroup extends SignalWatcher(
       const index = this.view.properties$.value.findIndex(
         v => v.type$.value === 'title'
       );
-      selectionController.selection = TableViewAreaSelection.create({
+      selectionController.selection = TableAreaSelection.create({
         groupKey: this.group?.key,
         focus: {
           rowIndex: 0,

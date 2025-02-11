@@ -18,10 +18,7 @@ import {
 } from '@blocksuite/affine-model';
 import {
   DocModeProvider,
-  EditorSettingExtension,
-  EditorSettingProvider,
   EditPropsStore,
-  GeneralSettingSchema,
   ThemeProvider,
 } from '@blocksuite/affine-shared/services';
 import {
@@ -29,18 +26,16 @@ import {
   SpecProvider,
 } from '@blocksuite/affine-shared/utils';
 import {
+  type BaseSelection,
   BlockComponent,
-  BlockSelection,
   BlockServiceWatcher,
   BlockStdScope,
   type EditorHost,
   LifeCycleWatcher,
-  TextSelection,
 } from '@blocksuite/block-std';
 import {
   GfxBlockElementModel,
   GfxControllerIdentifier,
-  GfxExtension,
 } from '@blocksuite/block-std/gfx';
 import { BlockSuiteError, ErrorCode } from '@blocksuite/global/exceptions';
 import {
@@ -50,8 +45,7 @@ import {
   DisposableGroup,
   type SerializedXYWH,
 } from '@blocksuite/global/utils';
-import type { BaseSelection, Store } from '@blocksuite/store';
-import { signal } from '@preact/signals-core';
+import type { Doc } from '@blocksuite/store';
 import { css, html, nothing, type TemplateResult } from 'lit';
 import { query, state } from 'lit/decorators.js';
 import { styleMap } from 'lit/directives/style-map.js';
@@ -244,7 +238,7 @@ export class SurfaceRefBlockComponent extends BlockComponent<SurfaceRefBlockMode
     }
   `;
 
-  private _previewDoc: Store | null = null;
+  private _previewDoc: Doc | null = null;
 
   private readonly _previewSpec =
     SpecProvider.getInstance().getSpec('edgeless:preview');
@@ -273,7 +267,7 @@ export class SurfaceRefBlockComponent extends BlockComponent<SurfaceRefBlockMode
 
   private _focusBlock() {
     this.selection.update(() => {
-      return [this.selection.create(BlockSelection, { blockId: this.blockId })];
+      return [this.selection.create('block', { blockId: this.blockId })];
     });
   }
 
@@ -293,9 +287,9 @@ export class SurfaceRefBlockComponent extends BlockComponent<SurfaceRefBlockMode
       requestConnectedFrame(() => {
         selection.update(selList => {
           return selList
-            .filter<BaseSelection>(sel => !sel.is(BlockSelection))
+            .filter<BaseSelection>(sel => !sel.is('block'))
             .concat(
-              selection.create(TextSelection, {
+              selection.create('text', {
                 from: {
                   blockId: model.id,
                   index: 0,
@@ -342,12 +336,12 @@ export class SurfaceRefBlockComponent extends BlockComponent<SurfaceRefBlockMode
         ];
       }
 
-      const doc = [...this.std.workspace.docs.values()]
-        .map(doc => doc.getStore())
+      const doc = [...this.std.collection.docs.values()]
+        .map(doc => doc.getDoc())
         .find(
           doc =>
             doc.getBlock(this.model.reference) ||
-            getSurfaceBlock(doc)?.getElementById(this.model.reference)
+            getSurfaceBlock(doc)!.getElementById(this.model.reference)
         );
 
       if (doc) {
@@ -361,11 +355,11 @@ export class SurfaceRefBlockComponent extends BlockComponent<SurfaceRefBlockMode
         ];
       }
 
-      if (doc) {
-        const surfaceBlock = getSurfaceBlock(doc);
-        if (surfaceBlock) {
-          return [surfaceBlock.getElementById(this.model.reference), doc.id];
-        }
+      if (doc && getSurfaceBlock(doc)) {
+        return [
+          getSurfaceBlock(doc)!.getElementById(this.model.reference),
+          doc.id,
+        ];
       }
 
       return [null, this.doc.id];
@@ -376,7 +370,7 @@ export class SurfaceRefBlockComponent extends BlockComponent<SurfaceRefBlockMode
 
       this._referencedModel =
         referencedModel && referencedModel.xywh ? referencedModel : null;
-      this._previewDoc = this.doc.workspace.getDoc(docId, {
+      this._previewDoc = this.doc.collection.getDoc(docId, {
         readonly: true,
       });
       this._referenceXYWH = this._referencedModel?.xywh ?? null;
@@ -421,7 +415,7 @@ export class SurfaceRefBlockComponent extends BlockComponent<SurfaceRefBlockMode
     this._disposables.add(
       selection.slots.changed.on(selList => {
         this._focused = selList.some(
-          sel => sel.blockId === this.blockId && sel.is(BlockSelection)
+          sel => sel.blockId === this.blockId && sel.is('block')
         );
       })
     );
@@ -429,11 +423,6 @@ export class SurfaceRefBlockComponent extends BlockComponent<SurfaceRefBlockMode
 
   private _initSpec() {
     const refreshViewport = this._refreshViewport.bind(this);
-    // oxlint-disable-next-line @typescript-eslint/no-this-alias
-    const self = this;
-    const editorSetting =
-      this.std.getOptional(EditorSettingProvider) ??
-      signal(GeneralSettingSchema.parse({}));
 
     class PageViewWatcher extends BlockServiceWatcher {
       static override readonly flavour = 'affine:page';
@@ -454,23 +443,7 @@ export class SurfaceRefBlockComponent extends BlockComponent<SurfaceRefBlockMode
         );
       }
     }
-
-    class ViewportInitializer extends GfxExtension {
-      static override readonly key = 'surface-ref-viewport-initializer';
-
-      override mounted() {
-        this.gfx.viewport.setViewportByBound(
-          Bound.deserialize(self._referenceXYWH!)
-        );
-        refreshViewport();
-      }
-    }
-
-    this._previewSpec.extend([
-      ViewportInitializer,
-      PageViewWatcher,
-      EditorSettingExtension(editorSetting),
-    ]);
+    this._previewSpec.extend([PageViewWatcher]);
 
     const referenceId = this.model.reference;
     const setReferenceXYWH = (xywh: typeof this._referenceXYWH) => {
@@ -485,7 +458,7 @@ export class SurfaceRefBlockComponent extends BlockComponent<SurfaceRefBlockMode
       override mounted() {
         const crud = this.std.get(EdgelessCRUDExtension);
         const { _disposable } = this;
-        const surfaceModel = getSurfaceBlock(this.std.store);
+        const surfaceModel = getSurfaceBlock(this.std.doc);
         if (!surfaceModel) return;
 
         const referenceElement = crud.getElementById(referenceId);
@@ -570,14 +543,10 @@ export class SurfaceRefBlockComponent extends BlockComponent<SurfaceRefBlockMode
     const _previewSpec = this._previewSpec.value;
 
     if (!this._viewportEditor) {
-      if (this._previewDoc) {
-        this._viewportEditor = new BlockStdScope({
-          store: this._previewDoc,
-          extensions: _previewSpec,
-        }).render();
-      } else {
-        console.error('Preview doc is not found');
-      }
+      this._viewportEditor = new BlockStdScope({
+        doc: this._previewDoc!,
+        extensions: _previewSpec,
+      }).render();
     }
 
     return html`<div class="ref-content">

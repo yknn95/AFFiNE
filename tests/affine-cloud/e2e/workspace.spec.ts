@@ -12,7 +12,10 @@ import {
   waitForEditorLoad,
   waitForEmptyEditor,
 } from '@affine-test/kit/utils/page-logic';
-import { openSettingModal } from '@affine-test/kit/utils/setting';
+import {
+  openSettingModal,
+  openWorkspaceSettingPanel,
+} from '@affine-test/kit/utils/setting';
 import { createLocalWorkspace } from '@affine-test/kit/utils/workspace';
 import { expect } from '@playwright/test';
 
@@ -55,10 +58,7 @@ test('should have pagination in member list', async ({ page }) => {
   );
 
   await openSettingModal(page);
-  await page
-    .getByTestId('settings-sidebar')
-    .getByTestId('workspace-setting:members')
-    .click();
+  await openWorkspaceSettingPanel(page, 'test');
 
   await page.waitForTimeout(1000);
 

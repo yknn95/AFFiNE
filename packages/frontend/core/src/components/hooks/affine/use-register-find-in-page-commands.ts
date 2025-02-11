@@ -9,12 +9,12 @@ import { useCallback, useEffect } from 'react';
 
 export function useRegisterFindInPageCommands() {
   const findInPage = useServiceOptional(FindInPageService)?.findInPage;
-  const showFindInPage = useCallback(() => {
+  const toggleVisible = useCallback(() => {
     // get the selected text in page
     const selection = window.getSelection();
     const selectedText = selection?.toString();
 
-    findInPage?.findInPage(selectedText);
+    findInPage?.toggleVisible(selectedText);
   }, [findInPage]);
 
   useEffect(() => {
@@ -33,7 +33,8 @@ export function useRegisterFindInPageCommands() {
         label: '',
         run() {
           track.$.cmdk.general.findInPage();
-          showFindInPage();
+
+          toggleVisible();
         },
       })
     );
@@ -41,5 +42,5 @@ export function useRegisterFindInPageCommands() {
     return () => {
       unsubs.forEach(unsub => unsub());
     };
-  }, [findInPage, showFindInPage]);
+  }, [toggleVisible]);
 }

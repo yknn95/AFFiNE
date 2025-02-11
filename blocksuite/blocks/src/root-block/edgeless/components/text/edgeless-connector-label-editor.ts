@@ -16,10 +16,10 @@ import {
   Vec,
   WithDisposable,
 } from '@blocksuite/global/utils';
+import { DocCollection } from '@blocksuite/store';
 import { css, html, nothing } from 'lit';
 import { property, query } from 'lit/decorators.js';
 import { styleMap } from 'lit/directives/style-map.js';
-import * as Y from 'yjs';
 
 import type { EdgelessRootBlockComponent } from '../../edgeless-root-block.js';
 
@@ -187,7 +187,7 @@ export class EdgelessConnectorLabelEditor extends WithDisposable(
             } else if (len < text.length) {
               this.crud.updateElement(connector.id, {
                 // @TODO: trim in Y.Text?
-                text: new Y.Text(trimed),
+                text: new DocCollection.Y.Text(trimed),
               });
             }
           }

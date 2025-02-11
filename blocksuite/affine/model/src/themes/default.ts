@@ -1,5 +1,5 @@
-import type { Palette, Theme } from './types';
-import { buildPalettes, getColorByKey, pureBlack, pureWhite } from './utils';
+import type { Palette, Theme } from './types.js';
+import { buildPalettes, getColorByKey, pureBlack, pureWhite } from './utils.js';
 
 const Transparent = 'transparent';
 const White = getColorByKey('edgeless/palette/white');
@@ -78,7 +78,7 @@ const StrokeColorPalettes: Palette[] = [
   ...buildPalettes(StrokeColorMap),
 ] as const;
 
-const FillColorMap = { ...Medium, Black, White } as const;
+const FillColorMap = { ...Light, Black, White } as const;
 
 const FillColorPalettes: Palette[] = [...buildPalettes(FillColorMap)] as const;
 
@@ -89,11 +89,9 @@ export const DefaultTheme: Theme = {
   white: White,
   transparent: Transparent,
   textColor: Medium.Blue,
-  // Custom button should be selected by default,
-  // add transparent `ff` to distinguish `#000000`.
-  shapeTextColor: '#000000ff',
+  shapeTextColor: Black,
   shapeStrokeColor: Medium.Yellow,
-  shapeFillColor: Medium.Yellow,
+  shapeFillColor: Light.Yellow,
   connectorColor: Medium.Grey,
   noteBackgrounColor: NoteBackgroundColorMap.White,
   Palettes,

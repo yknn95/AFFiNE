@@ -3,6 +3,7 @@ import { StorybookConfig } from '@storybook/react-vite';
 import { vanillaExtractPlugin } from '@vanilla-extract/vite-plugin';
 import swc from 'unplugin-swc';
 import { mergeConfig } from 'vite';
+import { getBuildConfig } from '@affine-tools/utils/build-config';
 
 export default {
   stories: ['../src/ui/**/*.@(mdx|stories.@(js|jsx|ts|tsx))'],
@@ -25,9 +26,6 @@ export default {
   docs: {},
 
   async viteFinal(config, _options) {
-    const { getBuildConfig } = await import('@affine-tools/utils/build-config');
-    const { Package } = await import('@affine-tools/utils/workspace');
-
     return mergeConfig(config, {
       plugins: [
         vanillaExtractPlugin(),
@@ -57,9 +55,12 @@ export default {
       define: {
         'process.env.CAPTCHA_SITE_KEY': `"${process.env.CAPTCHA_SITE_KEY}"`,
         ...Object.entries(
-          getBuildConfig(new Package('@affine/web'), {
+          getBuildConfig({
+            distribution: 'web',
             mode: 'development',
             channel: 'canary',
+            static: false,
+            coverage: false,
           })
         ).reduce((envs, [key, value]) => {
           envs[`BUILD_CONFIG.${key}`] = JSON.stringify(value);

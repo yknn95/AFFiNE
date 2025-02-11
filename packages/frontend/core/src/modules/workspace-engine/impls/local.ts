@@ -1,45 +1,28 @@
 import { DebugLogger } from '@affine/debug';
-import {
-  type BlobStorage,
-  type DocStorage,
-  type ListedBlobRecord,
-  universalId,
-} from '@affine/nbstore';
-import {
-  IndexedDBBlobStorage,
-  IndexedDBDocStorage,
-  IndexedDBSyncStorage,
-} from '@affine/nbstore/idb';
-import {
-  IndexedDBV1BlobStorage,
-  IndexedDBV1DocStorage,
-} from '@affine/nbstore/idb/v1';
-import {
-  SqliteBlobStorage,
-  SqliteDocStorage,
-  SqliteSyncStorage,
-} from '@affine/nbstore/sqlite';
-import {
-  SqliteV1BlobStorage,
-  SqliteV1DocStorage,
-} from '@affine/nbstore/sqlite/v1';
-import type { WorkerInitOptions } from '@affine/nbstore/worker/client';
-import type { FrameworkProvider } from '@toeverything/infra';
+import { DocCollection } from '@blocksuite/affine/store';
+import type {
+  BlobStorage,
+  DocStorage,
+  FrameworkProvider,
+} from '@toeverything/infra';
 import { LiveData, Service } from '@toeverything/infra';
 import { isEqual } from 'lodash-es';
 import { nanoid } from 'nanoid';
 import { Observable } from 'rxjs';
-import { type Doc as YDoc, encodeStateAsUpdate } from 'yjs';
+import { encodeStateAsUpdate } from 'yjs';
 
 import { DesktopApiService } from '../../desktop-api';
 import {
   getAFFiNEWorkspaceSchema,
+  type WorkspaceEngineProvider,
   type WorkspaceFlavourProvider,
   type WorkspaceFlavoursProvider,
   type WorkspaceMetadata,
   type WorkspaceProfileInfo,
 } from '../../workspace';
-import { WorkspaceImpl } from '../../workspace/impls/workspace';
+import type { WorkspaceEngineStorageProvider } from '../providers/engine';
+import { BroadcastChannelAwarenessConnection } from './engine/awareness-broadcast-channel';
+import { StaticBlobStorage } from './engine/blob-static';
 import { getWorkspaceProfileWorker } from './out-worker';
 
 export const LOCAL_WORKSPACE_LOCAL_STORAGE_KEY = 'affine-local-workspace';
@@ -73,52 +56,30 @@ export function setLocalWorkspaceIds(
 }
 
 class LocalWorkspaceFlavourProvider implements WorkspaceFlavourProvider {
-  constructor(private readonly framework: FrameworkProvider) {}
+  constructor(
+    private readonly storageProvider: WorkspaceEngineStorageProvider,
+    private readonly framework: FrameworkProvider
+  ) {}
 
-  readonly flavour = 'local';
-  readonly notifyChannel = new BroadcastChannel(
+  flavour = 'local';
+  notifyChannel = new BroadcastChannel(
     LOCAL_WORKSPACE_CHANGED_BROADCAST_CHANNEL_KEY
   );
-
-  DocStorageType =
-    BUILD_CONFIG.isElectron || BUILD_CONFIG.isIOS
-      ? SqliteDocStorage
-      : IndexedDBDocStorage;
-  DocStorageV1Type = BUILD_CONFIG.isElectron
-    ? SqliteV1DocStorage
-    : BUILD_CONFIG.isWeb || BUILD_CONFIG.isMobileWeb
-      ? IndexedDBV1DocStorage
-      : undefined;
-  BlobStorageType =
-    BUILD_CONFIG.isElectron || BUILD_CONFIG.isIOS
-      ? SqliteBlobStorage
-      : IndexedDBBlobStorage;
-  BlobStorageV1Type = BUILD_CONFIG.isElectron
-    ? SqliteV1BlobStorage
-    : BUILD_CONFIG.isWeb || BUILD_CONFIG.isMobileWeb
-      ? IndexedDBV1BlobStorage
-      : undefined;
-  SyncStorageType =
-    BUILD_CONFIG.isElectron || BUILD_CONFIG.isIOS
-      ? SqliteSyncStorage
-      : IndexedDBSyncStorage;
 
   async deleteWorkspace(id: string): Promise<void> {
     setLocalWorkspaceIds(ids => ids.filter(x => x !== id));
 
-    // TODO(@forehalo): deleting logic for indexeddb workspaces
     if (BUILD_CONFIG.isElectron) {
       const electronApi = this.framework.get(DesktopApiService);
-      await electronApi.handler.workspace.moveToTrash(
-        universalId({ peer: 'local', type: 'workspace', id })
-      );
+      await electronApi.handler.workspace.delete(id);
     }
+
     // notify all browser tabs, so they can update their workspace list
     this.notifyChannel.postMessage(id);
   }
   async createWorkspace(
     initial: (
-      docCollection: WorkspaceImpl,
+      docCollection: DocCollection,
       blobStorage: BlobStorage,
       docStorage: DocStorage
     ) => Promise<void>
@@ -126,66 +87,25 @@ class LocalWorkspaceFlavourProvider implements WorkspaceFlavourProvider {
     const id = nanoid();
 
     // save the initial state to local storage, then sync to cloud
-    const docStorage = new this.DocStorageType({
-      id: id,
-      flavour: this.flavour,
-      type: 'workspace',
-    });
-    docStorage.connection.connect();
-    await docStorage.connection.waitForConnected();
-    const blobStorage = new this.BlobStorageType({
-      id: id,
-      flavour: this.flavour,
-      type: 'workspace',
-    });
-    blobStorage.connection.connect();
-    await blobStorage.connection.waitForConnected();
+    const blobStorage = this.storageProvider.getBlobStorage(id);
+    const docStorage = this.storageProvider.getDocStorage(id);
 
-    const docList = new Set<YDoc>();
-
-    const docCollection = new WorkspaceImpl({
+    const docCollection = new DocCollection({
       id: id,
+      idGenerator: () => nanoid(),
       schema: getAFFiNEWorkspaceSchema(),
-      blobSource: {
-        get: async key => {
-          const record = await blobStorage.get(key);
-          return record ? new Blob([record.data], { type: record.mime }) : null;
-        },
-        delete: async () => {
-          return;
-        },
-        list: async () => {
-          return [];
-        },
-        set: async (id, blob) => {
-          await blobStorage.set({
-            key: id,
-            data: new Uint8Array(await blob.arrayBuffer()),
-            mime: blob.type,
-          });
-          return id;
-        },
-        name: 'blob',
-        readonly: false,
-      },
-      onLoadDoc(doc) {
-        docList.add(doc);
-      },
+      blobSources: { main: blobStorage },
     });
 
     try {
       // apply initial state
       await initial(docCollection, blobStorage, docStorage);
 
-      for (const subdocs of docList) {
-        await docStorage.pushDocUpdate({
-          docId: subdocs.guid,
-          bin: encodeStateAsUpdate(subdocs),
-        });
+      // save workspace to local storage, should be vary fast
+      await docStorage.doc.set(id, encodeStateAsUpdate(docCollection.doc));
+      for (const subdocs of docCollection.doc.getSubdocs()) {
+        await docStorage.doc.set(subdocs.guid, encodeStateAsUpdate(subdocs));
       }
-
-      docStorage.connection.disconnect();
-      blobStorage.connection.disconnect();
 
       // save workspace id to local storage
       setLocalWorkspaceIds(ids => [...ids, id]);
@@ -233,17 +153,8 @@ class LocalWorkspaceFlavourProvider implements WorkspaceFlavourProvider {
   async getWorkspaceProfile(
     id: string
   ): Promise<WorkspaceProfileInfo | undefined> {
-    const docStorage = new this.DocStorageType({
-      id: id,
-      flavour: this.flavour,
-      type: 'workspace',
-      readonlyMode: true,
-    });
-    docStorage.connection.connect();
-    await docStorage.connection.waitForConnected();
-    const localData = await docStorage.getDoc(id);
-
-    docStorage.connection.disconnect();
+    const docStorage = this.storageProvider.getDocStorage(id);
+    const localData = await docStorage.doc.get(id);
 
     if (!localData) {
       return {
@@ -255,7 +166,7 @@ class LocalWorkspaceFlavourProvider implements WorkspaceFlavourProvider {
 
     const result = await client.call(
       'renderWorkspaceProfile',
-      [localData.bin].filter(Boolean) as Uint8Array[]
+      [localData].filter(Boolean) as Uint8Array[]
     );
 
     return {
@@ -264,101 +175,26 @@ class LocalWorkspaceFlavourProvider implements WorkspaceFlavourProvider {
       isOwner: true,
     };
   }
-
-  async getWorkspaceBlob(id: string, blobKey: string): Promise<Blob | null> {
-    const storage = new this.BlobStorageType({
-      id: id,
-      flavour: this.flavour,
-      type: 'workspace',
-    });
-    storage.connection.connect();
-    await storage.connection.waitForConnected();
-    const blob = await storage.get(blobKey);
-    return blob ? new Blob([blob.data], { type: blob.mime }) : null;
+  getWorkspaceBlob(id: string, blob: string): Promise<Blob | null> {
+    return this.storageProvider.getBlobStorage(id).get(blob);
   }
 
-  async listBlobs(id: string): Promise<ListedBlobRecord[]> {
-    const storage = new this.BlobStorageType({
-      id: id,
-      flavour: this.flavour,
-      type: 'workspace',
-    });
-    storage.connection.connect();
-    await storage.connection.waitForConnected();
-
-    return storage.list();
-  }
-
-  async deleteBlob(
-    id: string,
-    blob: string,
-    permanent: boolean
-  ): Promise<void> {
-    const storage = new this.BlobStorageType({
-      id: id,
-      flavour: this.flavour,
-      type: 'workspace',
-    });
-    storage.connection.connect();
-    await storage.connection.waitForConnected();
-    await storage.delete(blob, permanent);
-  }
-
-  getEngineWorkerInitOptions(workspaceId: string): WorkerInitOptions {
+  getEngineProvider(workspaceId: string): WorkspaceEngineProvider {
     return {
-      local: {
-        doc: {
-          name: this.DocStorageType.identifier,
-          opts: {
-            flavour: this.flavour,
-            type: 'workspace',
-            id: workspaceId,
-          },
-        },
-        blob: {
-          name: this.BlobStorageType.identifier,
-          opts: {
-            flavour: this.flavour,
-            type: 'workspace',
-            id: workspaceId,
-          },
-        },
-        sync: {
-          name: this.SyncStorageType.identifier,
-          opts: {
-            flavour: this.flavour,
-            type: 'workspace',
-            id: workspaceId,
-          },
-        },
-        awareness: {
-          name: 'BroadcastChannelAwarenessStorage',
-          opts: {
-            id: workspaceId,
-          },
-        },
+      getAwarenessConnections() {
+        return [new BroadcastChannelAwarenessConnection(workspaceId)];
       },
-      remotes: {
-        v1: {
-          doc: this.DocStorageV1Type
-            ? {
-                name: this.DocStorageV1Type.identifier,
-                opts: {
-                  id: workspaceId,
-                  type: 'workspace',
-                },
-              }
-            : undefined,
-          blob: this.BlobStorageV1Type
-            ? {
-                name: this.BlobStorageV1Type.identifier,
-                opts: {
-                  id: workspaceId,
-                  type: 'workspace',
-                },
-              }
-            : undefined,
-        },
+      getDocServer() {
+        return null;
+      },
+      getDocStorage: () => {
+        return this.storageProvider.getDocStorage(workspaceId);
+      },
+      getLocalBlobStorage: () => {
+        return this.storageProvider.getBlobStorage(workspaceId);
+      },
+      getRemoteBlobStorages() {
+        return [new StaticBlobStorage()];
       },
     };
   }
@@ -368,11 +204,13 @@ export class LocalWorkspaceFlavoursProvider
   extends Service
   implements WorkspaceFlavoursProvider
 {
-  constructor() {
+  constructor(
+    private readonly storageProvider: WorkspaceEngineStorageProvider
+  ) {
     super();
   }
 
   workspaceFlavours$ = new LiveData<WorkspaceFlavourProvider[]>([
-    new LocalWorkspaceFlavourProvider(this.framework),
+    new LocalWorkspaceFlavourProvider(this.storageProvider, this.framework),
   ]);
 }

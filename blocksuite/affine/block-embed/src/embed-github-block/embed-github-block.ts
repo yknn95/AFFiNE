@@ -4,9 +4,8 @@ import type {
   EmbedGithubStyles,
 } from '@blocksuite/affine-model';
 import { ThemeProvider } from '@blocksuite/affine-shared/services';
-import { BlockSelection } from '@blocksuite/block-std';
 import { html, nothing } from 'lit';
-import { property } from 'lit/decorators.js';
+import { property, state } from 'lit/decorators.js';
 import { classMap } from 'lit/directives/class-map.js';
 import { repeat } from 'lit/directives/repeat.js';
 import { styleMap } from 'lit/directives/style-map.js';
@@ -62,7 +61,7 @@ export class EmbedGithubBlockComponent extends EmbedBlockComponent<
 
   private _selectBlock() {
     const selectionManager = this.host.selection;
-    const blockSelection = selectionManager.create(BlockSelection, {
+    const blockSelection = selectionManager.create('block', {
       blockId: this.blockId,
     });
     selectionManager.setGroup('note', [blockSelection]);
@@ -106,6 +105,13 @@ export class EmbedGithubBlockComponent extends EmbedBlockComponent<
         if (key === 'url') {
           this.refreshData();
         }
+      })
+    );
+
+    this.disposables.add(
+      this.selection.slots.changed.on(() => {
+        this._isSelected =
+          !!this.selected?.is('block') || !!this.selected?.is('surface');
       })
     );
   }
@@ -162,7 +168,7 @@ export class EmbedGithubBlockComponent extends EmbedBlockComponent<
             'affine-embed-github-block': true,
             loading,
             [style]: true,
-            selected: this.selected$.value,
+            selected: this._isSelected,
           })}
           style=${styleMap({
             transform: `scale(${this._scale})`,
@@ -260,6 +266,9 @@ export class EmbedGithubBlockComponent extends EmbedBlockComponent<
       `
     );
   }
+
+  @state()
+  private accessor _isSelected = false;
 
   @property({ attribute: false })
   accessor loading = false;

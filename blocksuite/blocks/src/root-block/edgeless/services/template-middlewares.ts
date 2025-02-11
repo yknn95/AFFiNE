@@ -1,4 +1,4 @@
-import { generateElementId, sortIndex } from '@blocksuite/affine-block-surface';
+import { CommonUtils, sortIndex } from '@blocksuite/affine-block-surface';
 import type { ConnectorElementModel } from '@blocksuite/affine-model';
 import { assertExists, assertType, Bound } from '@blocksuite/global/utils';
 import type { BlockSnapshot, SnapshotNode } from '@blocksuite/store';
@@ -20,7 +20,7 @@ export const replaceIdMiddleware = (job: TemplateJob) => {
     const { blockJson } = data;
     const newId = regeneratedIdMap.has(blockJson.id)
       ? regeneratedIdMap.get(blockJson.id)!
-      : job.model.doc.workspace.idGenerator();
+      : job.model.doc.collection.idGenerator();
 
     if (!regeneratedIdMap.has(blockJson.id)) {
       regeneratedIdMap.set(blockJson.id, newId);
@@ -50,7 +50,7 @@ export const replaceIdMiddleware = (job: TemplateJob) => {
       Object.entries(
         blockJson.props.elements as Record<string, Record<string, unknown>>
       ).forEach(([id, val]) => {
-        const newId = generateElementId();
+        const newId = CommonUtils.generateElementId();
 
         regeneratedIdMap.set(id, newId);
         val.id = newId;
@@ -62,7 +62,7 @@ export const replaceIdMiddleware = (job: TemplateJob) => {
       });
 
       blockJson.children.forEach(block => {
-        regeneratedIdMap.set(block.id, job.model.doc.workspace.idGenerator());
+        regeneratedIdMap.set(block.id, job.model.doc.collection.idGenerator());
       });
 
       defered.forEach(id => {
@@ -109,16 +109,6 @@ export const replaceIdMiddleware = (job: TemplateJob) => {
       });
 
       blockJson.props.elements = elements;
-    }
-
-    // remap childElementIds of frame
-    if (blockJson.flavour === 'affine:frame') {
-      assertType<Record<string, boolean>>(blockJson.props.childElementIds);
-      const newChildElementIds: Record<string, boolean> = {};
-      Object.entries(blockJson.props.childElementIds).forEach(([key, val]) => {
-        newChildElementIds[regeneratedIdMap.get(key) ?? key] = val;
-      });
-      blockJson.props.childElementIds = newChildElementIds;
     }
   };
 };

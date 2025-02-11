@@ -1,18 +1,9 @@
 import { TextUtils } from '@blocksuite/affine-block-surface';
-import { formatBlockCommand } from '@blocksuite/affine-components/rich-text';
-import {
-  type EdgelessTextBlockModel,
-  ListBlockModel,
-  ParagraphBlockModel,
-} from '@blocksuite/affine-model';
+import type { EdgelessTextBlockModel } from '@blocksuite/affine-model';
 import { ThemeProvider } from '@blocksuite/affine-shared/services';
 import { matchFlavours } from '@blocksuite/affine-shared/utils';
 import type { BlockComponent } from '@blocksuite/block-std';
-import {
-  BlockSelection,
-  GfxBlockComponent,
-  TextSelection,
-} from '@blocksuite/block-std';
+import { GfxBlockComponent } from '@blocksuite/block-std';
 import { Bound } from '@blocksuite/global/utils';
 import { css, html } from 'lit';
 import { query, state } from 'lit/decorators.js';
@@ -97,27 +88,27 @@ export class EdgelessTextBlockComponent extends GfxBlockComponent<EdgelessTextBl
           .then(() => {
             const command = this.std.command;
             const blockSelections = this.model.children.map(child =>
-              this.std.selection.create(BlockSelection, {
+              this.std.selection.create('block', {
                 blockId: child.id,
               })
             );
 
             if (key === 'fontStyle') {
-              command.exec(formatBlockCommand, {
+              command.exec('formatBlock', {
                 blockSelections,
                 styles: {
                   italic: null,
                 },
               });
             } else if (key === 'color') {
-              command.exec(formatBlockCommand, {
+              command.exec('formatBlock', {
                 blockSelections,
                 styles: {
                   color: null,
                 },
               });
             } else if (key === 'fontWeight') {
-              command.exec(formatBlockCommand, {
+              command.exec('formatBlock', {
                 blockSelections,
                 styles: {
                   bold: null,
@@ -162,7 +153,7 @@ export class EdgelessTextBlockComponent extends GfxBlockComponent<EdgelessTextBl
         const firstChild = this.model.firstChild();
         if (
           !firstChild ||
-          !matchFlavours(firstChild, [ListBlockModel, ParagraphBlockModel])
+          !matchFlavours(firstChild, ['affine:list', 'affine:paragraph'])
         ) {
           newParagraphId = this.doc.addBlock(
             'affine:paragraph',
@@ -175,7 +166,7 @@ export class EdgelessTextBlockComponent extends GfxBlockComponent<EdgelessTextBl
         const lastChild = this.model.lastChild();
         if (
           !lastChild ||
-          !matchFlavours(lastChild, [ListBlockModel, ParagraphBlockModel])
+          !matchFlavours(lastChild, ['affine:list', 'affine:paragraph'])
         ) {
           newParagraphId = this.doc.addBlock(
             'affine:paragraph',
@@ -187,7 +178,7 @@ export class EdgelessTextBlockComponent extends GfxBlockComponent<EdgelessTextBl
 
       if (newParagraphId) {
         std.selection.setGroup('note', [
-          std.selection.create(TextSelection, {
+          std.selection.create('text', {
             from: {
               blockId: newParagraphId,
               index: 0,
@@ -319,7 +310,7 @@ export class EdgelessTextBlockComponent extends GfxBlockComponent<EdgelessTextBl
     const last = paragraphOrLists.at(-1);
     if (last) {
       this.host.selection.setGroup('note', [
-        this.host.selection.create(TextSelection, {
+        this.host.selection.create('text', {
           from: {
             blockId: last.blockId,
             index: last.model.text?.length ?? 0,

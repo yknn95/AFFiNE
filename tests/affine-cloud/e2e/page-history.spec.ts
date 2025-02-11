@@ -58,7 +58,7 @@ test('newly created page shows empty history', async ({ page }) => {
 const pushCurrentPageUpdates = async (page: Page) => {
   const [workspaceId, guid, updates, state] = await page.evaluate(() => {
     // @ts-expect-error
-    const Y = window.Y;
+    const Y = window.currentWorkspace.docCollection.constructor.Y;
     // @ts-expect-error
     const spaceDoc = window.currentEditor.page.spaceDoc;
     // @ts-expect-error

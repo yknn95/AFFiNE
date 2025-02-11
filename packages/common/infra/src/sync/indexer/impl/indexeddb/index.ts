@@ -70,7 +70,7 @@ export class IndexedDBIndex<S extends Schema> implements Index<S> {
         return fromPromise(async () => {
           try {
             const trx = await this.data.readonly();
-            return await this.data.search(trx, query, options);
+            return this.data.search(trx, query, options);
           } catch (error) {
             logger.error('search error', error);
             throw error;
@@ -100,7 +100,7 @@ export class IndexedDBIndex<S extends Schema> implements Index<S> {
         return fromPromise(async () => {
           try {
             const trx = await this.data.readonly();
-            return await this.data.aggregate(trx, query, field, options);
+            return this.data.aggregate(trx, query, field, options);
           } catch (error) {
             logger.error('aggregate error', error);
             throw error;

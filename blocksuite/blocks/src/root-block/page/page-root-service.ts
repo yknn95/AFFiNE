@@ -1,6 +1,6 @@
 import { RootBlockSchema } from '@blocksuite/affine-model';
 import type { Viewport } from '@blocksuite/affine-shared/types';
-import { Slot } from '@blocksuite/global/utils';
+import { Slot } from '@blocksuite/store';
 
 import { RootService } from '../root-service.js';
 

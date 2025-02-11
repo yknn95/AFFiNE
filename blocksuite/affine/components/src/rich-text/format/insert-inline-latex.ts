@@ -1,9 +1,12 @@
 import type { Command, TextSelection } from '@blocksuite/block-std';
 
-export const insertInlineLatex: Command<{
-  currentTextSelection?: TextSelection;
-  textSelection?: TextSelection;
-}> = (ctx, next) => {
+export const insertInlineLatex: Command<
+  'currentTextSelection',
+  never,
+  {
+    textSelection?: TextSelection;
+  }
+> = (ctx, next) => {
   const textSelection = ctx.textSelection ?? ctx.currentTextSelection;
   if (!textSelection || !textSelection.isCollapsed()) return;
 

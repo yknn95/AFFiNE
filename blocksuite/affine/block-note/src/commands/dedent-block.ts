@@ -1,4 +1,3 @@
-import { ParagraphBlockModel } from '@blocksuite/affine-model';
 import {
   calculateCollapsedSiblings,
   matchFlavours,
@@ -21,44 +20,48 @@ import type { Command } from '@blocksuite/block-std';
  *   - ddd
  *   - eee
  */
-export const dedentBlock: Command<{
-  blockId?: string;
-  stopCapture?: boolean;
-}> = (ctx, next) => {
+export const dedentBlock: Command<
+  never,
+  never,
+  {
+    blockId?: string;
+    stopCapture?: boolean;
+  }
+> = (ctx, next) => {
   let { blockId } = ctx;
   const { std, stopCapture = true } = ctx;
-  const { store } = std;
+  const { doc } = std;
   if (!blockId) {
     const sel = std.selection.getGroup('note').at(0);
     blockId = sel?.blockId;
   }
   if (!blockId) return;
-  const model = std.store.getBlock(blockId)?.model;
+  const model = std.doc.getBlock(blockId)?.model;
   if (!model) return;
 
-  const parent = store.getParent(model);
-  const grandParent = parent && store.getParent(parent);
-  if (store.readonly || !parent || parent.role !== 'content' || !grandParent) {
+  const parent = doc.getParent(model);
+  const grandParent = parent && doc.getParent(parent);
+  if (doc.readonly || !parent || parent.role !== 'content' || !grandParent) {
     // Top most, can not unindent, do nothing
     return;
   }
 
-  if (stopCapture) store.captureSync();
+  if (stopCapture) doc.captureSync();
 
   if (
-    matchFlavours(model, [ParagraphBlockModel]) &&
+    matchFlavours(model, ['affine:paragraph']) &&
     model.type.startsWith('h') &&
     model.collapsed
   ) {
     const collapsedSiblings = calculateCollapsedSiblings(model);
-    store.moveBlocks([model, ...collapsedSiblings], grandParent, parent, false);
+    doc.moveBlocks([model, ...collapsedSiblings], grandParent, parent, false);
     return next();
   }
 
   try {
-    const nextSiblings = store.getNexts(model);
-    store.moveBlocks(nextSiblings, model);
-    store.moveBlocks([model], grandParent, parent, false);
+    const nextSiblings = doc.getNexts(model);
+    doc.moveBlocks(nextSiblings, model);
+    doc.moveBlocks([model], grandParent, parent, false);
   } catch {
     return;
   }

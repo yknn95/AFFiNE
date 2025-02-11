@@ -3,9 +3,9 @@ import type {
   FromSnapshotPayload,
   SnapshotNode,
   ToSnapshotPayload,
+  Y,
 } from '@blocksuite/store';
-import { BaseBlockTransformer } from '@blocksuite/store';
-import * as Y from 'yjs';
+import { BaseBlockTransformer, DocCollection } from '@blocksuite/store';
 
 const SURFACE_TEXT_UNIQ_IDENTIFIER = 'affine:surface:text';
 // Used for group children field
@@ -24,11 +24,11 @@ export class SurfaceBlockTransformer extends BaseBlockTransformer<SurfaceBlockPr
   private _fromJSON(value: unknown): unknown {
     if (value instanceof Object) {
       if (Reflect.has(value, SURFACE_TEXT_UNIQ_IDENTIFIER)) {
-        const yText = new Y.Text();
+        const yText = new DocCollection.Y.Text();
         yText.applyDelta(Reflect.get(value, 'delta'));
         return yText;
       } else if (Reflect.has(value, SURFACE_YMAP_UNIQ_IDENTIFIER)) {
-        const yMap = new Y.Map();
+        const yMap = new DocCollection.Y.Map();
         const json = Reflect.get(value, 'json') as Record<string, unknown>;
         Object.entries(json).forEach(([key, value]) => {
           yMap.set(key, value);
@@ -40,12 +40,12 @@ export class SurfaceBlockTransformer extends BaseBlockTransformer<SurfaceBlockPr
   }
 
   private _toJSON(value: unknown): unknown {
-    if (value instanceof Y.Text) {
+    if (value instanceof DocCollection.Y.Text) {
       return {
         [SURFACE_TEXT_UNIQ_IDENTIFIER]: true,
         delta: value.toDelta(),
       };
-    } else if (value instanceof Y.Map) {
+    } else if (value instanceof DocCollection.Y.Map) {
       return {
         [SURFACE_YMAP_UNIQ_IDENTIFIER]: true,
         json: value.toJSON(),
@@ -55,7 +55,7 @@ export class SurfaceBlockTransformer extends BaseBlockTransformer<SurfaceBlockPr
   }
 
   elementFromJSON(element: Record<string, unknown>) {
-    const yMap = new Y.Map();
+    const yMap = new DocCollection.Y.Map();
     Object.entries(element).forEach(([key, value]) => {
       yMap.set(key, this._fromJSON(value));
     });
@@ -71,7 +71,7 @@ export class SurfaceBlockTransformer extends BaseBlockTransformer<SurfaceBlockPr
       string,
       unknown
     >;
-    const yMap = new Y.Map<Y.Map<unknown>>();
+    const yMap = new DocCollection.Y.Map<Y.Map<unknown>>();
 
     Object.entries(elementsJSON).forEach(([key, value]) => {
       const element = this.elementFromJSON(value as Record<string, unknown>);

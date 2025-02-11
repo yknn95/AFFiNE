@@ -1,4 +1,5 @@
 import { DefaultTheme, NoteDisplayMode } from '@blocksuite/affine-model';
+import type { ExtensionType } from '@blocksuite/block-std';
 import type { ServiceProvider } from '@blocksuite/global/di';
 import {
   type AssetsManager,
@@ -7,18 +8,17 @@ import {
   type BlockSnapshot,
   BlockSnapshotSchema,
   type DocSnapshot,
-  type ExtensionType,
   type FromBlockSnapshotPayload,
   type FromBlockSnapshotResult,
   type FromDocSnapshotPayload,
   type FromDocSnapshotResult,
   type FromSliceSnapshotPayload,
   type FromSliceSnapshotResult,
+  type Job,
   nanoid,
   type SliceSnapshot,
   type ToBlockSnapshotPayload,
   type ToDocSnapshotPayload,
-  type Transformer,
 } from '@blocksuite/store';
 import type { Root } from 'hast';
 import rehypeParse from 'rehype-parse';
@@ -46,6 +46,7 @@ export type Html = string;
 type HtmlToSliceSnapshotPayload = {
   file: Html;
   assets?: AssetsManager;
+  blockVersions: Record<string, number>;
   workspaceId: string;
   pageId: string;
 };
@@ -132,7 +133,6 @@ export class HtmlAdapter extends BaseAdapter<Html> {
             configs: this.configs,
             job: this.job,
             deltaConverter: this.deltaConverter,
-            provider: this.provider,
             textBuffer: { content: '' },
             assets,
             updateAssetIds: (assetsId: string) => {
@@ -156,7 +156,6 @@ export class HtmlAdapter extends BaseAdapter<Html> {
             configs: this.configs,
             job: this.job,
             deltaConverter: this.deltaConverter,
-            provider: this.provider,
             textBuffer: { content: '' },
             assets,
           };
@@ -174,10 +173,7 @@ export class HtmlAdapter extends BaseAdapter<Html> {
 
   readonly blockMatchers: BlockHtmlAdapterMatcher[];
 
-  constructor(
-    job: Transformer,
-    readonly provider: ServiceProvider
-  ) {
+  constructor(job: Job, provider: ServiceProvider) {
     super(job);
     const blockMatchers = Array.from(
       provider.getAll(BlockHtmlAdapterMatcherIdentifier).values()
@@ -192,8 +188,7 @@ export class HtmlAdapter extends BaseAdapter<Html> {
     this.deltaConverter = new HtmlDeltaConverter(
       job.adapterConfigs,
       inlineDeltaToHtmlAdapterMatchers,
-      htmlInlineToDeltaMatchers,
-      provider
+      htmlInlineToDeltaMatchers
     );
   }
 

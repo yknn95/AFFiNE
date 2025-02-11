@@ -51,7 +51,6 @@ class HelperProcessManager {
     const helperProcess = utilityProcess.fork(HELPER_PROCESS_PATH, [], {
       // todo: port number should not being used
       execArgv: isDev ? ['--inspect=40894'] : [],
-      serviceName: 'affine-helper',
     });
     this.#process = helperProcess;
     this.ready = new Promise((resolve, reject) => {

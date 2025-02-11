@@ -22,7 +22,7 @@ export const AuthPageContainer: FC<
         <div className="wrapper">
           <div className="content">
             <p className="title">{title}</p>
-            <div className="subtitle">{subtitle}</div>
+            <p className="subtitle">{subtitle}</p>
             {children}
           </div>
           <div className={hideInSmallScreen}>

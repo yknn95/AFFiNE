@@ -5,7 +5,7 @@ import {
   DefaultInlineManagerExtension,
   RichText,
 } from '@blocksuite/affine/blocks';
-import type { Store } from '@blocksuite/affine/store';
+import type { Doc } from '@blocksuite/affine/store';
 import { TextIcon } from '@blocksuite/icons/rc';
 import { type LiveData, useLiveData } from '@toeverything/infra';
 import { type CSSProperties, useEffect, useRef, useState } from 'react';
@@ -23,7 +23,7 @@ const renderRichText = ({
 }: {
   std: BlockStdScope;
   text: Y.Text;
-  doc: Store;
+  doc: Doc;
 }) => {
   const inlineManager = std.get(DefaultInlineManagerExtension.identifier);
 

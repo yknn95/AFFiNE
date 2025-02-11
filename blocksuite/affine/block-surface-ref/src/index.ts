@@ -1,4 +1,5 @@
-export * from './commands.js';
+import '@blocksuite/affine-shared/commands';
+
 export * from './surface-ref-block.js';
 export * from './surface-ref-block-edgeless.js';
 export {

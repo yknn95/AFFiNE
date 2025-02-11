@@ -8,7 +8,7 @@ import {
 } from '@blocksuite/affine-block-embed';
 import {
   CanvasElementType,
-  isNoteBlock,
+  CommonUtils,
   normalizeShapeBound,
   OverlayIdentifier,
   TextUtils,
@@ -54,7 +54,6 @@ import {
   assertType,
   Bound,
   deserializeXYWH,
-  normalizeDegAngle,
   pickValues,
   Slot,
 } from '@blocksuite/global/utils';
@@ -92,6 +91,7 @@ import {
   isFrameBlock,
   isImageBlock,
   isMindmapNode,
+  isNoteBlock,
 } from '../../utils/query.js';
 import {
   HandleDirection,
@@ -597,7 +597,7 @@ export class EdgelessSelectedRectWidget extends WidgetComponent<
       } else {
         this.gfx.updateElement(id, {
           xywh: bounds.serialize(),
-          rotate: normalizeDegAngle(rotate + delta),
+          rotate: CommonUtils.normalizeDegAngle(rotate + delta),
         });
       }
     });

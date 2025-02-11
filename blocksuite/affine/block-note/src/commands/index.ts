@@ -1,12 +1,40 @@
-export { updateBlockType } from './block-type.js';
-export { changeNoteDisplayMode } from './change-note-display-mode.js';
-export { dedentBlock } from './dedent-block.js';
-export { dedentBlockToRoot } from './dedent-block-to-root.js';
-export { dedentBlocks } from './dedent-blocks.js';
-export { dedentBlocksToRoot } from './dedent-blocks-to-root.js';
-export { focusBlockEnd } from './focus-block-end.js';
-export { focusBlockStart } from './focus-block-start.js';
-export { indentBlock } from './indent-block.js';
-export { indentBlocks } from './indent-blocks.js';
-export { selectBlock } from './select-block.js';
-export { selectBlocksBetween } from './select-blocks-between.js';
+import {
+  getBlockIndexCommand,
+  getBlockSelectionsCommand,
+  getNextBlockCommand,
+  getPrevBlockCommand,
+  getSelectedBlocksCommand,
+} from '@blocksuite/affine-shared/commands';
+import type { BlockCommands } from '@blocksuite/block-std';
+
+import { updateBlockType } from './block-type.js';
+import { dedentBlock } from './dedent-block.js';
+import { dedentBlockToRoot } from './dedent-block-to-root.js';
+import { dedentBlocks } from './dedent-blocks.js';
+import { dedentBlocksToRoot } from './dedent-blocks-to-root.js';
+import { focusBlockEnd } from './focus-block-end.js';
+import { focusBlockStart } from './focus-block-start.js';
+import { indentBlock } from './indent-block.js';
+import { indentBlocks } from './indent-blocks.js';
+import { selectBlock } from './select-block.js';
+import { selectBlocksBetween } from './select-blocks-between.js';
+
+export const commands: BlockCommands = {
+  // block
+  getBlockIndex: getBlockIndexCommand,
+  getPrevBlock: getPrevBlockCommand,
+  getNextBlock: getNextBlockCommand,
+  getSelectedBlocks: getSelectedBlocksCommand,
+  getBlockSelections: getBlockSelectionsCommand,
+  selectBlock,
+  selectBlocksBetween,
+  focusBlockStart,
+  focusBlockEnd,
+  updateBlockType,
+  indentBlock,
+  dedentBlock,
+  indentBlocks,
+  dedentBlocks,
+  dedentBlockToRoot,
+  dedentBlocksToRoot,
+};

@@ -45,14 +45,6 @@ export type LeafPaths<
       }[keyof T]
     : never;
 
-export type LeafVisitor<T, P extends string = ''> = {
-  [K in keyof T]: T[K] extends object
-    ? LeafVisitor<T[K], Join<P, K>>
-    : P extends ''
-      ? K
-      : Join<P, K>;
-};
-
 export interface FileUpload {
   filename: string;
   mimetype: string;

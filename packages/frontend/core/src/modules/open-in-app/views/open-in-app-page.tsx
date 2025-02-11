@@ -1,12 +1,12 @@
 import { Button } from '@affine/component/ui/button';
-import { WorkspaceDialogService } from '@affine/core/modules/dialogs';
 import { appIconMap, appNames } from '@affine/core/utils/channel';
 import { Trans, useI18n } from '@affine/i18n';
 import { LocalWorkspaceIcon, Logo1Icon } from '@blocksuite/icons/rc';
-import { useServiceOptional } from '@toeverything/infra';
+import { useService } from '@toeverything/infra';
 import type { MouseEvent } from 'react';
 import { useCallback } from 'react';
 
+import { GlobalDialogService } from '../../dialogs';
 import { getOpenUrlInDesktopAppLink } from '../utils';
 import * as styles from './open-in-app-page.css';
 
@@ -28,7 +28,7 @@ export const OpenInAppPage = ({
 }: OpenAppProps) => {
   // default to open the current page in desktop app
   urlToOpen ??= getOpenUrlInDesktopAppLink(window.location.href, true);
-  const workspaceDialogService = useServiceOptional(WorkspaceDialogService);
+  const globalDialogService = useService(GlobalDialogService);
   const t = useI18n();
 
   const openDownloadLink = useCallback(() => {
@@ -41,11 +41,11 @@ export const OpenInAppPage = ({
   const goToAppearanceSetting = useCallback(
     (e: MouseEvent) => {
       openHereClicked?.(e);
-      workspaceDialogService?.open('setting', {
+      globalDialogService.open('setting', {
         activeTab: 'appearance',
       });
     },
-    [workspaceDialogService, openHereClicked]
+    [globalDialogService, openHereClicked]
   );
 
   if (urlToOpen && lastOpened !== urlToOpen) {

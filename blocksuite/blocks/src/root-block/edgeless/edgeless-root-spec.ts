@@ -1,4 +1,4 @@
-import { FileDropExtension } from '@blocksuite/affine-components/drop-indicator';
+import { FileDropExtension } from '@blocksuite/affine-components/drag-indicator';
 import {
   DNDAPIExtension,
   DocModeService,
@@ -7,8 +7,6 @@ import {
   ThemeService,
 } from '@blocksuite/affine-shared/services';
 import { AFFINE_DRAG_HANDLE_WIDGET } from '@blocksuite/affine-widget-drag-handle';
-import { AFFINE_EDGELESS_AUTO_CONNECT_WIDGET } from '@blocksuite/affine-widget-edgeless-auto-connect';
-import { AFFINE_FRAME_TITLE_WIDGET } from '@blocksuite/affine-widget-frame-title';
 import {
   AFFINE_DOC_REMOTE_SELECTION_WIDGET,
   AFFINE_EDGELESS_REMOTE_SELECTION_WIDGET,
@@ -17,19 +15,23 @@ import { AFFINE_SCROLL_ANCHORING_WIDGET } from '@blocksuite/affine-widget-scroll
 import {
   BlockServiceWatcher,
   BlockViewExtension,
+  CommandExtension,
+  type ExtensionType,
   FlavourExtension,
   WidgetViewMapExtension,
 } from '@blocksuite/block-std';
 import { ToolController } from '@blocksuite/block-std/gfx';
-import type { ExtensionType } from '@blocksuite/store';
 import { literal, unsafeStatic } from 'lit/static-html.js';
 
 import { ExportManagerExtension } from '../../_common/export-manager/export-manager.js';
 import { RootBlockAdapterExtensions } from '../adapters/extension.js';
+import { commands } from '../commands/index.js';
+import { AFFINE_EDGELESS_AUTO_CONNECT_WIDGET } from '../widgets/edgeless-auto-connect/edgeless-auto-connect.js';
 import { AFFINE_EDGELESS_ZOOM_TOOLBAR_WIDGET } from '../widgets/edgeless-zoom-toolbar/index.js';
 import { EDGELESS_ELEMENT_TOOLBAR_WIDGET } from '../widgets/element-toolbar/index.js';
 import { AFFINE_EMBED_CARD_TOOLBAR_WIDGET } from '../widgets/embed-card-toolbar/embed-card-toolbar.js';
 import { AFFINE_FORMAT_BAR_WIDGET } from '../widgets/format-bar/format-bar.js';
+import { AFFINE_FRAME_TITLE_WIDGET } from '../widgets/frame-title/index.js';
 import { AFFINE_INNER_MODAL_WIDGET } from '../widgets/inner-modal/inner-modal.js';
 import { AFFINE_LINKED_DOC_WIDGET } from '../widgets/linked-doc/index.js';
 import { AFFINE_MODAL_WIDGET } from '../widgets/modal/modal.js';
@@ -91,6 +93,7 @@ const EdgelessCommonExtension: ExtensionType[] = [
   DocModeService,
   ThemeService,
   EmbedOptionService,
+  CommandExtension(commands),
   ExportManagerExtension,
   ToolController,
   DNDAPIExtension,

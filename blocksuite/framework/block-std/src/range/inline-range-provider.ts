@@ -1,9 +1,8 @@
 import type { InlineRange, InlineRangeProvider } from '@blocksuite/inline';
 import { signal } from '@preact/signals-core';
 
-import { TextSelection } from '../selection/index.js';
+import type { TextSelection } from '../selection/index.js';
 import type { BlockComponent } from '../view/element/block-component.js';
-import { isActiveInEditor } from './active.js';
 
 export const getInlineRangeProvider: (
   element: BlockComponent
@@ -41,7 +40,7 @@ export const getInlineRangeProvider: (
     }
 
     const elementRange = rangeManager.textSelectionToRange(
-      selectionManager.create(TextSelection, {
+      selectionManager.create('text', {
         from: {
           index: 0,
           blockId: element.blockId,
@@ -73,7 +72,7 @@ export const getInlineRangeProvider: (
     if (!inlineRange) {
       selectionManager.clear(['text']);
     } else {
-      const textSelection = selectionManager.create(TextSelection, {
+      const textSelection = selectionManager.create('text', {
         from: {
           blockId: element.blockId,
           index: inlineRange.index,
@@ -85,23 +84,18 @@ export const getInlineRangeProvider: (
     }
   };
   const inlineRange$: InlineRangeProvider['inlineRange$'] = signal(null);
-
-  editorHost.disposables.add(
-    selectionManager.slots.changed.on(selections => {
-      if (!isActiveInEditor(editorHost)) return;
-
-      const textSelection = selections.find(s => s.type === 'text') as
-        | TextSelection
-        | undefined;
-      const range = rangeManager.value;
-      if (!range || !textSelection) {
-        inlineRange$.value = null;
-        return;
-      }
-      const inlineRange = calculateInlineRange(range, textSelection);
-      inlineRange$.value = inlineRange;
-    })
-  );
+  selectionManager.slots.changed.on(selections => {
+    const textSelection = selections.find(s => s.type === 'text') as
+      | TextSelection
+      | undefined;
+    const range = rangeManager.value;
+    if (!range || !textSelection) {
+      inlineRange$.value = null;
+      return;
+    }
+    const inlineRange = calculateInlineRange(range, textSelection);
+    inlineRange$.value = inlineRange;
+  });
 
   return {
     setInlineRange,

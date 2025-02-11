@@ -1,9 +1,9 @@
 import type { Command } from '@blocksuite/block-std';
-import type { BlockModel } from '@blocksuite/store';
 
-export const deleteSelectedModelsCommand: Command<{
-  selectedModels?: BlockModel[];
-}> = (ctx, next) => {
+export const deleteSelectedModelsCommand: Command<'selectedModels'> = (
+  ctx,
+  next
+) => {
   const models = ctx.selectedModels;
 
   if (!models) {
@@ -14,8 +14,16 @@ export const deleteSelectedModelsCommand: Command<{
   }
 
   models.forEach(model => {
-    ctx.std.store.deleteBlock(model);
+    ctx.std.doc.deleteBlock(model);
   });
 
   return next();
 };
+
+declare global {
+  namespace BlockSuite {
+    interface Commands {
+      deleteSelectedModels: typeof deleteSelectedModelsCommand;
+    }
+  }
+}

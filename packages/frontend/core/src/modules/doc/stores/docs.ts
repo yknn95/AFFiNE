@@ -24,10 +24,6 @@ export class DocsStore extends Store {
     return this.workspaceService.workspace.docCollection.getDoc(id);
   }
 
-  getBlocksuiteCollection() {
-    return this.workspaceService.workspace.docCollection;
-  }
-
   createBlockSuiteDoc() {
     return this.workspaceService.workspace.docCollection.createDoc();
   }
@@ -41,24 +37,6 @@ export class DocsStore extends Store {
       map(meta => {
         if (meta instanceof YArray) {
           return meta.map(v => v.get('id') as string);
-        } else {
-          return [];
-        }
-      })
-    );
-  }
-
-  watchNonTrashDocIds() {
-    return yjsObserveByPath(
-      this.workspaceService.workspace.rootYDoc.getMap('meta'),
-      'pages'
-    ).pipe(
-      switchMap(yjsObserveDeep),
-      map(meta => {
-        if (meta instanceof YArray) {
-          return meta
-            .map(v => (v.get('trash') ? null : v.get('id')))
-            .filter(Boolean) as string[];
         } else {
           return [];
         }
@@ -126,13 +104,13 @@ export class DocsStore extends Store {
   }
 
   watchDocListReady() {
-    return this.workspaceService.workspace.engine.doc
-      .docState$(this.workspaceService.workspace.id)
-      .pipe(map(state => state.synced));
+    return this.workspaceService.workspace.engine.rootDocState$
+      .map(state => !state.syncing)
+      .asObservable();
   }
 
   setDocMeta(id: string, meta: Partial<DocMeta>) {
-    this.workspaceService.workspace.docCollection.meta.setDocMeta(id, meta);
+    this.workspaceService.workspace.docCollection.setDocMeta(id, meta);
   }
 
   setDocPrimaryModeSetting(id: string, mode: DocMode) {
@@ -153,10 +131,14 @@ export class DocsStore extends Store {
   }
 
   waitForDocLoadReady(id: string) {
-    return this.workspaceService.workspace.engine.doc.waitForDocLoaded(id);
+    return this.workspaceService.workspace.engine.doc.waitForReady(id);
   }
 
-  addPriorityLoad(id: string, priority: number) {
-    return this.workspaceService.workspace.engine.doc.addPriority(id, priority);
+  setPriorityLoad(id: string, priority: number) {
+    return this.workspaceService.workspace.engine.doc.setPriority(id, priority);
+  }
+
+  markDocSyncStateAsReady(id: string) {
+    this.workspaceService.workspace.engine.doc.markAsReady(id);
   }
 }

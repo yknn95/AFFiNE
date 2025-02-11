@@ -1,5 +1,10 @@
-import type { Socket } from 'socket.io-client';
+import type { Socket, SocketOptions } from 'socket.io-client';
 
+import {
+  type Connection,
+  type ConnectionStatus,
+  share,
+} from '../../connection';
 import {
   type DocClock,
   type DocClocks,
@@ -7,8 +12,6 @@ import {
   type DocStorageOptions,
   type DocUpdate,
 } from '../../storage';
-import { getIdConverter, type IdConverter } from '../../utils/id-converter';
-import type { SpaceType } from '../../utils/universal-id';
 import {
   base64ToUint8Array,
   type ServerEventsMap,
@@ -17,23 +20,14 @@ import {
 } from './socket';
 
 interface CloudDocStorageOptions extends DocStorageOptions {
+  socketOptions: SocketOptions;
   serverBaseUrl: string;
-  type: SpaceType;
 }
 
 export class CloudDocStorage extends DocStorageBase<CloudDocStorageOptions> {
-  static readonly identifier = 'CloudDocStorage';
-
   get socket() {
-    return this.connection.inner.socket;
+    return this.connection.inner;
   }
-  get idConverter() {
-    if (!this.connection.idConverter) {
-      throw new Error('Id converter not initialized');
-    }
-    return this.connection.idConverter;
-  }
-  readonly spaceType = this.options.type;
 
   onServerUpdate: ServerEventsMap['space:broadcast-doc-update'] = message => {
     if (
@@ -41,7 +35,7 @@ export class CloudDocStorage extends DocStorageBase<CloudDocStorageOptions> {
       this.spaceId === message.spaceId
     ) {
       this.emit('update', {
-        docId: this.idConverter.oldIdToNewId(message.docId),
+        docId: message.docId,
         bin: base64ToUint8Array(message.update),
         timestamp: new Date(message.timestamp),
         editor: message.editor,
@@ -58,13 +52,10 @@ export class CloudDocStorage extends DocStorageBase<CloudDocStorageOptions> {
     const response = await this.socket.emitWithAck('space:load-doc', {
       spaceType: this.spaceType,
       spaceId: this.spaceId,
-      docId: this.idConverter.newIdToOldId(docId),
+      docId,
     });
 
     if ('error' in response) {
-      if (response.error.name === 'DOC_NOT_FOUND') {
-        return null;
-      }
       // TODO: use [UserFriendlyError]
       throw new Error(response.error.message);
     }
@@ -80,14 +71,11 @@ export class CloudDocStorage extends DocStorageBase<CloudDocStorageOptions> {
     const response = await this.socket.emitWithAck('space:load-doc', {
       spaceType: this.spaceType,
       spaceId: this.spaceId,
-      docId: this.idConverter.newIdToOldId(docId),
+      docId,
       stateVector: state ? await uint8ArrayToBase64(state) : void 0,
     });
 
     if ('error' in response) {
-      if (response.error.name === 'DOC_NOT_FOUND') {
-        return null;
-      }
       // TODO: use [UserFriendlyError]
       throw new Error(response.error.message);
     }
@@ -104,8 +92,8 @@ export class CloudDocStorage extends DocStorageBase<CloudDocStorageOptions> {
     const response = await this.socket.emitWithAck('space:push-doc-update', {
       spaceType: this.spaceType,
       spaceId: this.spaceId,
-      docId: this.idConverter.newIdToOldId(update.docId),
-      update: await uint8ArrayToBase64(update.bin),
+      docId: update.docId,
+      updates: await uint8ArrayToBase64(update.bin),
     });
 
     if ('error' in response) {
@@ -126,7 +114,7 @@ export class CloudDocStorage extends DocStorageBase<CloudDocStorageOptions> {
     const response = await this.socket.emitWithAck('space:load-doc', {
       spaceType: this.spaceType,
       spaceId: this.spaceId,
-      docId: this.idConverter.newIdToOldId(docId),
+      docId,
     });
 
     if ('error' in response) {
@@ -156,7 +144,7 @@ export class CloudDocStorage extends DocStorageBase<CloudDocStorageOptions> {
     }
 
     return Object.entries(response.data).reduce((ret, [docId, timestamp]) => {
-      ret[this.idConverter.oldIdToNewId(docId)] = new Date(timestamp);
+      ret[docId] = new Date(timestamp);
       return ret;
     }, {} as DocClocks);
   }
@@ -165,7 +153,7 @@ export class CloudDocStorage extends DocStorageBase<CloudDocStorageOptions> {
     this.socket.emit('space:delete-doc', {
       spaceType: this.spaceType,
       spaceId: this.spaceId,
-      docId: this.idConverter.newIdToOldId(docId),
+      docId,
     });
   }
 
@@ -180,80 +168,83 @@ export class CloudDocStorage extends DocStorageBase<CloudDocStorageOptions> {
   }
 }
 
-class CloudDocStorageConnection extends SocketConnection {
+class CloudDocStorageConnection implements Connection<Socket> {
+  connection = share(
+    new SocketConnection(
+      `${this.options.serverBaseUrl}/`,
+      this.options.socketOptions
+    )
+  );
+
+  private disposeConnectionStatusListener?: () => void;
+
+  private get socket() {
+    return this.connection.inner;
+  }
+
   constructor(
     private readonly options: CloudDocStorageOptions,
     private readonly onServerUpdate: ServerEventsMap['space:broadcast-doc-update']
-  ) {
-    super(`${options.serverBaseUrl}/`);
+  ) {}
+
+  get status() {
+    return this.connection.status;
   }
 
-  idConverter: IdConverter | null = null;
+  get inner() {
+    return this.connection.inner;
+  }
 
-  override async doConnect(signal?: AbortSignal) {
-    const { socket, disconnect } = await super.doConnect(signal);
+  connect(): void {
+    if (!this.disposeConnectionStatusListener) {
+      this.disposeConnectionStatusListener = this.connection.onStatusChanged(
+        status => {
+          if (status === 'connected') {
+            this.join().catch(err => {
+              console.error('doc storage join failed', err);
+            });
+            this.socket.on('space:broadcast-doc-update', this.onServerUpdate);
+          }
+        }
+      );
+    }
+    return this.connection.connect();
+  }
 
+  async join() {
     try {
-      const res = await socket.emitWithAck('space:join', {
+      const res = await this.socket.emitWithAck('space:join', {
         spaceType: this.options.type,
         spaceId: this.options.id,
         clientVersion: BUILD_CONFIG.appVersion,
       });
 
       if ('error' in res) {
-        throw new Error(res.error.message);
+        this.connection.setStatus('closed', new Error(res.error.message));
       }
-
-      if (!this.idConverter) {
-        this.idConverter = await this.getIdConverter(socket);
-      }
-
-      socket.on('space:broadcast-doc-update', this.onServerUpdate);
-
-      return { socket, disconnect };
     } catch (e) {
-      disconnect();
-      throw e;
+      this.connection.setStatus('error', e as Error);
     }
   }
 
-  override doDisconnect({
-    socket,
-    disconnect,
-  }: {
-    socket: Socket;
-    disconnect: () => void;
-  }) {
-    socket.emit('space:leave', {
+  disconnect() {
+    if (this.disposeConnectionStatusListener) {
+      this.disposeConnectionStatusListener();
+    }
+    this.socket.emit('space:leave', {
       spaceType: this.options.type,
       spaceId: this.options.id,
     });
-    socket.off('space:broadcast-doc-update', this.onServerUpdate);
-    super.doDisconnect({ socket, disconnect });
+    this.socket.off('space:broadcast-doc-update', this.onServerUpdate);
+    this.connection.disconnect();
   }
 
-  async getIdConverter(socket: Socket) {
-    return getIdConverter(
-      {
-        getDocBuffer: async id => {
-          const response = await socket.emitWithAck('space:load-doc', {
-            spaceType: this.options.type,
-            spaceId: this.options.id,
-            docId: id,
-          });
-
-          if ('error' in response) {
-            if (response.error.name === 'DOC_NOT_FOUND') {
-              return null;
-            }
-            // TODO: use [UserFriendlyError]
-            throw new Error(response.error.message);
-          }
-
-          return base64ToUint8Array(response.data.missing);
-        },
-      },
-      this.options.id
-    );
+  waitForConnected(signal?: AbortSignal): Promise<void> {
+    return this.connection.waitForConnected(signal);
+  }
+  onStatusChanged(
+    cb: (status: ConnectionStatus, error?: Error) => void
+  ): () => void {
+    return this.connection.onStatusChanged(cb);
   }
 }

@@ -4,7 +4,7 @@ import {
   getBoundWithRotation,
   intersects,
 } from '@blocksuite/global/utils';
-import type { BlockModel, Store } from '@blocksuite/store';
+import type { BlockModel, Doc } from '@blocksuite/store';
 
 import { compare } from '../utils/layer.js';
 import { GfxBlockElementModel } from './model/gfx-block-model.js';
@@ -361,7 +361,7 @@ export class GridManager {
     this.add(element);
   }
 
-  watch(blocks: { doc?: Store; surface?: SurfaceBlockModel | null }) {
+  watch(blocks: { doc?: Doc; surface?: SurfaceBlockModel | null }) {
     const disposables: { dispose: () => void }[] = [];
     const { doc, surface } = blocks;
     const isRenderableBlock = (

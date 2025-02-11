@@ -1,64 +1,49 @@
-import {
-  AttachmentBlockModel,
-  BookmarkBlockModel,
-  CodeBlockModel,
-  DatabaseBlockModel,
-  DividerBlockModel,
-  ImageBlockModel,
-  ListBlockModel,
-  ParagraphBlockModel,
-} from '@blocksuite/affine-model';
-import { EMBED_BLOCK_MODEL_LIST } from '@blocksuite/affine-shared/consts';
+import { EMBED_BLOCK_FLAVOUR_LIST } from '@blocksuite/affine-shared/consts';
 import {
   getNextContentBlock,
   matchFlavours,
 } from '@blocksuite/affine-shared/utils';
-import {
-  BlockSelection,
-  type BlockStdScope,
-  TextSelection,
-} from '@blocksuite/block-std';
+import type { BlockStdScope } from '@blocksuite/block-std';
 
 export function forwardDelete(std: BlockStdScope) {
-  const { store, host } = std;
-  const text = std.selection.find(TextSelection);
+  const { doc, host } = std;
+  const text = std.selection.find('text');
   if (!text) return;
   const isCollapsed = text.isCollapsed();
-  const model = store.getBlock(text.from.blockId)?.model;
-  if (!model || !matchFlavours(model, [ParagraphBlockModel])) return;
+  const model = doc.getBlock(text.from.blockId)?.model;
+  if (!model || !matchFlavours(model, ['affine:paragraph'])) return;
   const isEnd = isCollapsed && text.from.index === model.text.length;
   if (!isEnd) return;
-  const parent = store.getParent(model);
+  const parent = doc.getParent(model);
   if (!parent) return;
 
-  const nextSibling = store.getNext(model);
+  const nextSibling = doc.getNext(model);
+  const ignoreForwardDeleteFlavourList: BlockSuite.Flavour[] = [
+    'affine:attachment',
+    'affine:bookmark',
+    'affine:database',
+    'affine:code',
+    'affine:image',
+    'affine:divider',
+    ...EMBED_BLOCK_FLAVOUR_LIST,
+  ];
 
-  if (
-    matchFlavours(nextSibling, [
-      AttachmentBlockModel,
-      BookmarkBlockModel,
-      DatabaseBlockModel,
-      CodeBlockModel,
-      ImageBlockModel,
-      DividerBlockModel,
-      ...EMBED_BLOCK_MODEL_LIST,
-    ] as const)
-  ) {
+  if (matchFlavours(nextSibling, ignoreForwardDeleteFlavourList)) {
     std.selection.setGroup('note', [
-      std.selection.create(BlockSelection, { blockId: nextSibling.id }),
+      std.selection.create('block', { blockId: nextSibling.id }),
     ]);
     return true;
   }
 
-  if (matchFlavours(nextSibling, [ParagraphBlockModel, ListBlockModel])) {
+  if (nextSibling?.text) {
     model.text.join(nextSibling.text);
     if (nextSibling.children) {
-      const parent = store.getParent(nextSibling);
+      const parent = doc.getParent(nextSibling);
       if (!parent) return false;
-      store.moveBlocks(nextSibling.children, parent, model, false);
+      doc.moveBlocks(nextSibling.children, parent, model, false);
     }
 
-    store.deleteBlock(nextSibling);
+    doc.deleteBlock(nextSibling);
     return true;
   }
 
@@ -66,22 +51,17 @@ export function forwardDelete(std: BlockStdScope) {
   if (nextBlock?.text) {
     model.text.join(nextBlock.text);
     if (nextBlock.children) {
-      const parent = store.getParent(nextBlock);
+      const parent = doc.getParent(nextBlock);
       if (!parent) return false;
-      store.moveBlocks(
-        nextBlock.children,
-        parent,
-        store.getParent(model),
-        false
-      );
+      doc.moveBlocks(nextBlock.children, parent, doc.getParent(model), false);
     }
-    store.deleteBlock(nextBlock);
+    doc.deleteBlock(nextBlock);
     return true;
   }
 
   if (nextBlock) {
     std.selection.setGroup('note', [
-      std.selection.create(BlockSelection, { blockId: nextBlock.id }),
+      std.selection.create('block', { blockId: nextBlock.id }),
     ]);
   }
   return true;

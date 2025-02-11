@@ -15,11 +15,11 @@ import type {
   DataViewCellLifeCycle,
 } from '../../../core/property/index.js';
 import type { SingleView } from '../../../core/view-manager/single-view.js';
-import {
-  TableViewAreaSelection,
-  type TableViewSelectionWithType,
-} from '../selection';
 import type { TableColumn } from '../table-view-manager.js';
+import {
+  TableAreaSelection,
+  type TableViewSelectionWithType,
+} from '../types.js';
 
 export class DatabaseCellContainer extends SignalWatcher(
   WithDisposable(ShadowlessElement)
@@ -63,7 +63,7 @@ export class DatabaseCellContainer extends SignalWatcher(
     if (selectionView) {
       const selection = selectionView.selection;
       if (selection && this.isSelected(selection) && editing) {
-        selectionView.selection = TableViewAreaSelection.create({
+        selectionView.selection = TableAreaSelection.create({
           groupKey: this.groupKey,
           focus: {
             rowIndex: this.rowIndex,
@@ -72,7 +72,7 @@ export class DatabaseCellContainer extends SignalWatcher(
           isEditing: true,
         });
       } else {
-        selectionView.selection = TableViewAreaSelection.create({
+        selectionView.selection = TableAreaSelection.create({
           groupKey: this.groupKey,
           focus: {
             rowIndex: this.rowIndex,

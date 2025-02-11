@@ -1,10 +1,9 @@
 import { throttle } from '@blocksuite/global/utils';
-import type { BaseSelection, BlockModel } from '@blocksuite/store';
+import type { BlockModel } from '@blocksuite/store';
 
-import { TextSelection } from '../selection/index.js';
+import type { BaseSelection, TextSelection } from '../selection/index.js';
 import type { BlockComponent } from '../view/element/block-component.js';
 import { BLOCK_ID_ATTR } from '../view/index.js';
-import { isActiveInEditor } from './active.js';
 import { RANGE_SYNC_EXCLUDE_ATTR } from './consts.js';
 import type { RangeManager } from './range-manager.js';
 
@@ -17,7 +16,7 @@ export class RangeBinding {
     | null = null;
 
   private readonly _computePath = (modelId: string) => {
-    const block = this.host.std.store.getBlock(modelId)?.model;
+    const block = this.host.std.doc.getBlock(modelId)?.model;
     if (!block) return [];
 
     const path: string[] = [];
@@ -31,7 +30,7 @@ export class RangeBinding {
   };
 
   private readonly _onBeforeInput = (event: InputEvent) => {
-    const selection = this.selectionManager.find(TextSelection);
+    const selection = this.selectionManager.find('text');
     if (!selection) return;
 
     if (event.isComposing) return;
@@ -75,7 +74,7 @@ export class RangeBinding {
         });
     });
 
-    const newSelection = this.selectionManager.create(TextSelection, {
+    const newSelection = this.selectionManager.create('text', {
       from: {
         blockId: from.blockId,
         index: from.index + (event.data?.length ?? 0),
@@ -96,7 +95,7 @@ export class RangeBinding {
   };
 
   private readonly _onCompositionStart = () => {
-    const selection = this.selectionManager.find(TextSelection);
+    const selection = this.selectionManager.find('text');
     if (!selection) return;
 
     const { from, to } = selection;
@@ -154,7 +153,7 @@ export class RangeBinding {
 
       await this.host.updateComplete;
 
-      const selection = this.selectionManager.create(TextSelection, {
+      const selection = this.selectionManager.create('text', {
         from: {
           blockId: from.blockId,
           index: from.index + (event.data?.length ?? 0),
@@ -170,7 +169,6 @@ export class RangeBinding {
   private readonly _onNativeSelectionChanged = async () => {
     if (this.isComposing) return;
     if (!this.host) return; // Unstable when switching views, card <-> embed
-    if (!isActiveInEditor(this.host)) return;
 
     await this.host.updateComplete;
 
@@ -249,13 +247,9 @@ export class RangeBinding {
   };
 
   private readonly _onStdSelectionChanged = (selections: BaseSelection[]) => {
-    // TODO(@mirone): this is a trade-off, we need to use separate awareness store for every store to make sure the selection is isolated.
-    const closestHost = document.activeElement?.closest('editor-host');
-    if (closestHost && closestHost !== this.host) return;
-
     const text =
       selections.find((selection): selection is TextSelection =>
-        selection.is(TextSelection)
+        selection.is('text')
       ) ?? null;
 
     if (text === this._prevTextSelection) {

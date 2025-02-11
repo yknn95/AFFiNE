@@ -4,10 +4,6 @@ export type DocMode = 'edgeless' | 'page';
 
 export const DocModes = ['edgeless', 'page'] as const;
 
-export type FootNoteReferenceType = 'doc' | 'attachment' | 'url';
-
-export const FootNoteReferenceTypes = ['doc', 'attachment', 'url'] as const;
-
 /**
  * Custom title and description information.
  *
@@ -46,32 +42,3 @@ export const ReferenceInfoSchema = z
   .merge(AliasInfoSchema);
 
 export type ReferenceInfo = z.infer<typeof ReferenceInfoSchema>;
-
-/**
- * FootNoteReferenceParamsSchema is used to define the parameters for a footnote reference.
- * It supports the following types:
- * 1. docId: string - the id of the doc
- * 2. blobId: string - the id of the attachment
- * 3. url: string - the url of the reference
- * 4. fileName: string - the name of the attachment
- * 5. fileType: string - the type of the attachment
- */
-export const FootNoteReferenceParamsSchema = z.object({
-  type: z.enum(FootNoteReferenceTypes),
-  docId: z.string().optional(),
-  blobId: z.string().optional(),
-  fileName: z.string().optional(),
-  fileType: z.string().optional(),
-  url: z.string().optional(),
-});
-
-export type FootNoteReferenceParams = z.infer<
-  typeof FootNoteReferenceParamsSchema
->;
-
-export const FootNoteSchema = z.object({
-  label: z.string(),
-  reference: FootNoteReferenceParamsSchema,
-});
-
-export type FootNote = z.infer<typeof FootNoteSchema>;

@@ -10,4 +10,3 @@ edgelessEffects();
 registerBlocksuitePresetsCustomComponents();
 
 export * from './blocksuite-editor';
-export * from './custom-editor-wrapper';

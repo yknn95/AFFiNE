@@ -1,17 +1,17 @@
 import {
+  IconButton,
   MenuItem,
   MenuSeparator,
   toast,
   useConfirmModal,
 } from '@affine/component';
 import { usePageHelper } from '@affine/core/components/blocksuite/block-suite-page-list/utils';
-import { DocPermissionGuard } from '@affine/core/components/guard/doc-guard';
 import { useBlockSuiteMetaHelper } from '@affine/core/components/hooks/affine/use-block-suite-meta-helper';
 import { useAsyncCallback } from '@affine/core/components/hooks/affine-async-hooks';
 import { IsFavoriteIcon } from '@affine/core/components/pure/icons';
 import { DocsService } from '@affine/core/modules/doc';
 import { CompatibleFavoriteItemsAdapter } from '@affine/core/modules/favorite';
-import { GuardService } from '@affine/core/modules/permissions';
+import { FeatureFlagService } from '@affine/core/modules/feature-flag';
 import { WorkbenchService } from '@affine/core/modules/workbench';
 import { WorkspaceService } from '@affine/core/modules/workspace';
 import { useI18n } from '@affine/i18n';
@@ -22,6 +22,7 @@ import {
   InformationIcon,
   LinkedPageIcon,
   OpenInNewIcon,
+  PlusIcon,
   SplitViewIcon,
 } from '@blocksuite/icons/rc';
 import { useLiveData, useServices } from '@toeverything/infra';
@@ -42,14 +43,17 @@ export const useExplorerDocNodeOperations = (
     workspaceService,
     docsService,
     compatibleFavoriteItemsAdapter,
-    guardService,
+    featureFlagService,
   } = useServices({
     DocsService,
     WorkbenchService,
     WorkspaceService,
     CompatibleFavoriteItemsAdapter,
-    GuardService,
+    FeatureFlagService,
   });
+  const enableMultiView = useLiveData(
+    featureFlagService.flags.enable_multi_view.$
+  );
   const { openConfirmModal } = useConfirmModal();
 
   const docRecord = useLiveData(docsService.list.doc$(docId));
@@ -117,18 +121,13 @@ export const useExplorerDocNodeOperations = (
   }, [docId, workbenchService.workbench]);
 
   const handleAddLinkedPage = useAsyncCallback(async () => {
-    const canEdit = await guardService.can('Doc_Update', docId);
-    if (!canEdit) {
-      toast(t['com.affine.no-permission']());
-      return;
-    }
     const newDoc = createPage();
     // TODO: handle timeout & error
     await docsService.addLinkedDoc(docId, newDoc.id);
     track.$.navigationPanel.docs.createDoc({ control: 'linkDoc' });
     track.$.navigationPanel.docs.linkDoc({ control: 'createDoc' });
     options.openNodeCollapsed();
-  }, [createPage, guardService, docId, docsService, options, t]);
+  }, [createPage, docsService, docId, options]);
 
   const handleToggleFavoriteDoc = useCallback(() => {
     compatibleFavoriteItemsAdapter.toggle(docId, 'doc');
@@ -139,6 +138,18 @@ export const useExplorerDocNodeOperations = (
 
   return useMemo(
     () => [
+      {
+        index: 0,
+        inline: true,
+        view: (
+          <IconButton
+            size="16"
+            icon={<PlusIcon />}
+            tooltip={t['com.affine.rootAppSidebar.explorer.doc-add-tooltip']()}
+            onClick={handleAddLinkedPage}
+          />
+        ),
+      },
       {
         index: 50,
         view: (
@@ -153,17 +164,12 @@ export const useExplorerDocNodeOperations = (
       {
         index: 99,
         view: (
-          <DocPermissionGuard docId={docId} permission="Doc_Update">
-            {canEdit => (
-              <MenuItem
-                prefixIcon={<LinkedPageIcon />}
-                onClick={handleAddLinkedPage}
-                disabled={!canEdit}
-              >
-                {t['com.affine.page-operation.add-linked-page']()}
-              </MenuItem>
-            )}
-          </DocPermissionGuard>
+          <MenuItem
+            prefixIcon={<LinkedPageIcon />}
+            onClick={handleAddLinkedPage}
+          >
+            {t['com.affine.page-operation.add-linked-page']()}
+          </MenuItem>
         ),
       },
       {
@@ -182,7 +188,7 @@ export const useExplorerDocNodeOperations = (
           </MenuItem>
         ),
       },
-      ...(BUILD_CONFIG.isElectron
+      ...(BUILD_CONFIG.isElectron && enableMultiView
         ? [
             {
               index: 100,
@@ -217,23 +223,18 @@ export const useExplorerDocNodeOperations = (
       {
         index: 10000,
         view: (
-          <DocPermissionGuard docId={docId} permission="Doc_Trash">
-            {canMoveToTrash => (
-              <MenuItem
-                type={'danger'}
-                prefixIcon={<DeleteIcon />}
-                onClick={handleMoveToTrash}
-                disabled={!canMoveToTrash}
-              >
-                {t['com.affine.moveToTrash.title']()}
-              </MenuItem>
-            )}
-          </DocPermissionGuard>
+          <MenuItem
+            type={'danger'}
+            prefixIcon={<DeleteIcon />}
+            onClick={handleMoveToTrash}
+          >
+            {t['com.affine.moveToTrash.title']()}
+          </MenuItem>
         ),
       },
     ],
     [
-      docId,
+      enableMultiView,
       favorite,
       handleAddLinkedPage,
       handleDuplicate,

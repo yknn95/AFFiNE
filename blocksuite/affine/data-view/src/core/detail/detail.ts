@@ -119,7 +119,7 @@ export class RecordDetail extends SignalWatcher(
         },
         items: [
           menu.group({
-            items: this.view.propertyMetas$.value.map(meta => {
+            items: this.view.propertyMetas.map(meta => {
               return menu.action({
                 name: meta.config.name,
                 prefix: renderUniLit(this.view.propertyIconGet(meta.type)),

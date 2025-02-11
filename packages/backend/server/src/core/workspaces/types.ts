@@ -8,26 +8,15 @@ import {
   PickType,
   registerEnumType,
 } from '@nestjs/graphql';
-import { WorkspaceMemberStatus } from '@prisma/client';
+import { Workspace, WorkspaceMemberStatus } from '@prisma/client';
 import { SafeIntResolver } from 'graphql-scalars';
 
-import { DocRole, WorkspaceRole } from '../permission';
+import { Permission } from '../permission';
 import { UserType } from '../user/types';
 
-registerEnumType(WorkspaceRole, {
-  name: 'WorkspaceRole',
-  description: 'User role in workspace',
-});
-
-// @deprecated
-registerEnumType(WorkspaceRole, {
+registerEnumType(Permission, {
   name: 'Permission',
   description: 'User permission in workspace',
-});
-
-registerEnumType(DocRole, {
-  name: 'DocRole',
-  description: 'User permission in doc',
 });
 
 registerEnumType(WorkspaceMemberStatus, {
@@ -44,14 +33,8 @@ export class InviteUserType extends OmitType(
   @Field(() => ID)
   id!: string;
 
-  @Field(() => WorkspaceRole, {
-    deprecationReason: 'Use role instead',
-    description: 'User permission in workspace',
-  })
-  permission!: WorkspaceRole;
-
-  @Field(() => WorkspaceRole, { description: 'User role in workspace' })
-  role!: WorkspaceRole;
+  @Field(() => Permission, { description: 'User permission in workspace' })
+  permission!: Permission;
 
   @Field({ description: 'Invite id' })
   inviteId!: string;
@@ -69,24 +52,21 @@ export class InviteUserType extends OmitType(
 }
 
 @ObjectType()
-export class WorkspaceFeatureType {
+export class WorkspaceType implements Partial<Workspace> {
   @Field(() => ID)
   id!: string;
 
   @Field({ description: 'is Public workspace' })
   public!: boolean;
 
-  @Field({ description: 'Workspace created date' })
-  createdAt!: Date;
-}
-
-@ObjectType()
-export class WorkspaceType extends WorkspaceFeatureType {
   @Field({ description: 'Enable AI' })
   enableAi!: boolean;
 
   @Field({ description: 'Enable url previous when sharing' })
   enableUrlPreview!: boolean;
+
+  @Field({ description: 'Workspace created date' })
+  createdAt!: Date;
 
   @Field(() => [InviteUserType], {
     description: 'Members of workspace',

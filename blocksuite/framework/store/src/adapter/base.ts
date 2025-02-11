@@ -1,8 +1,8 @@
 import { BlockSuiteError } from '@blocksuite/global/exceptions';
 
-import type { DraftModel, Store } from '../model/index.js';
+import type { Doc } from '../store/index.js';
 import type { AssetsManager } from '../transformer/assets.js';
-import type { Slice, Transformer } from '../transformer/index.js';
+import type { DraftModel, Job, Slice } from '../transformer/index.js';
 import type {
   BlockSnapshot,
   DocSnapshot,
@@ -62,13 +62,13 @@ export function wrapFakeNote(snapshot: SliceSnapshot) {
 }
 
 export abstract class BaseAdapter<AdapterTarget = unknown> {
-  job: Transformer;
+  job: Job;
 
   get configs() {
     return this.job.adapterConfigs;
   }
 
-  constructor(job: Transformer) {
+  constructor(job: Job) {
     this.job = job;
   }
 
@@ -93,7 +93,7 @@ export abstract class BaseAdapter<AdapterTarget = unknown> {
     | Promise<FromBlockSnapshotResult<AdapterTarget>>
     | FromBlockSnapshotResult<AdapterTarget>;
 
-  async fromDoc(doc: Store) {
+  async fromDoc(doc: Doc) {
     try {
       const docSnapshot = this.job.docToSnapshot(doc);
       if (!docSnapshot) return;
@@ -138,7 +138,7 @@ export abstract class BaseAdapter<AdapterTarget = unknown> {
 
   async toBlock(
     payload: ToBlockSnapshotPayload<AdapterTarget>,
-    doc: Store,
+    doc: Doc,
     parent?: string,
     index?: number
   ) {
@@ -175,7 +175,7 @@ export abstract class BaseAdapter<AdapterTarget = unknown> {
 
   async toSlice(
     payload: ToSliceSnapshotPayload<AdapterTarget>,
-    doc: Store,
+    doc: Doc,
     parent?: string,
     index?: number
   ) {
@@ -228,9 +228,6 @@ export class ASTWalker<ONode extends object, TNode extends object | never> {
     }
 
     if (this.context._skip) {
-      if (this._leave) {
-        await this._leave(o, this.context);
-      }
       return;
     }
 

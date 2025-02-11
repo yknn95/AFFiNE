@@ -5,7 +5,7 @@ import { ExplorerTreeRoot } from '@affine/core/modules/explorer/views/tree';
 import { WorkbenchService } from '@affine/core/modules/workbench';
 import { useI18n } from '@affine/i18n';
 import { track } from '@affine/track';
-import { AddCollectionIcon } from '@blocksuite/icons/rc';
+import { PlusIcon } from '@blocksuite/icons/rc';
 import { useLiveData, useServices } from '@toeverything/infra';
 import { nanoid } from 'nanoid';
 import { useCallback } from 'react';
@@ -76,7 +76,7 @@ export const ExplorerCollections = () => {
             'com.affine.rootAppSidebar.explorer.collection-section-add-tooltip'
           ]()}
         >
-          <AddCollectionIcon />
+          <PlusIcon />
         </IconButton>
       }
     >

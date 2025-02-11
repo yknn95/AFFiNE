@@ -6,10 +6,11 @@ import type { Command } from '@blocksuite/block-std';
  * @param oldId - the old block id
  * @param newId - the new block id
  */
-export const reassociateConnectorsCommand: Command<{
-  oldId: string;
-  newId: string;
-}> = (ctx, next) => {
+export const reassociateConnectorsCommand: Command<
+  never,
+  never,
+  { oldId: string; newId: string }
+> = (ctx, next) => {
   const { oldId, newId } = ctx;
   const service = ctx.std.getService('affine:surface');
   if (!oldId || !newId || !service) {

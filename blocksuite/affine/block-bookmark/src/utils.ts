@@ -1,5 +1,5 @@
-import { LinkPreviewerService } from '@blocksuite/affine-shared/services';
 import { isAbortError } from '@blocksuite/affine-shared/utils';
+import { assertExists } from '@blocksuite/global/utils';
 
 import type { BookmarkBlockComponent } from './bookmark-block.js';
 
@@ -15,8 +15,10 @@ export async function refreshBookmarkUrlData(
   try {
     bookmarkElement.loading = true;
 
-    const linkPreviewer = bookmarkElement.doc.get(LinkPreviewerService);
-    const bookmarkUrlData = await linkPreviewer.query(
+    const queryUrlData = bookmarkElement.service?.queryUrlData;
+    assertExists(queryUrlData);
+
+    const bookmarkUrlData = await queryUrlData(
       bookmarkElement.model.url,
       signal
     );

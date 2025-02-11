@@ -1,4 +1,3 @@
-import { combine } from '@atlaskit/pragmatic-drag-and-drop/combine';
 import { dropTargetForElements } from '@atlaskit/pragmatic-drag-and-drop/element/adapter';
 import { dropTargetForExternal } from '@atlaskit/pragmatic-drag-and-drop/external/adapter';
 import type {
@@ -18,17 +17,8 @@ import {
   type Instruction,
   type ItemMode,
 } from '@atlaskit/pragmatic-drag-and-drop-hitbox/tree-item';
-import {
-  useCallback,
-  useContext,
-  useEffect,
-  useMemo,
-  useRef,
-  useState,
-} from 'react';
+import { useContext, useEffect, useMemo, useRef, useState } from 'react';
 
-import { shallowUpdater } from '../../utils';
-import { getAdaptedEventArgs, isExternalDrag } from './common';
 import { DNDContext } from './context';
 import type { DNDData, fromExternalData } from './types';
 
@@ -54,7 +44,7 @@ export type DropTargetTreeInstruction = Instruction;
 
 export type ExternalDragPayload = ExternalDragType['payload'];
 
-export type DropTargetGetFeedback<D extends DNDData> = Parameters<
+type DropTargetGetFeedback<D extends DNDData> = Parameters<
   NonNullable<Parameters<typeof dropTargetForElements>[0]['canDrop']>
 >[0] & {
   source: {
@@ -68,6 +58,38 @@ export type DropTargetGetFeedback<D extends DNDData> = Parameters<
 type DropTargetGet<T, D extends DNDData> =
   | T
   | ((data: DropTargetGetFeedback<D>) => T);
+
+const isExternalDrag = <D extends DNDData>(
+  args: Pick<DropTargetGetFeedback<D>, 'source'>
+) => {
+  return !args.source['data'];
+};
+
+const getAdaptedEventArgs = <
+  D extends DNDData,
+  Args extends Pick<DropTargetGetFeedback<D>, 'source'>,
+>(
+  options: DropTargetOptions<D>,
+  args: Args,
+  isDropEvent = false
+): Args => {
+  const data =
+    isExternalDrag(args) && options.fromExternalData
+      ? options.fromExternalData(
+          // @ts-expect-error hack for external data adapter (source has no data field)
+          args as ExternalGetDataFeedbackArgs,
+          isDropEvent
+        )
+      : args.source['data'];
+
+  return {
+    ...args,
+    source: {
+      ...args.source,
+      data,
+    },
+  };
+};
 
 function dropTargetGet<T, D extends DNDData>(
   get: T,
@@ -88,7 +110,7 @@ function dropTargetGet<T, D extends DNDData>(
   ) => {
     if (typeof get === 'function') {
       return (get as any)({
-        ...getAdaptedEventArgs(args, options.fromExternalData),
+        ...getAdaptedEventArgs(options, args),
         get treeInstruction() {
           return options.treeInstruction
             ? extractInstruction(
@@ -123,8 +145,8 @@ function dropTargetGet<T, D extends DNDData>(
       });
     } else {
       return {
-        ...getAdaptedEventArgs(args, options.fromExternalData),
         ...get,
+        ...getAdaptedEventArgs(options, args),
       };
     }
   }) as any;
@@ -146,8 +168,6 @@ export interface DropTargetOptions<D extends DNDData = DNDData> {
   };
   onDrop?: (data: DropTargetDropEvent<D>) => void;
   onDrag?: (data: DropTargetDragEvent<D>) => void;
-  onDragEnter?: (data: DropTargetDragEvent<D>) => void;
-  onDragLeave?: (data: DropTargetDragEvent<D>) => void;
   /**
    * external data adapter.
    * Will use the external data adapter from the context if not provided.
@@ -209,67 +229,16 @@ export const useDropTarget = <D extends DNDData = DNDData>(
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [...deps, dropTargetContext.fromExternalData]);
 
-  const getDropTargetOptions = useCallback(() => {
+  const dropTargetOptions = useMemo(() => {
     const wrappedCanDrop = dropTargetGet(options.canDrop, options);
-    let element: HTMLElement | null = dropTargetRef.current;
-
-    if (
-      !element ||
-      (typeof options.canDrop === 'boolean' && !options.canDrop)
-    ) {
-      return null;
-    }
-
-    const updateDragOver = (
-      args: DropTargetDragEvent<D>,
-      handler?: (data: DropTargetDragEvent<D>) => void
-    ) => {
-      args = getAdaptedEventArgs(args, options.fromExternalData);
-      if (
-        args.location.current.dropTargets[0]?.element === dropTargetRef.current
-      ) {
-        if (enableDraggedOverDraggable.current) {
-          setDraggedOverDraggable(shallowUpdater(args.source));
-        }
-        let instruction = null;
-        let closestEdge = null;
-        if (options.treeInstruction) {
-          instruction = extractInstruction(args.self.data);
-          setTreeInstruction(shallowUpdater(instruction));
-          if (dropTargetRef.current) {
-            dropTargetRef.current.dataset['treeInstruction'] =
-              instruction?.type;
-          }
-        }
-        if (options.closestEdge) {
-          closestEdge = extractClosestEdge(args.self.data);
-          setClosestEdge(shallowUpdater(closestEdge));
-        }
-        if (enableDropEffect.current) {
-          setDropEffect(shallowUpdater(args.self.dropEffect));
-        }
-        if (enableDraggedOverPosition.current) {
-          const rect = args.self.element.getBoundingClientRect();
-          const { clientX, clientY } = args.location.current.input;
-          setDraggedOverPosition(
-            shallowUpdater({
-              relativeX: clientX - rect.x,
-              relativeY: clientY - rect.y,
-              clientX: clientX,
-              clientY: clientY,
-            })
-          );
-        }
-        handler?.({
-          ...args,
-          treeInstruction: instruction,
-          closestEdge,
-        } as DropTargetDropEvent<D>);
-      }
-    };
-
+    let _element: HTMLElement | null = null;
     return {
-      element,
+      get element() {
+        if (!_element) {
+          _element = dropTargetRef.current;
+        }
+        return _element;
+      },
       canDrop: wrappedCanDrop
         ? (args: DropTargetGetFeedback<D>) => {
             // check if args has data. if not, it's an external drag
@@ -300,8 +269,8 @@ export const useDropTarget = <D extends DNDData = DNDData>(
         }
         if (options.treeInstruction) {
           setTreeInstruction(null);
-          if (element) {
-            delete element.dataset['treeInstruction'];
+          if (dropTargetRef.current) {
+            delete dropTargetRef.current.dataset['treeInstruction'];
           }
         }
         if (options.closestEdge) {
@@ -310,17 +279,13 @@ export const useDropTarget = <D extends DNDData = DNDData>(
         if (enableDropEffect.current) {
           setDropEffect(null);
         }
-        if (element) {
-          delete element.dataset['draggedOver'];
+        if (dropTargetRef.current) {
+          delete dropTargetRef.current.dataset['draggedOver'];
         }
 
         // external data is only available in drop event thus
         // this is the only case for getAdaptedEventArgs
-        const args = {
-          ...getAdaptedEventArgs(_args, options.fromExternalData, true),
-          treeInstruction: extractInstruction(_args.self.data),
-          closestEdge: extractClosestEdge(_args.self.data),
-        };
+        const args = getAdaptedEventArgs(options, _args, true);
         if (
           isExternalDrag(_args) &&
           options.fromExternalData &&
@@ -332,12 +297,19 @@ export const useDropTarget = <D extends DNDData = DNDData>(
           return;
         }
 
-        if (args.location.current.dropTargets[0]?.element === element) {
-          options.onDrop?.(args as DropTargetDropEvent<D>);
+        if (
+          args.location.current.dropTargets[0]?.element ===
+          dropTargetRef.current
+        ) {
+          options.onDrop?.({
+            ...args,
+            treeInstruction: extractInstruction(args.self.data),
+            closestEdge: extractClosestEdge(args.self.data),
+          } as DropTargetDropEvent<D>);
         }
       },
       getData: (args: DropTargetGetFeedback<D>) => {
-        args = getAdaptedEventArgs(args, options.fromExternalData);
+        args = getAdaptedEventArgs(options, args);
         const originData = dropTargetGet(options.data ?? {}, options)(args);
         const { input, element } = args;
         const withInstruction = options.treeInstruction
@@ -360,38 +332,63 @@ export const useDropTarget = <D extends DNDData = DNDData>(
         return withClosestEdge;
       },
       onDrag: (args: DropTargetDragEvent<D>) => {
-        updateDragOver(args, options.onDrag);
-      },
-      onDragEnter: (args: DropTargetDragEvent<D>) => {
-        updateDragOver(args, options.onDragEnter);
-      },
-      onDragLeave: (args: DropTargetDragEvent<D>) => {
-        args = getAdaptedEventArgs(args, options.fromExternalData);
-
-        const withClosestEdge = options.closestEdge
-          ? attachClosestEdge(args.self.data, {
-              element: args.self.element,
-              input: args.location.current.input,
-              allowedEdges: options.closestEdge.allowedEdges,
-            })
-          : args.self.data;
-
-        options.onDragLeave?.({
-          ...args,
-          self: { ...args.self, data: withClosestEdge },
-        });
+        args = getAdaptedEventArgs(options, args);
+        if (
+          args.location.current.dropTargets[0]?.element ===
+          dropTargetRef.current
+        ) {
+          if (enableDraggedOverDraggable.current) {
+            setDraggedOverDraggable(args.source);
+          }
+          let instruction = null;
+          let closestEdge = null;
+          if (options.treeInstruction) {
+            instruction = extractInstruction(args.self.data);
+            setTreeInstruction(instruction);
+            if (dropTargetRef.current) {
+              dropTargetRef.current.dataset['treeInstruction'] =
+                instruction?.type;
+            }
+          }
+          if (options.closestEdge) {
+            closestEdge = extractClosestEdge(args.self.data);
+            setClosestEdge(closestEdge);
+          }
+          if (enableDropEffect.current) {
+            setDropEffect(args.self.dropEffect);
+          }
+          if (enableDraggedOverPosition.current) {
+            const rect = args.self.element.getBoundingClientRect();
+            const { clientX, clientY } = args.location.current.input;
+            setDraggedOverPosition({
+              relativeX: clientX - rect.x,
+              relativeY: clientY - rect.y,
+              clientX: clientX,
+              clientY: clientY,
+            });
+          }
+          options.onDrag?.({
+            ...args,
+            treeInstruction: instruction,
+            closestEdge,
+          } as DropTargetDropEvent<D>);
+        }
       },
       onDropTargetChange: (args: DropTargetDropEvent<D>) => {
-        args = getAdaptedEventArgs(args, options.fromExternalData);
-        if (args.location.current.dropTargets[0]?.element === element) {
+        args = getAdaptedEventArgs(options, args);
+        if (
+          args.location.current.dropTargets[0]?.element ===
+          dropTargetRef.current
+        ) {
           if (enableDraggedOver.current) {
             setDraggedOver(true);
           }
           if (options.treeInstruction) {
             const instruction = extractInstruction(args.self.data);
             setTreeInstruction(instruction);
-            if (element) {
-              element.dataset['treeInstruction'] = instruction?.type;
+            if (dropTargetRef.current) {
+              dropTargetRef.current.dataset['treeInstruction'] =
+                instruction?.type;
             }
           }
           if (options.closestEdge) {
@@ -413,8 +410,8 @@ export const useDropTarget = <D extends DNDData = DNDData>(
               clientY: args.location.current.input.clientY,
             });
           }
-          if (element) {
-            element.dataset['draggedOver'] = 'true';
+          if (dropTargetRef.current) {
+            dropTargetRef.current.dataset['draggedOver'] = 'true';
           }
         } else {
           if (enableDraggedOver.current) {
@@ -425,8 +422,8 @@ export const useDropTarget = <D extends DNDData = DNDData>(
           }
           if (options.treeInstruction) {
             setTreeInstruction(null);
-            if (element) {
-              delete element.dataset['treeInstruction'];
+            if (dropTargetRef.current) {
+              delete dropTargetRef.current.dataset['treeInstruction'];
             }
           }
           if (enableDropEffect.current) {
@@ -443,8 +440,8 @@ export const useDropTarget = <D extends DNDData = DNDData>(
           if (options.closestEdge) {
             setClosestEdge(null);
           }
-          if (element) {
-            delete element.dataset['draggedOver'];
+          if (dropTargetRef.current) {
+            delete dropTargetRef.current.dataset['draggedOver'];
           }
         }
       },
@@ -452,26 +449,18 @@ export const useDropTarget = <D extends DNDData = DNDData>(
   }, [options]);
 
   useEffect(() => {
-    const dropTargetOptions = getDropTargetOptions();
-    if (!dropTargetOptions) {
+    if (!dropTargetRef.current) {
       return;
     }
+    return dropTargetForElements(dropTargetOptions as any);
+  }, [dropTargetOptions]);
 
-    // @ts-expect-error: fix type error
-    const cleanup = [dropTargetForElements(dropTargetOptions)];
-
-    if (options.allowExternal && options.fromExternalData) {
-      // @ts-expect-error: fix type error
-      cleanup.push(dropTargetForExternal(dropTargetOptions));
+  useEffect(() => {
+    if (!dropTargetRef.current || !options.fromExternalData) {
+      return;
     }
-
-    return combine(...cleanup);
-  }, [
-    getDropTargetOptions,
-    options.canDrop,
-    options.allowExternal,
-    options.fromExternalData,
-  ]);
+    return dropTargetForExternal(dropTargetOptions as any);
+  }, [dropTargetOptions, options.fromExternalData]);
 
   return {
     dropTargetRef,

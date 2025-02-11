@@ -17,12 +17,8 @@ import {
   RootBlockSchema,
 } from '@blocksuite/affine-model';
 import { propertyModelPresets } from '@blocksuite/data-view/property-pure-presets';
-import type { BlockModel, Store } from '@blocksuite/store';
-import { Schema, Text } from '@blocksuite/store';
-import {
-  createAutoIncrementIdGenerator,
-  TestWorkspace,
-} from '@blocksuite/store/test';
+import type { BlockModel, Doc } from '@blocksuite/store';
+import { DocCollection, IdGeneratorType, Schema } from '@blocksuite/store';
 import { beforeEach, describe, expect, test } from 'vitest';
 
 const AffineSchemas = [
@@ -33,7 +29,7 @@ const AffineSchemas = [
 ];
 
 function createTestOptions() {
-  const idGenerator = createAutoIncrementIdGenerator();
+  const idGenerator = IdGeneratorType.AutoIncrement;
   const schema = new Schema();
   schema.register(AffineSchemas);
   return { id: 'test-collection', idGenerator, schema };
@@ -41,7 +37,7 @@ function createTestOptions() {
 
 function createTestDoc(docId = 'doc0') {
   const options = createTestOptions();
-  const collection = new TestWorkspace(options);
+  const collection = new DocCollection(options);
   collection.meta.initialize();
   const doc = collection.createDoc({ id: docId });
   doc.load();
@@ -49,7 +45,7 @@ function createTestDoc(docId = 'doc0') {
 }
 
 describe('DatabaseManager', () => {
-  let doc: Store;
+  let doc: Doc;
   let db: DatabaseBlockModel;
 
   let rootId: BlockModel['id'];
@@ -71,7 +67,7 @@ describe('DatabaseManager', () => {
     doc = createTestDoc();
 
     rootId = doc.addBlock('affine:page', {
-      title: new Text('database test'),
+      title: new doc.Text('database test'),
     });
     noteBlockId = doc.addBlock('affine:note', {}, rootId);
 
@@ -114,14 +110,14 @@ describe('DatabaseManager', () => {
     p1 = doc.addBlock(
       'affine:paragraph',
       {
-        text: new Text('text1'),
+        text: new doc.Text('text1'),
       },
       databaseBlockId
     );
     p2 = doc.addBlock(
       'affine:paragraph',
       {
-        text: new Text('text2'),
+        text: new doc.Text('text2'),
       },
       databaseBlockId
     );
@@ -173,7 +169,7 @@ describe('DatabaseManager', () => {
     const modelId = doc.addBlock(
       'affine:paragraph',
       {
-        text: new Text('paragraph'),
+        text: new doc.Text('paragraph'),
       },
       noteBlockId
     );
@@ -201,7 +197,7 @@ describe('DatabaseManager', () => {
     const newRowId = doc.addBlock(
       'affine:paragraph',
       {
-        text: new Text('text3'),
+        text: new doc.Text('text3'),
       },
       databaseBlockId
     );

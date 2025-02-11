@@ -8,6 +8,7 @@ import { styleMap } from 'lit/directives/style-map.js';
 import { when } from 'lit/directives/when.js';
 
 import type { ImageBlockFallbackCard } from './components/image-block-fallback.js';
+import type { ImageBlockService } from './image-service.js';
 import {
   copyImageBlob,
   downloadImageBlob,
@@ -17,7 +18,10 @@ import {
 } from './utils.js';
 
 @Peekable()
-export class ImageEdgelessBlockComponent extends GfxBlockComponent<ImageBlockModel> {
+export class ImageEdgelessBlockComponent extends GfxBlockComponent<
+  ImageBlockModel,
+  ImageBlockService
+> {
   static override styles = css`
     affine-edgeless-image .resizable-img,
     affine-edgeless-image .resizable-img img {

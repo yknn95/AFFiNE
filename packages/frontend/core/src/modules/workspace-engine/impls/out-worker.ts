@@ -17,5 +17,6 @@ export function getWorkspaceProfileWorker() {
   );
 
   worker = new OpClient<WorkerOps>(rawWorker);
+  worker.listen();
   return worker;
 }

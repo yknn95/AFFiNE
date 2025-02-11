@@ -1,8 +1,5 @@
-import { NoteBlockModel, RootBlockModel } from '@blocksuite/affine-model';
 import { BLOCK_ID_ATTR, type BlockComponent } from '@blocksuite/block-std';
-import { SurfaceBlockModel } from '@blocksuite/block-std/gfx';
 import type { Point, Rect } from '@blocksuite/global/utils';
-import type { BlockModel } from '@blocksuite/store';
 
 import { BLOCK_CHILDREN_CONTAINER_PADDING_LEFT } from '../../consts/index.js';
 import { clamp } from '../math.js';
@@ -37,9 +34,10 @@ function hasBlockId(element: Element): element is BlockComponent {
  */
 function isRootOrNoteOrSurface(element: BlockComponent) {
   return matchFlavours(element.model, [
-    RootBlockModel,
-    NoteBlockModel,
-    SurfaceBlockModel,
+    'affine:page',
+    'affine:note',
+    // @ts-expect-error TODO: migrate surface model to @blocksuite/affine-model
+    'affine:surface',
   ]);
 }
 
@@ -148,8 +146,8 @@ export function getClosestBlockComponentByPoint(
         }
       }
     } else {
-      bounds = getRectByBlockComponent(element);
       // Indented paragraphs or list
+      bounds = getRectByBlockComponent(element);
       childBounds = element
         .querySelector('.affine-block-children-container')
         ?.firstElementChild?.getBoundingClientRect();
@@ -265,8 +263,8 @@ export function getClosestBlockComponentByElement(
  * https://github.com/toeverything/blocksuite/pull/1121
  */
 export function getRectByBlockComponent(element: Element | BlockComponent) {
-  if (!isDatabase(element)) element = element.firstElementChild ?? element;
-  return element.getBoundingClientRect();
+  if (isDatabase(element)) return element.getBoundingClientRect();
+  return (element.firstElementChild ?? element).getBoundingClientRect();
 }
 
 /**
@@ -274,32 +272,18 @@ export function getRectByBlockComponent(element: Element | BlockComponent) {
  * Only keep block elements of same level.
  */
 export function getBlockComponentsExcludeSubtrees(
-  elements: BlockComponent[]
+  elements: Element[] | BlockComponent[]
 ): BlockComponent[] {
   if (elements.length <= 1) return elements as BlockComponent[];
-
-  const getLevel = (element: BlockComponent) => {
-    let level = 0;
-    let model: BlockModel | null = element.model;
-
-    while (model && model.role !== 'root') {
-      level++;
-      model = model.parent;
+  let parent = elements[0];
+  return elements.filter((node, index) => {
+    if (index === 0) return true;
+    if (contains(parent, node)) {
+      return false;
+    } else {
+      parent = node;
+      return true;
     }
-
-    return level;
-  };
-
-  let topMostLevel = Number.POSITIVE_INFINITY;
-  const levels = elements.map(element => {
-    const level = getLevel(element);
-
-    topMostLevel = Math.min(topMostLevel, level);
-    return level;
-  });
-
-  return elements.filter((_, index) => {
-    return levels[index] === topMostLevel;
   }) as BlockComponent[];
 }
 
@@ -319,8 +303,9 @@ function findBlockComponent(elements: Element[], parent?: Element) {
     if (hasBlockId(element) && isBlock(element)) return element;
     if (isImage(element)) {
       const element = elements[i];
-      if (!element) return null;
-      if (hasBlockId(element) && isBlock(element)) return element;
+      if (i < len && hasBlockId(element) && isBlock(element)) {
+        return elements[i];
+      }
       return getClosestBlockComponentByElement(element);
     }
   }

@@ -1,9 +1,10 @@
-import { ShadowlessElement, TextSelection } from '@blocksuite/block-std';
+import type { TextSelection } from '@blocksuite/block-std';
+import { ShadowlessElement } from '@blocksuite/block-std';
 import type { RichText } from '@blocksuite/blocks';
 import { WithDisposable } from '@blocksuite/global/utils';
+import { DocCollection } from '@blocksuite/store';
 import { css, html, nothing } from 'lit';
 import { property, query } from 'lit/decorators.js';
-import * as Y from 'yjs';
 
 import type { Comment, CommentManager } from './comment-manager.js';
 
@@ -51,7 +52,7 @@ export class CommentInput extends WithDisposable(ShadowlessElement) {
       return;
     }
 
-    const yText = new Y.Text();
+    const yText = new DocCollection.Y.Text();
     yText.applyDelta(deltas);
     const comment = this.manager.addComment(textSelection, {
       author: 'Anonymous',
@@ -68,7 +69,7 @@ export class CommentInput extends WithDisposable(ShadowlessElement) {
   }
 
   override render() {
-    const textSelection = this.host.selection.find(TextSelection);
+    const textSelection = this.host.selection.find('text');
     if (!textSelection) {
       this.remove();
       return nothing;
@@ -81,7 +82,7 @@ export class CommentInput extends WithDisposable(ShadowlessElement) {
 
     const { quote } = parseResult;
 
-    const tmpYDoc = new Y.Doc();
+    const tmpYDoc = new DocCollection.Y.Doc();
     const tmpYText = tmpYDoc.getText('comment');
 
     return html`<div class="comment-input-container">

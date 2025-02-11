@@ -1,14 +1,8 @@
-import { deleteTextCommand } from '@blocksuite/affine-components/rich-text';
 import {
   HtmlAdapter,
   pasteMiddleware,
   PlainTextAdapter,
 } from '@blocksuite/affine-shared/adapters';
-import {
-  getBlockIndexCommand,
-  getBlockSelectionsCommand,
-  getTextSelectionCommand,
-} from '@blocksuite/affine-shared/commands';
 import {
   type BlockComponent,
   Clipboard,
@@ -42,17 +36,17 @@ export class CodeClipboardController {
     const e = ctx.get('clipboardState').raw;
     e.preventDefault();
 
-    this._std.store.captureSync();
+    this._std.doc.captureSync();
     this._std.command
       .chain()
       .try(cmd => [
-        cmd.pipe(getTextSelectionCommand).pipe((ctx, next) => {
+        cmd.getTextSelection().inline<'currentSelectionPath'>((ctx, next) => {
           const textSelection = ctx.currentTextSelection;
           if (!textSelection) return;
           const end = textSelection.to ?? textSelection.from;
           next({ currentSelectionPath: end.blockId });
         }),
-        cmd.pipe(getBlockSelectionsCommand).pipe((ctx, next) => {
+        cmd.getBlockSelections().inline<'currentSelectionPath'>((ctx, next) => {
           const currentBlockSelections = ctx.currentBlockSelections;
           if (!currentBlockSelections) return;
           const blockSelection = currentBlockSelections.at(-1);
@@ -60,16 +54,16 @@ export class CodeClipboardController {
           next({ currentSelectionPath: blockSelection.blockId });
         }),
       ])
-      .pipe(getBlockIndexCommand)
-      .try(cmd => [cmd.pipe(getTextSelectionCommand).pipe(deleteTextCommand)])
-      .pipe((ctx, next) => {
+      .getBlockIndex()
+      .try(cmd => [cmd.getTextSelection().deleteText()])
+      .inline((ctx, next) => {
         if (!ctx.parentBlock) {
           return;
         }
         this._clipboard
           .paste(
             e,
-            this._std.store,
+            this._std.doc,
             ctx.parentBlock.model.id,
             ctx.blockIndex ? ctx.blockIndex + 1 : 1
           )

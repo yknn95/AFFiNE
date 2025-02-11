@@ -1,3 +1,4 @@
+import type { ExtensionType } from '@blocksuite/block-std';
 import { BlockSuiteError, ErrorCode } from '@blocksuite/global/exceptions';
 import { sha } from '@blocksuite/global/utils';
 import {
@@ -5,18 +6,17 @@ import {
   BaseAdapter,
   type BlockSnapshot,
   type DocSnapshot,
-  type ExtensionType,
   type FromBlockSnapshotPayload,
   type FromBlockSnapshotResult,
   type FromDocSnapshotPayload,
   type FromDocSnapshotResult,
   type FromSliceSnapshotPayload,
   type FromSliceSnapshotResult,
+  type Job,
   nanoid,
   type SliceSnapshot,
   type ToBlockSnapshotPayload,
   type ToDocSnapshotPayload,
-  type Transformer,
 } from '@blocksuite/store';
 
 import { AdapterFactoryIdentifier } from './types/adapter';
@@ -26,6 +26,7 @@ export type Attachment = File[];
 type AttachmentToSliceSnapshotPayload = {
   file: Attachment;
   assets?: AssetsManager;
+  blockVersions: Record<string, number>;
   workspaceId: string;
   pageId: string;
 };
@@ -132,7 +133,7 @@ export const AttachmentAdapterFactoryIdentifier =
 export const AttachmentAdapterFactoryExtension: ExtensionType = {
   setup: di => {
     di.addImpl(AttachmentAdapterFactoryIdentifier, () => ({
-      get: (job: Transformer) => new AttachmentAdapter(job),
+      get: (job: Job) => new AttachmentAdapter(job),
     }));
   },
 };

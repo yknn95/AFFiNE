@@ -1,6 +1,11 @@
 import { BlockSuiteError, ErrorCode } from '@blocksuite/global/exceptions';
 
-import type { BlobCRUD } from './type';
+interface BlobCRUD {
+  get: (key: string) => Promise<Blob | null> | Blob | null;
+  set: (key: string, value: Blob) => Promise<string> | string;
+  delete: (key: string) => Promise<void> | void;
+  list: () => Promise<string[]> | string[];
+}
 
 type AssetsManagerConfig = {
   blob: BlobCRUD;

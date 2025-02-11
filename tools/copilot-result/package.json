@@ -11,6 +11,6 @@
     "marked": "^15.0.3"
   },
   "devDependencies": {
-    "@types/node": "^22.0.0"
+    "@types/node": "^20.17.10"
   }
 }

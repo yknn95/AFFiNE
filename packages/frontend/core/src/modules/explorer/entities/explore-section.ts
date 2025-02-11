@@ -12,7 +12,6 @@ const DEFAULT_COLLAPSABLE_STATE: Record<CollapsibleSectionName, boolean> = {
   tags: true,
   favoritesOld: true,
   migrationFavorites: true,
-  others: false,
 };
 
 export class ExplorerSection extends Entity<{ name: CollapsibleSectionName }> {

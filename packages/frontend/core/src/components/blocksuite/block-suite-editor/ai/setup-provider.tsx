@@ -1,6 +1,5 @@
 import { AIProvider } from '@affine/core/blocksuite/presets/ai';
 import { toggleGeneralAIOnboarding } from '@affine/core/components/affine/ai-onboarding/apis';
-import type { AINetworkSearchService } from '@affine/core/modules/ai-button/services/network-search';
 import type { GlobalDialogService } from '@affine/core/modules/dialogs';
 import {
   type getCopilotHistoriesQuery,
@@ -18,7 +17,6 @@ import {
   forkCopilotSession,
   textToText,
   toImage,
-  updateChatSession,
 } from './request';
 import { setupTracker } from './tracker';
 
@@ -41,67 +39,33 @@ const processTypeToPromptName = new Map(
 
 // a single workspace should have only a single chat session
 // user-id:workspace-id:doc-id -> chat session id
-const chatSessions = new Map<
-  string,
-  { getSessionId: Promise<string>; promptName: string }
->();
+const chatSessions = new Map<string, Promise<string>>();
 
 export function setupAIProvider(
   client: CopilotClient,
-  globalDialogService: GlobalDialogService,
-  networkSearchService: AINetworkSearchService
+  globalDialogService: GlobalDialogService
 ) {
-  function getChatPrompt(options: BlockSuitePresets.ChatOptions) {
-    const { attachments, docs } = options;
-    if (attachments?.length || docs?.length) {
-      return 'Chat With AFFiNE AI';
-    }
-    const { enabled, visible } = networkSearchService;
-    return visible.value && enabled.value
-      ? 'Search With AFFiNE AI'
-      : 'Chat With AFFiNE AI';
-  }
-  async function getChatSessionId(options: BlockSuitePresets.ChatOptions) {
+  async function getChatSessionId(workspaceId: string, docId: string) {
     const userId = (await AIProvider.userInfo)?.id;
 
     if (!userId) {
       throw new UnauthorizedError();
     }
 
-    const { workspaceId, docId } = options;
     const storeKey = `${userId}:${workspaceId}:${docId}`;
-    const promptName = getChatPrompt(options);
     if (!chatSessions.has(storeKey)) {
-      chatSessions.set(storeKey, {
-        getSessionId: createChatSession({
+      chatSessions.set(
+        storeKey,
+        createChatSession({
           client,
           workspaceId,
           docId,
-          promptName,
-        }).then(sessionId => {
-          return updateChatSession({
-            sessionId,
-            client,
-            promptName,
-          });
-        }),
-        promptName,
-      });
+        })
+      );
     }
     try {
-      /* oxlint-disable @typescript-eslint/no-non-null-assertion */
-      const { getSessionId, promptName: prevName } =
-        chatSessions.get(storeKey)!;
-      const sessionId = await getSessionId;
-      //update prompt name
-      if (prevName !== promptName) {
-        await updateChatSession({
-          sessionId,
-          client,
-          promptName,
-        });
-        chatSessions.set(storeKey, { getSessionId, promptName });
-      }
+      const sessionId = await chatSessions.get(storeKey);
+      assertExists(sessionId);
       return sessionId;
     } catch (err) {
       // do not cache the error
@@ -112,23 +76,13 @@ export function setupAIProvider(
 
   //#region actions
   AIProvider.provide('chat', options => {
-    const sessionId = options.sessionId ?? getChatSessionId(options);
-    const { input, docs, ...rest } = options;
-    const params = docs?.length
-      ? {
-          docs: docs.map((doc, i) => ({
-            docId: doc.docId,
-            markdown: doc.markdown,
-            index: i + 1,
-          })),
-        }
-      : undefined;
+    const sessionId =
+      options.sessionId ?? getChatSessionId(options.workspaceId, options.docId);
     return textToText({
-      ...rest,
+      ...options,
       client,
-      content: input,
+      content: options.input,
       sessionId,
-      params,
     });
   });
 

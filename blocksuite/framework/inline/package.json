@@ -18,6 +18,14 @@
   ],
   "author": "toeverything",
   "license": "MIT",
+  "devDependencies": {
+    "lit": "^3.2.0",
+    "yjs": "^13.6.21"
+  },
+  "peerDependencies": {
+    "lit": "^3.2.0",
+    "yjs": "*"
+  },
   "exports": {
     ".": "./src/index.ts",
     "./consts": "./src/consts.ts",
@@ -27,12 +35,7 @@
   "dependencies": {
     "@blocksuite/global": "workspace:*",
     "@preact/signals-core": "^1.8.0",
-    "lit": "^3.2.0",
-    "yjs": "^13.6.21",
     "zod": "^3.23.8"
-  },
-  "devDependencies": {
-    "vitest": "3.0.5"
   },
   "version": "0.19.0"
 }

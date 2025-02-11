@@ -2,12 +2,14 @@ import { expect, test } from 'vitest';
 import * as Y from 'yjs';
 
 import { MemoryBlobCRUD } from '../adapter/index.js';
-import { BlockModel } from '../model/block/block-model.js';
-import { defineBlockSchema } from '../model/block/zod.js';
 import { Text } from '../reactive/index.js';
-import { Schema } from '../schema/index.js';
-import { createAutoIncrementIdGenerator } from '../test/index.js';
-import { TestWorkspace } from '../test/test-workspace.js';
+import {
+  type BlockModel,
+  defineBlockSchema,
+  Schema,
+  type SchemaToModel,
+} from '../schema/index.js';
+import { DocCollection, IdGeneratorType } from '../store/index.js';
 import { AssetsManager, BaseBlockTransformer } from '../transformer/index.js';
 
 const docSchema = defineBlockSchema({
@@ -39,12 +41,10 @@ const docSchema = defineBlockSchema({
   },
 });
 
-class RootBlockModel extends BlockModel<
-  ReturnType<(typeof docSchema)['model']['props']>
-> {}
+type RootBlockModel = SchemaToModel<typeof docSchema>;
 
 function createTestOptions() {
-  const idGenerator = createAutoIncrementIdGenerator();
+  const idGenerator = IdGeneratorType.AutoIncrement;
   const schema = new Schema();
   schema.register([docSchema]);
   return { id: 'test-collection', idGenerator, schema };
@@ -56,7 +56,7 @@ const assets = new AssetsManager({ blob: blobCRUD });
 
 test('model to snapshot', () => {
   const options = createTestOptions();
-  const collection = new TestWorkspace(options);
+  const collection = new DocCollection(options);
   collection.meta.initialize();
   const doc = collection.createDoc({ id: 'home' });
   doc.load();
@@ -73,7 +73,7 @@ test('model to snapshot', () => {
 
 test('snapshot to model', async () => {
   const options = createTestOptions();
-  const collection = new TestWorkspace(options);
+  const collection = new DocCollection(options);
   collection.meta.initialize();
   const doc = collection.createDoc({ id: 'home' });
   doc.load();

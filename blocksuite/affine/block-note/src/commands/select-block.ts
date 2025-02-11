@@ -1,12 +1,6 @@
-import {
-  type BlockComponent,
-  BlockSelection,
-  type Command,
-} from '@blocksuite/block-std';
+import type { Command } from '@blocksuite/block-std';
 
-export const selectBlock: Command<{
-  focusBlock?: BlockComponent;
-}> = (ctx, next) => {
+export const selectBlock: Command<'focusBlock'> = (ctx, next) => {
   const { focusBlock, std } = ctx;
   if (!focusBlock) {
     return;
@@ -15,7 +9,7 @@ export const selectBlock: Command<{
   const { selection } = std;
 
   selection.setGroup('note', [
-    selection.create(BlockSelection, { blockId: focusBlock.blockId }),
+    selection.create('block', { blockId: focusBlock.blockId }),
   ]);
 
   return next();

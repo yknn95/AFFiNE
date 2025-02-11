@@ -43,4 +43,16 @@ describe('slot', () => {
     slot.emit();
     expect(callback).toBeCalledTimes(0);
   });
+
+  test('subscribe', () => {
+    type Data = {
+      name: string;
+      age: number;
+    };
+    const slot = new Slot<Data>();
+    const callback = vi.fn(v => expect(v).toBe('田所'));
+    slot.subscribe(v => v.name, callback);
+    slot.emit({ name: '田所', age: 24 });
+    expect(callback).toBeCalledTimes(1);
+  });
 });

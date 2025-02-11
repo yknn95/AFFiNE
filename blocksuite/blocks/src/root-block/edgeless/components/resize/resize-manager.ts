@@ -1,3 +1,4 @@
+import { CommonUtils } from '@blocksuite/affine-block-surface';
 import { NOTE_MIN_WIDTH } from '@blocksuite/affine-model';
 import {
   assertExists,
@@ -6,11 +7,12 @@ import {
   type IPoint,
   type IVec,
   type PointLocation,
-  rotatePoints,
 } from '@blocksuite/global/utils';
 
 import type { SelectableProps } from '../../utils/query.js';
 import { HandleDirection, type ResizeMode } from './resize-handles.js';
+
+const { rotatePoints } = CommonUtils;
 
 // 15deg
 const SHIFT_LOCKING_ANGLE = Math.PI / 12;

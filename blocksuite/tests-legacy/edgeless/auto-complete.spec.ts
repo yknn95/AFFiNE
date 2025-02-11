@@ -108,11 +108,10 @@ test.describe('auto-complete', () => {
     test('drag on right auto-complete button to add canvas text', async ({
       page,
     }) => {
-      await enterPlaygroundRoom(page);
-      await page.evaluate(() => {
-        window.doc
-          .get(window.$blocksuite.blocks.FeatureFlagService)
-          .setFlag('enable_edgeless_text', false);
+      await enterPlaygroundRoom(page, {
+        flags: {
+          enable_edgeless_text: false,
+        },
       });
       await initEmptyEdgelessState(page);
       await switchEditorMode(page);

@@ -3,7 +3,7 @@ import { NoteDisplayMode } from '@blocksuite/blocks';
 import { clamp, DisposableGroup } from '@blocksuite/global/utils';
 
 import type { AffineEditorContainer } from '../../../editors/editor-container.js';
-import { getDocTitleByEditorHost } from '../../doc-title/index.js';
+import { getDocTitleByEditorHost } from '../../doc-title/doc-title.js';
 import { getHeadingBlocksFromDoc } from './query.js';
 
 export function scrollToBlock(editor: AffineEditorContainer, blockId: string) {
@@ -53,28 +53,33 @@ export const observeActiveHeadingDuringScroll = (
   getEditor: () => AffineEditorContainer, // workaround for editor changed
   update: (activeHeading: string | null) => void
 ) => {
-  const handler = () => {
-    const { host } = getEditor();
-    if (!host) return;
-
-    const headings = getHeadingBlocksFromDoc(
-      host.doc,
-      [NoteDisplayMode.DocAndEdgeless, NoteDisplayMode.DocOnly],
-      true
-    );
-
-    let activeHeadingId = host.doc.root?.id ?? null;
-    headings.forEach(heading => {
-      if (isBlockBeforeViewportCenter(heading.id, host)) {
-        activeHeadingId = heading.id;
-      }
-    });
-    update(activeHeadingId);
-  };
-  handler();
+  const editor = getEditor();
+  update(editor.doc.root?.id ?? null);
 
   const disposables = new DisposableGroup();
-  disposables.addFromEvent(window, 'scroll', handler, true);
+  disposables.addFromEvent(
+    window,
+    'scroll',
+    () => {
+      const { host } = getEditor();
+      if (!host) return;
+
+      const headings = getHeadingBlocksFromDoc(
+        host.doc,
+        [NoteDisplayMode.DocAndEdgeless, NoteDisplayMode.DocOnly],
+        true
+      );
+
+      let activeHeadingId = host.doc.root?.id ?? null;
+      headings.forEach(heading => {
+        if (isBlockBeforeViewportCenter(heading.id, host)) {
+          activeHeadingId = heading.id;
+        }
+      });
+      update(activeHeadingId);
+    },
+    true
+  );
 
   return disposables;
 };

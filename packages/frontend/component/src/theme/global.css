@@ -134,7 +134,7 @@ summary {
 }
 
 a,
-button:not([disabled]) {
+button {
   cursor: pointer;
 }
 

@@ -7,10 +7,14 @@ export type InsertedLinkType = {
   flavour?: 'affine:bookmark' | 'affine:embed-linked-doc';
 } | null;
 
-export const insertEmbedLinkedDocCommand: Command<{
-  docId: string;
-  params?: ReferenceParams;
-}> = (ctx, next) => {
+export const insertEmbedLinkedDocCommand: Command<
+  never,
+  'insertedLinkType',
+  {
+    docId: string;
+    params?: ReferenceParams;
+  }
+> = (ctx, next) => {
   const { docId, params, std } = ctx;
   const flavour = 'affine:embed-linked-doc';
   const targetStyle: EmbedCardStyle = 'vertical';

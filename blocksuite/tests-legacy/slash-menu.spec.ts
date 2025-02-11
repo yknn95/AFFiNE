@@ -34,6 +34,7 @@ import {
   assertBlockCount,
   assertExists,
   assertRichTexts,
+  assertStoreMatchJSX,
 } from './utils/asserts.js';
 import { test } from './utils/playwright.js';
 
@@ -61,10 +62,9 @@ test.describe('slash menu should show and hide correctly', () => {
     await expect(slashMenu).toBeVisible();
   });
 
-  test('slash menu should hide after click away', async ({
-    page,
-  }, testInfo) => {
-    await initEmptyParagraphState(page);
+  test('slash menu should hide after click away', async ({ page }) => {
+    const id = await initEmptyParagraphState(page);
+    const paragraphId = id.paragraphId;
     const slashMenu = page.locator(`.slash-menu`);
     await focusRichText(page);
     await type(page, '/');
@@ -72,9 +72,15 @@ test.describe('slash menu should show and hide correctly', () => {
     // Click outside should close slash menu
     await page.mouse.click(0, 50);
     await expect(slashMenu).toBeHidden();
-
-    expect(await getPageSnapshot(page, true)).toMatchSnapshot(
-      `${testInfo.title}.json`
+    await assertStoreMatchJSX(
+      page,
+      `
+<affine:paragraph
+  prop:collapsed={false}
+  prop:text="/"
+  prop:type="text"
+/>`,
+      paragraphId
     );
   });
 
@@ -100,8 +106,9 @@ test.describe('slash menu should show and hide correctly', () => {
 
   test('delete the slash symbol should close the slash menu', async ({
     page,
-  }, testInfo) => {
-    await initEmptyParagraphState(page);
+  }) => {
+    const id = await initEmptyParagraphState(page);
+    const paragraphId = id.paragraphId;
     const slashMenu = page.locator(`.slash-menu`);
     await focusRichText(page);
     await type(page, '/');
@@ -109,8 +116,14 @@ test.describe('slash menu should show and hide correctly', () => {
 
     await pressBackspace(page);
     await expect(slashMenu).toBeHidden();
-    expect(await getPageSnapshot(page, true)).toMatchSnapshot(
-      `${testInfo.title}.json`
+    await assertStoreMatchJSX(
+      page,
+      `
+<affine:paragraph
+  prop:collapsed={false}
+  prop:type="text"
+/>`,
+      paragraphId
     );
   });
 
@@ -509,15 +522,13 @@ test('should slash menu works with fast type', async ({ page }) => {
   await expect(slashMenu).toBeVisible();
 });
 
-test('should clean slash string after soft enter', async ({
-  page,
-}, testInfo) => {
+test('should clean slash string after soft enter', async ({ page }) => {
   test.info().annotations.push({
     type: 'issue',
     description: 'https://github.com/toeverything/blocksuite/issues/1126',
   });
   await enterPlaygroundRoom(page);
-  await initEmptyParagraphState(page);
+  const { paragraphId } = await initEmptyParagraphState(page);
   await focusRichText(page);
   await type(page, 'hello');
   await pressShiftEnter(page);
@@ -525,8 +536,15 @@ test('should clean slash string after soft enter', async ({
   await type(page, '/copy');
   await pressEnter(page);
 
-  expect(await getPageSnapshot(page, true)).toMatchSnapshot(
-    `${testInfo.title}.json`
+  await assertStoreMatchJSX(
+    page,
+    `
+  <affine:paragraph
+  prop:collapsed={false}
+  prop:text="hello\n"
+  prop:type="text"
+/>`,
+    paragraphId
   );
 });
 
@@ -702,9 +720,9 @@ test.describe('slash menu with date & time', () => {
 });
 
 test.describe('slash menu with style', () => {
-  test('should style text line works', async ({ page }, testInfo) => {
+  test('should style text line works', async ({ page }) => {
     await enterPlaygroundRoom(page);
-    await initEmptyParagraphState(page);
+    const { paragraphId } = await initEmptyParagraphState(page);
     await focusRichText(page);
 
     await type(page, 'hello/');
@@ -712,15 +730,28 @@ test.describe('slash menu with style', () => {
     await expect(slashMenu).toBeVisible();
     const bold = page.getByTestId('Bold');
     await bold.click();
-
-    expect(await getPageSnapshot(page, true)).toMatchSnapshot(
-      `${testInfo.title}.json`
+    await assertStoreMatchJSX(
+      page,
+      `
+<affine:paragraph
+  prop:collapsed={false}
+  prop:text={
+    <>
+      <text
+        bold={true}
+        insert="hello"
+      />
+    </>
+  }
+  prop:type="text"
+/>`,
+      paragraphId
     );
   });
 
-  test('should style empty line works', async ({ page }, testInfo) => {
+  test('should style empty line works', async ({ page }) => {
     await enterPlaygroundRoom(page);
-    await initEmptyParagraphState(page);
+    const { paragraphId } = await initEmptyParagraphState(page);
     await focusRichText(page);
 
     await type(page, '/');
@@ -730,9 +761,22 @@ test.describe('slash menu with style', () => {
     await bold.click();
     await page.waitForTimeout(50);
     await type(page, 'hello');
-
-    expect(await getPageSnapshot(page, true)).toMatchSnapshot(
-      `${testInfo.title}.json`
+    await assertStoreMatchJSX(
+      page,
+      `
+<affine:paragraph
+  prop:collapsed={false}
+  prop:text={
+    <>
+      <text
+        bold={true}
+        insert="hello"
+      />
+    </>
+  }
+  prop:type="text"
+/>`,
+      paragraphId
     );
   });
 });
@@ -751,10 +795,10 @@ test('should insert database', async ({ page }) => {
 
   const database = page.locator('affine-database');
   await expect(database).toBeVisible();
-  const titleColumn = page.locator('.affine-database-column').nth(0);
-  expect(await titleColumn.innerText()).toBe('Title');
+  const tagColumn = page.locator('.affine-database-column').nth(1);
+  expect(await tagColumn.innerText()).toBe('Status');
   const defaultRows = page.locator('.affine-database-block-row');
-  expect(await defaultRows.count()).toBe(3);
+  expect(await defaultRows.count()).toBe(4);
 });
 
 test.describe('slash menu with customize menu', () => {
@@ -835,7 +879,7 @@ test.describe('slash menu with customize menu', () => {
       const SlashMenuWidget = window.$blocksuite.blocks.AffineSlashMenuWidget;
 
       class CustomSlashMenu extends SlashMenuWidget {
-        override config = {
+        config = {
           ...SlashMenuWidget.DEFAULT_CONFIG,
           items: [
             { groupName: 'Custom Menu' },

@@ -25,9 +25,6 @@ export function useRegisterCopyLinkCommands({
   });
 
   useEffect(() => {
-    if (!isActiveView) {
-      return;
-    }
     const unsubs: Array<() => void> = [];
 
     unsubs.push(

@@ -1,10 +1,12 @@
-import { beforeEach, describe, expect, test, vi } from 'vitest';
+import { expect, test, vi } from 'vitest';
 import * as Y from 'yjs';
 
-import type { BlockModel, Store } from '../model/index.js';
 import { Schema } from '../schema/index.js';
-import { createAutoIncrementIdGenerator } from '../test/index.js';
-import { TestWorkspace } from '../test/test-workspace.js';
+import {
+  BlockViewType,
+  DocCollection,
+  IdGeneratorType,
+} from '../store/index.js';
 import {
   DividerBlockSchema,
   ListBlockSchema,
@@ -23,7 +25,7 @@ const BlockSchemas = [
 ];
 
 function createTestOptions() {
-  const idGenerator = createAutoIncrementIdGenerator();
+  const idGenerator = IdGeneratorType.AutoIncrement;
   const schema = new Schema();
   schema.register(BlockSchemas);
   return { id: 'test-collection', idGenerator, schema };
@@ -31,7 +33,7 @@ function createTestOptions() {
 
 test('trigger props updated', () => {
   const options = createTestOptions();
-  const collection = new TestWorkspace(options);
+  const collection = new DocCollection(options);
   collection.meta.initialize();
 
   const doc = collection.createDoc({ id: 'home' });
@@ -91,7 +93,7 @@ test('trigger props updated', () => {
 
 test('stash and pop', () => {
   const options = createTestOptions();
-  const collection = new TestWorkspace(options);
+  const collection = new DocCollection(options);
   collection.meta.initialize();
 
   const doc = collection.createDoc({ id: 'home' });
@@ -161,7 +163,7 @@ test('stash and pop', () => {
 
 test('always get latest value in onChange', () => {
   const options = createTestOptions();
-  const collection = new TestWorkspace(options);
+  const collection = new DocCollection(options);
   collection.meta.initialize();
 
   const doc = collection.createDoc({ id: 'home' });
@@ -208,7 +210,7 @@ test('always get latest value in onChange', () => {
 
 test('query', () => {
   const options = createTestOptions();
-  const collection = new TestWorkspace(options);
+  const collection = new DocCollection(options);
   collection.meta.initialize();
   const doc1 = collection.createDoc({ id: 'home' });
   doc1.load();
@@ -220,7 +222,7 @@ test('query', () => {
       match: [
         {
           flavour: 'affine:list',
-          viewType: 'hidden',
+          viewType: BlockViewType.Hidden,
         },
       ],
     },
@@ -233,19 +235,19 @@ test('query', () => {
   const paragraph1 = doc1.addBlock('affine:paragraph', {}, note);
   const list1 = doc1.addBlock('affine:list' as never, {}, note);
 
-  expect(doc2?.getBlock(paragraph1)?.blockViewType).toBe('display');
-  expect(doc2?.getBlock(list1)?.blockViewType).toBe('display');
-  expect(doc3?.getBlock(list1)?.blockViewType).toBe('hidden');
+  expect(doc2?.getBlock(paragraph1)?.blockViewType).toBe(BlockViewType.Display);
+  expect(doc2?.getBlock(list1)?.blockViewType).toBe(BlockViewType.Display);
+  expect(doc3?.getBlock(list1)?.blockViewType).toBe(BlockViewType.Hidden);
 
   const list2 = doc1.addBlock('affine:list' as never, {}, note);
 
-  expect(doc2?.getBlock(list2)?.blockViewType).toBe('display');
-  expect(doc3?.getBlock(list2)?.blockViewType).toBe('hidden');
+  expect(doc2?.getBlock(list2)?.blockViewType).toBe(BlockViewType.Display);
+  expect(doc3?.getBlock(list2)?.blockViewType).toBe(BlockViewType.Hidden);
 });
 
 test('local readonly', () => {
   const options = createTestOptions();
-  const collection = new TestWorkspace(options);
+  const collection = new DocCollection(options);
   collection.meta.initialize();
   const doc1 = collection.createDoc({ id: 'home' });
   doc1.load();
@@ -256,52 +258,15 @@ test('local readonly', () => {
   expect(doc2?.readonly).toBeTruthy();
   expect(doc3?.readonly).toBeFalsy();
 
-  doc1.readonly = true;
+  collection.awarenessStore.setReadonly(doc1.blockCollection, true);
 
   expect(doc1.readonly).toBeTruthy();
   expect(doc2?.readonly).toBeTruthy();
-  expect(doc3?.readonly).toBeFalsy();
+  expect(doc3?.readonly).toBeTruthy();
 
-  doc1.readonly = false;
+  collection.awarenessStore.setReadonly(doc1.blockCollection, false);
 
   expect(doc1.readonly).toBeFalsy();
   expect(doc2?.readonly).toBeTruthy();
   expect(doc3?.readonly).toBeFalsy();
-});
-
-describe('move blocks', () => {
-  type Context = { doc: Store; page: BlockModel; notes: BlockModel[] };
-  beforeEach((context: Context) => {
-    const options = createTestOptions();
-    const collection = new TestWorkspace(options);
-    collection.meta.initialize();
-
-    const doc = collection.createDoc({ id: 'home' });
-    doc.load();
-    const pageId = doc.addBlock('affine:page');
-    const page = doc.getBlock(pageId)!.model;
-
-    const noteIds = doc.addBlocks(
-      [1, 2, 3].map(i => ({
-        flavour: 'affine:note',
-        blockProps: { id: `${i}` },
-      })),
-      page
-    );
-    const notes = noteIds.map(id => doc.getBlock(id)!.model);
-
-    context.doc = doc;
-    context.page = page;
-    context.notes = notes;
-  });
-
-  test('move block to itself', ({ doc, page, notes }: Context) => {
-    const noteIds = notes.map(({ id }) => id);
-
-    doc.moveBlocks([notes[0]], page, notes[0], true);
-    expect(page.children.map(({ id }) => id)).toEqual(noteIds);
-
-    doc.moveBlocks([notes[0]], page, notes[0], false);
-    expect(page.children.map(({ id }) => id)).toEqual(noteIds);
-  });
 });

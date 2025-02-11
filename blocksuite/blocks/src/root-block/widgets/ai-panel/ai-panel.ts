@@ -7,9 +7,9 @@ import {
   getPageRootByElement,
   stopPropagation,
 } from '@blocksuite/affine-shared/utils';
+import type { BaseSelection } from '@blocksuite/block-std';
 import { WidgetComponent } from '@blocksuite/block-std';
 import { assertExists } from '@blocksuite/global/utils';
-import type { BaseSelection } from '@blocksuite/store';
 import {
   autoPlacement,
   autoUpdate,
@@ -63,7 +63,7 @@ export class AffineAIPanelWidget extends WidgetComponent {
       box-sizing: border-box;
       width: 100%;
       height: fit-content;
-      padding: 10px 0;
+      padding: 8px 0;
     }
 
     .ai-panel-container:not(:has(ai-panel-generating)) {
@@ -474,7 +474,6 @@ export class AffineAIPanelWidget extends WidgetComponent {
             .onBlur=${this.discard}
             .onFinish=${this._inputFinish}
             .onInput=${this.onInput}
-            .networkSearchConfig=${config.networkSearchConfig}
           ></ai-panel-input>`,
       ],
       [

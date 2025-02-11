@@ -1,5 +1,5 @@
 mutation revokePublicPage($workspaceId: String!, $pageId: String!) {
-  revokePublicDoc(workspaceId: $workspaceId, docId: $pageId) {
+  revokePublicPage(workspaceId: $workspaceId, pageId: $pageId) {
     id
     mode
     public

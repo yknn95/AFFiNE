@@ -226,22 +226,7 @@ export class YjsTableAdapter implements TableAdapter {
       (Array.isArray(where)
         ? where.length === 0
           ? false
-          : where.every(c => {
-              const field = this.field(record, c.field);
-              const condition = c.value;
-
-              if (typeof condition === 'object') {
-                if (condition === null) {
-                  return field === null;
-                }
-
-                if ('not' in condition) {
-                  return field !== condition.not;
-                }
-              }
-
-              return field === condition;
-            })
+          : where.every(c => this.field(record, c.field) === c.value)
         : where.byKey === this.keyof(record))
     );
   }
@@ -257,14 +242,7 @@ export class YjsTableAdapter implements TableAdapter {
   }
 
   private field(ty: AbstractType<any>, field: string) {
-    const val = YMap.prototype.get.call(ty, field);
-
-    // only handle null will make the day easier
-    if (val === undefined) {
-      return null;
-    }
-
-    return val;
+    return YMap.prototype.get.call(ty, field);
   }
 
   private setField(ty: AbstractType<any>, field: string, value: any) {

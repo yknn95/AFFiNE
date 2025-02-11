@@ -1,6 +1,6 @@
 import {
   InformationFillDuotoneIcon,
-  SingleSelectCheckSolidIcon,
+  SingleSelectSelectSolidIcon,
 } from '@blocksuite/icons/rc';
 import type { FC } from 'react';
 import { type ExternalToast, toast } from 'sonner';
@@ -50,7 +50,7 @@ notify.error = (notification: Notification, options?: ExternalToast) => {
 notify.success = (notification: Notification, options?: ExternalToast) => {
   return notify(
     {
-      icon: <SingleSelectCheckSolidIcon />,
+      icon: <SingleSelectSelectSolidIcon />,
       style: 'normal',
       theme: 'success',
       ...notification,

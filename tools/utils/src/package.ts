@@ -4,7 +4,7 @@ import { parse } from 'node:path';
 import { type Path, ProjectRoot } from './path';
 import type { CommonPackageJsonContent, YarnWorkspaceItem } from './types';
 import type { Workspace } from './workspace';
-import { PackageList, type PackageName } from './yarn';
+import { PackageList, type PackageName } from './workspace.gen';
 
 export function readPackageJson(path: Path): CommonPackageJsonContent {
   const content = readFileSync(path.join('package.json').toString(), 'utf-8');

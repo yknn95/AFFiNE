@@ -1,3 +1,8 @@
+import {
+  DEFAULT_NOTE_HEIGHT,
+  DEFAULT_NOTE_WIDTH,
+  NoteDisplayMode,
+} from '@blocksuite/affine-model';
 import { expect } from '@playwright/test';
 import { lightThemeV2 } from '@toeverything/theme/v2';
 
@@ -49,11 +54,6 @@ import {
   assertRichTexts,
   assertTextSelection,
 } from '../../utils/asserts.js';
-import {
-  DEFAULT_NOTE_HEIGHT,
-  DEFAULT_NOTE_WIDTH,
-  NoteDisplayMode,
-} from '../../utils/bs-alternative.js';
 import { test } from '../../utils/playwright.js';
 
 const CENTER_X = 450;
@@ -329,6 +329,7 @@ test('cursor for active and inactive state', async ({ page }) => {
 
   await switchEditorMode(page);
 
+  await assertTextSelection(page);
   await page.mouse.click(CENTER_X, CENTER_Y);
   await waitNextFrame(page);
   await assertTextSelection(page);

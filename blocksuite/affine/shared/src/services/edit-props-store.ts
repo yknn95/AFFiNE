@@ -6,10 +6,10 @@ import {
   DisposableGroup,
   Slot,
 } from '@blocksuite/global/utils';
+import { DocCollection } from '@blocksuite/store';
 import { computed, type Signal, signal } from '@preact/signals-core';
 import clonedeep from 'lodash.clonedeep';
 import mergeWith from 'lodash.mergewith';
-import * as Y from 'yjs';
 import { z } from 'zod';
 
 import { makeDeepOptional, NodePropsSchema } from '../utils/index.js';
@@ -21,12 +21,6 @@ export type LastProps = z.infer<typeof NodePropsSchema>;
 export type LastPropsKey = keyof LastProps;
 
 const SessionPropsSchema = z.object({
-  templateCache: z.string(),
-  remoteColor: z.string(),
-  showBidirectional: z.boolean(),
-});
-
-const LocalPropsSchema = z.object({
   viewport: z.union([
     z.object({
       centerX: z.number(),
@@ -40,6 +34,12 @@ const LocalPropsSchema = z.object({
         .optional(),
     }),
   ]),
+  templateCache: z.string(),
+  remoteColor: z.string(),
+  showBidirectional: z.boolean(),
+});
+
+const LocalPropsSchema = z.object({
   presentBlackBackground: z.boolean(),
   presentFillScreen: z.boolean(),
   presentHideToolbar: z.boolean(),
@@ -63,9 +63,9 @@ function isSessionProp(key: string): key is keyof SessionProps {
 function customizer(_target: unknown, source: unknown) {
   if (
     ColorSchema.safeParse(source).success ||
-    source instanceof Y.Text ||
-    source instanceof Y.Array ||
-    source instanceof Y.Map
+    source instanceof DocCollection.Y.Text ||
+    source instanceof DocCollection.Y.Array ||
+    source instanceof DocCollection.Y.Map
   ) {
     return source;
   }
@@ -116,7 +116,7 @@ export class EditPropsStore extends LifeCycleWatcher {
   }
 
   private _getStorageKey<T extends StoragePropsKey>(key: T) {
-    const id = this.std.store.id;
+    const id = this.std.doc.id;
     switch (key) {
       case 'viewport':
         return 'blocksuite:' + id + ':edgelessViewport';
@@ -139,10 +139,7 @@ export class EditPropsStore extends LifeCycleWatcher {
     }
   }
 
-  applyLastProps<K extends LastPropsKey>(
-    key: K,
-    props: Record<string, unknown>
-  ) {
+  applyLastProps(key: LastPropsKey, props: Record<string, unknown>) {
     if (['__proto__', 'constructor', 'prototype'].includes(key)) {
       throw new BlockSuiteError(
         ErrorCode.DefaultRuntimeError,

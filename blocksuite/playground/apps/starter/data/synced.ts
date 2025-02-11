@@ -1,5 +1,5 @@
 import { MarkdownTransformer } from '@blocksuite/blocks';
-import { Text, type Workspace } from '@blocksuite/store';
+import { type DocCollection, Text } from '@blocksuite/store';
 
 import type { InitFn } from './utils';
 
@@ -11,7 +11,7 @@ This article has also been published [in PDF format](https://www.inkandswitch.co
 
 We welcome your feedback: [@inkandswitch](https://twitter.com/inkandswitch) or hello@inkandswitch.com.`;
 
-export const synced: InitFn = (collection: Workspace, id: string) => {
+export const synced: InitFn = (collection: DocCollection, id: string) => {
   const docMain = collection.getDoc(id) ?? collection.createDoc({ id });
 
   const docSyncedPageId = 'doc:synced-page';

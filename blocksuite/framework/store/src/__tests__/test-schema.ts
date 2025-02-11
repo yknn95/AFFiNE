@@ -1,4 +1,4 @@
-import { BlockModel, defineBlockSchema } from '../model/index.js';
+import { defineBlockSchema, type SchemaToModel } from '../schema/index.js';
 
 export const RootBlockSchema = defineBlockSchema({
   flavour: 'affine:page',
@@ -14,9 +14,7 @@ export const RootBlockSchema = defineBlockSchema({
   },
 });
 
-export class RootBlockModel extends BlockModel<
-  ReturnType<(typeof RootBlockSchema)['model']['props']>
-> {}
+export type RootBlockModel = SchemaToModel<typeof RootBlockSchema>;
 
 export const NoteBlockSchema = defineBlockSchema({
   flavour: 'affine:note',

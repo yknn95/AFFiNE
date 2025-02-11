@@ -1,5 +1,5 @@
+import type { ExtensionType } from '@blocksuite/block-std';
 import { assertExists } from '@blocksuite/global/utils';
-import type { ExtensionType } from '@blocksuite/store';
 
 import { SpecBuilder } from './spec-builder.js';
 

@@ -5,10 +5,7 @@ import {
   type EdgelessRootService,
   matchFlavours,
   MindmapElementModel,
-  NoteBlockModel,
-  RootBlockModel,
   type ShapeElementModel,
-  SurfaceBlockModel,
 } from '@blocksuite/affine/blocks';
 
 export function mindMapToMarkdown(mindmap: MindmapElementModel) {
@@ -65,10 +62,10 @@ export function getEdgelessCopilotWidget(
 export function findNoteBlockModel(blockElement: BlockComponent) {
   let curBlock = blockElement;
   while (curBlock) {
-    if (matchFlavours(curBlock.model, [NoteBlockModel])) {
+    if (matchFlavours(curBlock.model, ['affine:note'])) {
       return curBlock.model;
     }
-    if (matchFlavours(curBlock.model, [RootBlockModel, SurfaceBlockModel])) {
+    if (matchFlavours(curBlock.model, ['affine:page', 'affine:surface'])) {
       return null;
     }
     if (!curBlock.parentComponent) {

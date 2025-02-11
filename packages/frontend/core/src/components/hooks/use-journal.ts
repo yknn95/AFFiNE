@@ -5,7 +5,6 @@ import {
   JournalService,
   type MaybeDate,
 } from '@affine/core/modules/journal';
-import type { WorkbenchOpenOptions } from '@affine/core/modules/workbench/entities/workbench';
 import { i18nTime } from '@affine/i18n';
 import { track } from '@affine/track';
 import { useService, useServices } from '@toeverything/infra';
@@ -61,9 +60,9 @@ export const useJournalRouteHelper = () => {
    * open journal by date, create one if not exist
    */
   const openJournal = useCallback(
-    (maybeDate: MaybeDate, options?: WorkbenchOpenOptions) => {
+    (maybeDate: MaybeDate, newTab?: boolean) => {
       const page = getJournalByDate(maybeDate);
-      workbench.openDoc(page.id, options);
+      workbench.openDoc(page.id, { at: newTab ? 'new-tab' : 'active' });
       track.$.navigationPanel.journal.navigate({
         to: 'journal',
       });
@@ -76,9 +75,9 @@ export const useJournalRouteHelper = () => {
    * open today's journal
    */
   const openToday = useCallback(
-    (options: WorkbenchOpenOptions) => {
+    (newTab?: boolean) => {
       const date = dayjs().format(JOURNAL_DATE_FORMAT);
-      return openJournal(date, options);
+      return openJournal(date, newTab);
     },
     [openJournal]
   );

@@ -1,1 +1,9 @@
-export { insertImagesCommand } from './insert-images.js';
+import { getImageSelectionsCommand } from '@blocksuite/affine-shared/commands';
+import type { BlockCommands } from '@blocksuite/block-std';
+
+import { insertImagesCommand } from './insert-images.js';
+
+export const commands: BlockCommands = {
+  getImageSelections: getImageSelectionsCommand,
+  insertImages: insertImagesCommand,
+};

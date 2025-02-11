@@ -2,13 +2,13 @@ import type { WeekDatePickerHandle } from '@affine/component';
 import { WeekDatePicker } from '@affine/component';
 import { useJournalRouteHelper } from '@affine/core/components/hooks/use-journal';
 import { JournalService } from '@affine/core/modules/journal';
-import type { Store } from '@blocksuite/affine/store';
+import type { Doc } from '@blocksuite/affine/store';
 import { useLiveData, useService } from '@toeverything/infra';
 import dayjs from 'dayjs';
 import { useEffect, useRef, useState } from 'react';
 
 export interface JournalWeekDatePickerProps {
-  page: Store;
+  page: Doc;
 }
 
 const weekStyle = { maxWidth: 800, width: '100%' };

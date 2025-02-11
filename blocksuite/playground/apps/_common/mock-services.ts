@@ -1,20 +1,28 @@
-import type { EditorSetting } from '@blocksuite/affine-shared/services';
+/* eslint-disable @typescript-eslint/no-non-null-assertion */
+import type {
+  PeekOptions,
+  PeekViewService,
+} from '@blocksuite/affine-components/peek';
+import { PeekViewExtension } from '@blocksuite/affine-components/peek';
+import { BlockComponent } from '@blocksuite/block-std';
 import {
   ColorScheme,
   type DocMode,
   type DocModeProvider,
-  GeneralSettingSchema,
   type GenerateDocUrlService,
+  matchFlavours,
   type NotificationService,
   type ParseDocUrlService,
   type ReferenceParams,
   type ThemeExtension,
   toast,
 } from '@blocksuite/blocks';
-import { Slot } from '@blocksuite/global/utils';
 import type { AffineEditorContainer } from '@blocksuite/presets';
-import { type Workspace } from '@blocksuite/store';
-import { Signal, signal } from '@preact/signals-core';
+import { type DocCollection, Slot } from '@blocksuite/store';
+import { signal } from '@preact/signals-core';
+import type { TemplateResult } from 'lit';
+
+import type { AttachmentViewerPanel } from './components/attachment-viewer-panel.js';
 
 function getModeFromStorage() {
   const mapJson = localStorage.getItem('playground:docMode');
@@ -99,14 +107,14 @@ export function mockNotificationService(editor: AffineEditorContainer) {
   return notificationService;
 }
 
-export function mockParseDocUrlService(collection: Workspace) {
+export function mockParseDocUrlService(collection: DocCollection) {
   const parseDocUrlService: ParseDocUrlService = {
     parseDocUrl: (url: string) => {
       if (url && URL.canParse(url)) {
         const path = decodeURIComponent(new URL(url).hash.slice(1));
         const item =
           path.length > 0
-            ? Array.from(collection.docs.values()).find(doc => doc.id === path)
+            ? [...collection.docs.values()].find(doc => doc.id === path)
             : null;
         if (item) {
           return {
@@ -144,7 +152,38 @@ export const themeExtension: ThemeExtension = {
   },
 };
 
-export function mockGenerateDocUrlService(collection: Workspace) {
+export function mockPeekViewExtension(
+  attachmentViewerPanel: AttachmentViewerPanel
+) {
+  return PeekViewExtension({
+    peek(
+      element: {
+        target: HTMLElement;
+        docId: string;
+        blockIds?: string[];
+        template?: TemplateResult;
+      },
+      options?: PeekOptions
+    ) {
+      const { target } = element;
+
+      if (
+        target instanceof BlockComponent &&
+        matchFlavours(target.model, ['affine:attachment'])
+      ) {
+        attachmentViewerPanel.open(target.model);
+        return Promise.resolve();
+      }
+
+      alert('Peek view not implemented in playground');
+      console.log('peek', element, options);
+
+      return Promise.resolve();
+    },
+  } satisfies PeekViewService);
+}
+
+export function mockGenerateDocUrlService(collection: DocCollection) {
   const generateDocUrlService: GenerateDocUrlService = {
     generateDocUrl: (docId: string, params?: ReferenceParams) => {
       const doc = collection.getDoc(docId);
@@ -164,29 +203,4 @@ export function mockGenerateDocUrlService(collection: Workspace) {
     },
   };
   return generateDocUrlService;
-}
-
-export function mockEditorSetting() {
-  if (window.editorSetting$) return window.editorSetting$;
-
-  const initialVal = Object.entries(GeneralSettingSchema.shape).reduce(
-    (pre: EditorSetting, [key, schema]) => {
-      // @ts-expect-error key is EditorSetting field
-      pre[key as keyof EditorSetting] = schema.parse(undefined);
-      return pre;
-    },
-    {} as EditorSetting
-  );
-
-  const signal = new Signal<EditorSetting>(initialVal);
-
-  window.editorSetting$ = signal;
-
-  return signal;
-}
-
-declare global {
-  interface Window {
-    editorSetting$: Signal<EditorSetting>;
-  }
 }

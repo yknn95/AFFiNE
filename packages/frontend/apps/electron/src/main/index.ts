@@ -7,7 +7,7 @@ import { IPCMode } from '@sentry/electron/main';
 import { app } from 'electron';
 
 import { createApplicationMenu } from './application-menu/create';
-import { buildType, isDev, overrideSession } from './config';
+import { buildType, overrideSession } from './config';
 import { persistentConfig } from './config-storage/persist';
 import { setupDeepLink } from './deep-link';
 import { registerEvents } from './events';
@@ -22,12 +22,6 @@ import { launchStage } from './windows-manager/stage';
 app.enableSandbox();
 
 app.commandLine.appendSwitch('enable-features', 'CSSTextAutoSpace');
-if (isDev) {
-  // In electron the dev server will be resolved to 0.0.0.0, but it
-  // might be blocked by electron.
-  // See https://github.com/webpack/webpack-dev-server/pull/384
-  app.commandLine.appendSwitch('host-rules', 'MAP 0.0.0.0 127.0.0.1');
-}
 // https://github.com/electron/electron/issues/43556
 app.commandLine.appendSwitch('disable-features', 'PlzDedicatedWorker');
 

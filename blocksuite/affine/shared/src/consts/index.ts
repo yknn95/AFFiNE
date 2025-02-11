@@ -1,13 +1,4 @@
-import {
-  type EmbedCardStyle,
-  EmbedFigmaModel,
-  EmbedGithubModel,
-  EmbedHtmlModel,
-  EmbedLinkedDocModel,
-  EmbedLoomModel,
-  EmbedSyncedDocModel,
-  EmbedYoutubeModel,
-} from '@blocksuite/affine-model';
+import type { EmbedCardStyle } from '@blocksuite/affine-model';
 
 export const BLOCK_CHILDREN_CONTAINER_PADDING_LEFT = 24;
 export const EDGELESS_BLOCK_CHILD_PADDING = 24;
@@ -55,16 +46,6 @@ export const EMBED_BLOCK_FLAVOUR_LIST = [
   'affine:embed-synced-doc',
   'affine:embed-html',
   'affine:embed-loom',
-] as const;
-
-export const EMBED_BLOCK_MODEL_LIST = [
-  EmbedGithubModel,
-  EmbedYoutubeModel,
-  EmbedFigmaModel,
-  EmbedLinkedDocModel,
-  EmbedSyncedDocModel,
-  EmbedHtmlModel,
-  EmbedLoomModel,
 ] as const;
 
 export const DEFAULT_IMAGE_PROXY_ENDPOINT =

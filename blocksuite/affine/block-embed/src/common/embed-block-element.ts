@@ -43,10 +43,6 @@ export class EmbedBlockComponent<
   protected embedContainerStyle: StyleInfo = {};
 
   renderEmbed = (content: () => TemplateResult) => {
-    const selected = this.selected$.value;
-    const isInEdgeless =
-      this.std.get(DocModeProvider).getEditorMode() === 'edgeless';
-
     if (
       this._cardStyle === 'horizontal' ||
       this._cardStyle === 'horizontalThin' ||
@@ -54,17 +50,19 @@ export class EmbedBlockComponent<
     ) {
       this.style.display = 'block';
 
-      if (isInEdgeless) {
+      const mode = this.std.get(DocModeProvider).getEditorMode();
+      if (mode === 'edgeless') {
         this.style.minWidth = `${EMBED_CARD_MIN_WIDTH}px`;
       }
     }
 
+    const selected = !!this.selected?.is('block');
     return html`
       <div
         draggable="${this.blockDraggable ? 'true' : 'false'}"
         class=${classMap({
           'embed-block-container': true,
-          'selected-style': selected && !isInEdgeless,
+          'selected-style': selected,
         })}
         style=${styleMap({
           height: `${this._cardHeight}px`,

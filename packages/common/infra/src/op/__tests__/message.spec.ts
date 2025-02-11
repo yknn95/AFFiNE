@@ -50,6 +50,7 @@ describe('message', () => {
       removeEventListener: vi.fn(),
     };
     ctx.handler = new CustomMessageHandler(ctx.receivePort);
+    ctx.handler.listen();
   });
 
   it('should ignore unknown message type', ctx => {

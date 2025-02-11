@@ -1,7 +1,6 @@
-import type { ExtensionType } from '@blocksuite/store';
-
 import { WidgetViewMapIdentifier } from '../identifier.js';
 import type { WidgetViewMapType } from '../spec/type.js';
+import type { ExtensionType } from './extension.js';
 
 /**
  * Create a widget view map extension.

@@ -2,40 +2,40 @@
 /* eslint-disable */
 export declare class DocStorage {
   constructor(path: string)
+  /** Initialize the database and run migrations. */
+  connect(): Promise<void>
+  close(): Promise<void>
+  get isClosed(): Promise<boolean>
+  /**
+   * Flush the WAL file to the database file.
+   * See https://www.sqlite.org/pragma.html#pragma_wal_checkpoint:~:text=PRAGMA%20schema.wal_checkpoint%3B
+   */
+  checkpoint(): Promise<void>
   validate(): Promise<boolean>
   setSpaceId(spaceId: string): Promise<void>
-}
-
-export declare class DocStoragePool {
-  constructor()
-  /** Initialize the database and run migrations. */
-  connect(universalId: string, path: string): Promise<void>
-  disconnect(universalId: string): Promise<void>
-  checkpoint(universalId: string): Promise<void>
-  setSpaceId(universalId: string, spaceId: string): Promise<void>
-  pushUpdate(universalId: string, docId: string, update: Uint8Array): Promise<Date>
-  getDocSnapshot(universalId: string, docId: string): Promise<DocRecord | null>
-  setDocSnapshot(universalId: string, snapshot: DocRecord): Promise<boolean>
-  getDocUpdates(universalId: string, docId: string): Promise<Array<DocUpdate>>
-  markUpdatesMerged(universalId: string, docId: string, updates: Array<Date>): Promise<number>
-  deleteDoc(universalId: string, docId: string): Promise<void>
-  getDocClocks(universalId: string, after?: Date | undefined | null): Promise<Array<DocClock>>
-  getDocClock(universalId: string, docId: string): Promise<DocClock | null>
-  getBlob(universalId: string, key: string): Promise<Blob | null>
-  setBlob(universalId: string, blob: SetBlob): Promise<void>
-  deleteBlob(universalId: string, key: string, permanently: boolean): Promise<void>
-  releaseBlobs(universalId: string): Promise<void>
-  listBlobs(universalId: string): Promise<Array<ListedBlob>>
-  getPeerRemoteClocks(universalId: string, peer: string): Promise<Array<DocClock>>
-  getPeerRemoteClock(universalId: string, peer: string, docId: string): Promise<DocClock | null>
-  setPeerRemoteClock(universalId: string, peer: string, docId: string, clock: Date): Promise<void>
-  getPeerPulledRemoteClocks(universalId: string, peer: string): Promise<Array<DocClock>>
-  getPeerPulledRemoteClock(universalId: string, peer: string, docId: string): Promise<DocClock | null>
-  setPeerPulledRemoteClock(universalId: string, peer: string, docId: string, clock: Date): Promise<void>
-  getPeerPushedClocks(universalId: string, peer: string): Promise<Array<DocClock>>
-  getPeerPushedClock(universalId: string, peer: string, docId: string): Promise<DocClock | null>
-  setPeerPushedClock(universalId: string, peer: string, docId: string, clock: Date): Promise<void>
-  clearClocks(universalId: string): Promise<void>
+  pushUpdate(docId: string, update: Uint8Array): Promise<Date>
+  getDocSnapshot(docId: string): Promise<DocRecord | null>
+  setDocSnapshot(snapshot: DocRecord): Promise<boolean>
+  getDocUpdates(docId: string): Promise<Array<DocUpdate>>
+  markUpdatesMerged(docId: string, updates: Array<Date>): Promise<number>
+  deleteDoc(docId: string): Promise<void>
+  getDocClocks(after?: Date | undefined | null): Promise<Array<DocClock>>
+  getDocClock(docId: string): Promise<DocClock | null>
+  getBlob(key: string): Promise<Blob | null>
+  setBlob(blob: SetBlob): Promise<void>
+  deleteBlob(key: string, permanently: boolean): Promise<void>
+  releaseBlobs(): Promise<void>
+  listBlobs(): Promise<Array<ListedBlob>>
+  getPeerRemoteClocks(peer: string): Promise<Array<DocClock>>
+  getPeerRemoteClock(peer: string, docId: string): Promise<DocClock>
+  setPeerRemoteClock(peer: string, docId: string, clock: Date): Promise<void>
+  getPeerPulledRemoteClocks(peer: string): Promise<Array<DocClock>>
+  getPeerPulledRemoteClock(peer: string, docId: string): Promise<DocClock>
+  setPeerPulledRemoteClock(peer: string, docId: string, clock: Date): Promise<void>
+  getPeerPushedClocks(peer: string): Promise<Array<DocClock>>
+  getPeerPushedClock(peer: string, docId: string): Promise<DocClock>
+  setPeerPushedClock(peer: string, docId: string, clock: Date): Promise<void>
+  clearClocks(): Promise<void>
 }
 
 export declare class SqliteConnection {
@@ -46,7 +46,6 @@ export declare class SqliteConnection {
   deleteBlob(key: string): Promise<void>
   getBlobKeys(): Promise<Array<string>>
   getUpdates(docId?: string | undefined | null): Promise<Array<UpdateRow>>
-  getDocTimestamps(): Promise<Array<DocTimestampRow>>
   deleteUpdates(docId?: string | undefined | null): Promise<void>
   getUpdatesCount(docId?: string | undefined | null): Promise<number>
   getAllUpdates(): Promise<Array<UpdateRow>>
@@ -97,19 +96,14 @@ export interface DocClock {
 
 export interface DocRecord {
   docId: string
-  bin: Uint8Array
-  timestamp: Date
-}
-
-export interface DocTimestampRow {
-  docId?: string
+  data: Uint8Array
   timestamp: Date
 }
 
 export interface DocUpdate {
   docId: string
-  timestamp: Date
-  bin: Uint8Array
+  createdAt: Date
+  data: Uint8Array
 }
 
 export interface InsertRow {

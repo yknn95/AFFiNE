@@ -3,11 +3,11 @@ import { BlockSuiteError, ErrorCode } from '@blocksuite/global/exceptions';
 import type {
   BaseAdapter,
   BlockSnapshot,
+  Doc,
+  JobMiddleware,
   Slice,
-  Store,
-  Transformer,
-  TransformerMiddleware,
 } from '@blocksuite/store';
+import { Job } from '@blocksuite/store';
 import DOMPurify from 'dompurify';
 import type { RootContentMap } from 'hast';
 import * as lz from 'lz-string';
@@ -17,8 +17,8 @@ import { unified } from 'unified';
 import { LifeCycleWatcher } from '../extension/index.js';
 
 type AdapterConstructor<T extends BaseAdapter> =
-  | { new (job: Transformer): T }
-  | (new (job: Transformer, provider: ServiceProvider) => T);
+  | { new (job: Job): T }
+  | (new (job: Job, provider: ServiceProvider) => T);
 
 type AdapterMap = Map<
   string,
@@ -110,7 +110,7 @@ export class Clipboard extends LifeCycleWatcher {
 
   private readonly _getSnapshotByPriority = async (
     getItem: (type: string) => string | File[],
-    doc: Store,
+    doc: Doc,
     parent?: string,
     index?: number
   ) => {
@@ -138,7 +138,8 @@ export class Clipboard extends LifeCycleWatcher {
         const payload = {
           file: item,
           assets: job.assetsManager,
-          workspaceId: doc.workspace.id,
+          blockVersions: doc.collection.meta.blockVersions,
+          workspaceId: doc.collection.id,
           pageId: doc.id,
         };
         const result = await adapterInstance.toSlice(
@@ -155,7 +156,7 @@ export class Clipboard extends LifeCycleWatcher {
     return null;
   };
 
-  private _jobMiddlewares: TransformerMiddleware[] = [];
+  private _jobMiddlewares: JobMiddleware[] = [];
 
   copy = async (slice: Slice) => {
     return this.copySlice(slice);
@@ -182,7 +183,7 @@ export class Clipboard extends LifeCycleWatcher {
 
   duplicateSlice = async (
     slice: Slice,
-    doc: Store,
+    doc: Doc,
     parent?: string,
     index?: number,
     type = 'BLOCKSUITE/SNAPSHOT'
@@ -201,7 +202,7 @@ export class Clipboard extends LifeCycleWatcher {
 
   paste = async (
     event: ClipboardEvent,
-    doc: Store,
+    doc: Doc,
     parent?: string,
     index?: number
   ) => {
@@ -238,7 +239,7 @@ export class Clipboard extends LifeCycleWatcher {
 
   pasteBlockSnapshot = async (
     snapshot: BlockSnapshot,
-    doc: Store,
+    doc: Doc,
     parent?: string,
     index?: number
   ) => {
@@ -257,11 +258,11 @@ export class Clipboard extends LifeCycleWatcher {
     this._adapterMap.delete(mimeType);
   };
 
-  unuse = (middleware: TransformerMiddleware) => {
+  unuse = (middleware: JobMiddleware) => {
     this._jobMiddlewares = this._jobMiddlewares.filter(m => m !== middleware);
   };
 
-  use = (middleware: TransformerMiddleware) => {
+  use = (middleware: JobMiddleware) => {
     this._jobMiddlewares.push(middleware);
   };
 
@@ -285,7 +286,10 @@ export class Clipboard extends LifeCycleWatcher {
   }
 
   private _getJob() {
-    return this.std.getTransformer(this._jobMiddlewares);
+    return new Job({
+      middlewares: this._jobMiddlewares,
+      collection: this.std.collection,
+    });
   }
 
   readFromClipboard(clipboardData: DataTransfer) {

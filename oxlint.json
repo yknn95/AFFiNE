@@ -29,7 +29,6 @@
     "**/*.d.ts",
     "tools/cli/src/webpack/error-handler.js",
     "packages/backend/native/index.d.ts",
-    "packages/backend/server/src/__tests__/__snapshots__",
     "packages/frontend/native/index.d.ts",
     "packages/frontend/native/index.js",
     "packages/frontend/graphql/src/graphql/index.ts",
@@ -201,9 +200,9 @@
     {
       "files": [
         "*.{spec,test,e2e,stories}.{ts,tsx}",
-        "tests/**/*",
-        "**/__tests__/**/*",
-        "tools/**/*"
+        "tests/**/*.ts",
+        "packages/backend/server/tests/**/*.ts",
+        "tools/**.*"
       ],
       "rules": {
         "typescript/no-non-null-assertion": "off",

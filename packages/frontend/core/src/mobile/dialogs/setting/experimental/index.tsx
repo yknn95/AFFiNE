@@ -46,7 +46,6 @@ const ExperimentalFeatureList = () => {
       {Object.keys(AFFINE_FLAGS).map(key => (
         <ExperimentalFeaturesItem
           key={key}
-          flagKey={key}
           flag={featureFlagService.flags[key as keyof AFFINE_FLAGS]}
         />
       ))}
@@ -54,13 +53,7 @@ const ExperimentalFeatureList = () => {
   );
 };
 
-const ExperimentalFeaturesItem = ({
-  flag,
-  flagKey,
-}: {
-  flag: Flag;
-  flagKey: string;
-}) => {
+const ExperimentalFeaturesItem = ({ flag }: { flag: Flag }) => {
   const t = useI18n();
   const value = useLiveData(flag.$);
 
@@ -79,7 +72,7 @@ const ExperimentalFeaturesItem = ({
     <li>
       <div className={styles.itemBlock}>
         {t[flag.displayName]()}
-        <Switch data-testid={flagKey} checked={value} onChange={onChange} />
+        <Switch checked={value} onChange={onChange} />
       </div>
       {flag.description ? (
         <div className={styles.itemDescription}>{t[flag.description]()}</div>

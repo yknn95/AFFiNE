@@ -34,7 +34,6 @@ import {
   ShapeStyle,
   StrokeStyle,
 } from '@blocksuite/affine-model';
-import { FeatureFlagService } from '@blocksuite/affine-shared/services';
 import type { ColorEvent } from '@blocksuite/affine-shared/utils';
 import { countBy, maxBy, WithDisposable } from '@blocksuite/global/utils';
 import { css, html, LitElement, nothing, type TemplateResult } from 'lit';
@@ -44,7 +43,7 @@ import { choose } from 'lit/directives/choose.js';
 import { join } from 'lit/directives/join.js';
 import { styleMap } from 'lit/directives/style-map.js';
 import { when } from 'lit/directives/when.js';
-import { isEqual } from 'lodash-es';
+import isEqual from 'lodash.isequal';
 
 import {
   type LineStyleEvent,
@@ -318,9 +317,7 @@ export class EdgelessChangeShapeButton extends WithDisposable(LitElement) {
         `,
 
         when(
-          this.edgeless.doc
-            .get(FeatureFlagService)
-            .getFlag('enable_color_picker'),
+          this.edgeless.doc.awarenessStore.getFlag('enable_color_picker'),
           () => {
             const { type, colors } = packColorsWithColorScheme(
               colorScheme,
@@ -370,9 +367,7 @@ export class EdgelessChangeShapeButton extends WithDisposable(LitElement) {
         ),
 
         when(
-          this.edgeless.doc
-            .get(FeatureFlagService)
-            .getFlag('enable_color_picker'),
+          this.edgeless.doc.awarenessStore.getFlag('enable_color_picker'),
           () => {
             const { type, colors } = packColorsWithColorScheme(
               colorScheme,

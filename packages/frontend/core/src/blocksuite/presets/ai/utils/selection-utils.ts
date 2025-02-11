@@ -1,19 +1,13 @@
-import { type EditorHost, TextSelection } from '@blocksuite/affine/block-std';
-import type { GfxModel } from '@blocksuite/affine/block-std/gfx';
+import type { EditorHost } from '@blocksuite/affine/block-std';
 import {
   BlocksUtils,
   type CopilotTool,
-  DatabaseBlockModel,
   EdgelessRootService,
   type FrameBlockModel,
-  getBlockSelectionsCommand,
-  getImageSelectionsCommand,
-  getSelectedBlocksCommand,
-  getSelectedModelsCommand,
-  getTextSelectionCommand,
   ImageBlockModel,
   type SurfaceBlockComponent,
 } from '@blocksuite/affine/blocks';
+import { assertExists } from '@blocksuite/affine/global/utils';
 import {
   type BlockModel,
   type DraftModel,
@@ -45,22 +39,11 @@ export function getEdgelessService(editor: EditorHost) {
   throw new Error('Please open switch to edgeless mode');
 }
 
-export async function selectedToCanvas(host: EditorHost) {
-  const edgelessRoot = getEdgelessRootFromEditor(host);
-  return elementsToCanvas(
-    host,
+export async function selectedToCanvas(editor: EditorHost) {
+  const edgelessRoot = getEdgelessRootFromEditor(editor);
+  const { notes, frames, shapes, images } = BlocksUtils.splitElements(
     edgelessRoot.service.selection.selectedElements
   );
-}
-
-export async function allToCanvas(host: EditorHost) {
-  const edgelessRoot = getEdgelessRootFromEditor(host);
-  return elementsToCanvas(host, edgelessRoot.gfx.gfxElements);
-}
-
-export async function elementsToCanvas(host: EditorHost, elements: GfxModel[]) {
-  const edgelessRoot = getEdgelessRootFromEditor(host);
-  const { notes, frames, shapes, images } = BlocksUtils.splitElements(elements);
   if (notes.length + frames.length + images.length + shapes.length === 0) {
     return;
   }
@@ -100,14 +83,17 @@ export async function selectedToPng(editor: EditorHost) {
 }
 
 export function getSelectedModels(editorHost: EditorHost) {
-  const [_, ctx] = editorHost.std.command.exec(getSelectedModelsCommand, {
-    types: ['block', 'text'],
-  });
+  const chain = editorHost.std.command.chain();
+  const [_, ctx] = chain
+    .getSelectedModels({
+      types: ['block', 'text'],
+    })
+    .run();
   const { selectedModels } = ctx;
   return selectedModels;
 }
 
-export function traverse(model: DraftModel, drafts: DraftModel[]) {
+function traverse(model: DraftModel, drafts: DraftModel[]) {
   const isDatabase = model.flavour === 'affine:database';
   const children = isDatabase
     ? model.children
@@ -134,11 +120,11 @@ export async function getTextContentFromBlockModels(
   // Currently only filter out images and databases
   const selectedTextModels = models.filter(
     model =>
-      !BlocksUtils.matchFlavours(model, [ImageBlockModel, DatabaseBlockModel])
+      !BlocksUtils.matchFlavours(model, ['affine:image', 'affine:database'])
   );
   const drafts = selectedTextModels.map(toDraftModel);
   drafts.forEach(draft => traverse(draft, drafts));
-  const slice = Slice.fromModels(editorHost.std.store, drafts);
+  const slice = Slice.fromModels(editorHost.std.doc, drafts);
   return getContentFromSlice(editorHost, slice, type);
 }
 
@@ -147,13 +133,13 @@ export async function getSelectedTextContent(
   type: 'markdown' | 'plain-text' = 'markdown'
 ) {
   const selectedModels = getSelectedModels(editorHost);
-  if (!selectedModels) return '';
+  assertExists(selectedModels);
   return getTextContentFromBlockModels(editorHost, selectedModels, type);
 }
 
 export async function selectAboveBlocks(editorHost: EditorHost, num = 10) {
   let selectedModels = getSelectedModels(editorHost);
-  if (!selectedModels) return '';
+  assertExists(selectedModels);
 
   const lastLeafModel = selectedModels[selectedModels.length - 1];
 
@@ -163,7 +149,8 @@ export async function selectAboveBlocks(editorHost: EditorHost, num = 10) {
     lastRootModel = noteModel;
     noteModel = editorHost.doc.getParent(noteModel);
   }
-  if (!noteModel || !lastRootModel) return '';
+  assertExists(noteModel);
+  assertExists(lastRootModel);
 
   const endIndex = noteModel.children.indexOf(lastRootModel) + 1;
   const startIndex = Math.max(0, endIndex - num);
@@ -187,7 +174,7 @@ export async function selectAboveBlocks(editorHost: EditorHost, num = 10) {
 
   const { selection } = editorHost;
   selection.set([
-    selection.create(TextSelection, {
+    selection.create('text', {
       from: {
         blockId: startBlock.id,
         index: 0,
@@ -196,7 +183,7 @@ export async function selectAboveBlocks(editorHost: EditorHost, num = 10) {
       to: {
         blockId: lastLeafModel.id,
         index: 0,
-        length: selection.find(TextSelection)?.from.index ?? 0,
+        length: selection.find('text')?.from.index ?? 0,
       },
     }),
   ]);
@@ -211,13 +198,13 @@ export const stopPropagation = (e: Event) => {
 export function getSurfaceElementFromEditor(editor: EditorHost) {
   const { doc } = editor;
   const surfaceModel = doc.getBlockByFlavour('affine:surface')[0];
-  if (!surfaceModel) return null;
+  assertExists(surfaceModel);
 
   const surfaceId = surfaceModel.id;
   const surfaceElement = editor.querySelector(
     `affine-surface[data-block-id="${surfaceId}"]`
   ) as SurfaceBlockComponent;
-  if (!surfaceElement) return null;
+  assertExists(surfaceElement);
 
   return surfaceElement;
 }
@@ -247,11 +234,11 @@ export const getSelections = (
   const [_, data] = host.command
     .chain()
     .tryAll(chain => [
-      chain.pipe(getTextSelectionCommand),
-      chain.pipe(getBlockSelectionsCommand),
-      chain.pipe(getImageSelectionsCommand),
+      chain.getTextSelection(),
+      chain.getBlockSelections(),
+      chain.getImageSelections(),
     ])
-    .pipe(getSelectedBlocksCommand, { types: ['text', 'block', 'image'], mode })
+    .getSelectedBlocks({ types: ['text', 'block', 'image'], mode })
     .run();
 
   return data;
@@ -261,11 +248,11 @@ export const getSelectedImagesAsBlobs = async (host: EditorHost) => {
   const [_, data] = host.command
     .chain()
     .tryAll(chain => [
-      chain.pipe(getTextSelectionCommand),
-      chain.pipe(getBlockSelectionsCommand),
-      chain.pipe(getImageSelectionsCommand),
+      chain.getTextSelection(),
+      chain.getBlockSelections(),
+      chain.getImageSelections(),
     ])
-    .pipe(getSelectedBlocksCommand, {
+    .getSelectedBlocks({
       types: ['block', 'image'],
     })
     .run();

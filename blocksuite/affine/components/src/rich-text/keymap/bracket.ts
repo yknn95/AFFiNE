@@ -1,14 +1,9 @@
-import { CodeBlockModel } from '@blocksuite/affine-model';
 import { BRACKET_PAIRS } from '@blocksuite/affine-shared/consts';
 import {
   createDefaultDoc,
   matchFlavours,
 } from '@blocksuite/affine-shared/utils';
-import {
-  type BlockStdScope,
-  TextSelection,
-  type UIEventHandler,
-} from '@blocksuite/block-std';
+import type { BlockStdScope, UIEventHandler } from '@blocksuite/block-std';
 import type { InlineEditor } from '@blocksuite/inline';
 
 import { getInlineEditorByModel } from '../dom.js';
@@ -22,14 +17,14 @@ export const bracketKeymap = (
       return {
         ...acc,
         [pair.right]: ctx => {
-          const { store: doc, selection } = std;
+          const { doc, selection } = std;
           if (doc.readonly) return;
 
-          const textSelection = selection.find(TextSelection);
+          const textSelection = selection.find('text');
           if (!textSelection) return;
           const model = doc.getBlock(textSelection.from.blockId)?.model;
           if (!model) return;
-          if (!matchFlavours(model, [CodeBlockModel])) return;
+          if (!matchFlavours(model, ['affine:code'])) return;
           const inlineEditor = getInlineEditorByModel(
             std.host,
             textSelection.from.blockId
@@ -48,15 +43,15 @@ export const bracketKeymap = (
           }
         },
         [pair.left]: ctx => {
-          const { store: doc, selection } = std;
+          const { doc, selection } = std;
           if (doc.readonly) return;
 
-          const textSelection = selection.find(TextSelection);
+          const textSelection = selection.find('text');
           if (!textSelection) return;
           const model = doc.getBlock(textSelection.from.blockId)?.model;
           if (!model) return;
 
-          const isCodeBlock = matchFlavours(model, [CodeBlockModel]);
+          const isCodeBlock = matchFlavours(model, ['affine:code']);
           // When selection is collapsed, only trigger auto complete in code block
           if (textSelection.isCollapsed() && !isCodeBlock) return;
           if (!textSelection.isInSameBlock()) return;
@@ -99,10 +94,10 @@ export const bracketKeymap = (
   return {
     ...keymap,
     '`': ctx => {
-      const { store: doc, selection } = std;
+      const { doc, selection } = std;
       if (doc.readonly) return;
 
-      const textSelection = selection.find(TextSelection);
+      const textSelection = selection.find('text');
       if (!textSelection || textSelection.isCollapsed()) return;
       if (!textSelection.isInSameBlock()) return;
       const model = doc.getBlock(textSelection.from.blockId)?.model;
@@ -129,7 +124,7 @@ export const bracketKeymap = (
 };
 
 function tryConvertToLinkedDoc(std: BlockStdScope, inlineEditor: InlineEditor) {
-  const root = std.store.root;
+  const root = std.doc.root;
   if (!root) return false;
   const linkedDocWidgetEle = std.view.getWidget(
     'affine-linked-doc-widget',
@@ -155,7 +150,7 @@ function tryConvertToLinkedDoc(std: BlockStdScope, inlineEditor: InlineEditor) {
   });
   inlineEditor.setInlineRange({ index: inlineRange.index - 1, length: 0 });
 
-  const doc = createDefaultDoc(std.store.workspace, {
+  const doc = createDefaultDoc(std.doc.collection, {
     title: docName,
   });
   insertLinkedNode({

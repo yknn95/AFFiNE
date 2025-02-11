@@ -16,9 +16,11 @@ import {
   pressArrowRight,
   pressBackspace,
   pressEnter,
+  redoByKeyboard,
   selectAllByKeyboard,
   SHORT_KEY,
   type,
+  undoByKeyboard,
 } from './utils/actions/keyboard.js';
 import {
   captureHistory,
@@ -35,6 +37,7 @@ import {
   assertExists,
   assertParentBlockFlavour,
   assertRichTexts,
+  assertStoreMatchJSX,
   assertTitle,
 } from './utils/asserts.js';
 import { test } from './utils/playwright.js';
@@ -92,17 +95,22 @@ test.describe('multiple page', () => {
 });
 
 test.describe('reference node', () => {
-  test('linked doc popover can show and hide correctly', async ({
-    page,
-  }, testInfo) => {
+  test('linked doc popover can show and hide correctly', async ({ page }) => {
     await enterPlaygroundRoom(page);
-    await initEmptyParagraphState(page);
+    const { paragraphId } = await initEmptyParagraphState(page);
     await focusRichText(page);
     await type(page, '[[');
 
     // `[[` should be converted to `@`
-    expect(await getPageSnapshot(page, true)).toMatchSnapshot(
-      `${testInfo.title}.json`
+    await assertStoreMatchJSX(
+      page,
+      `
+<affine:paragraph
+  prop:collapsed={false}
+  prop:text="@"
+  prop:type="text"
+/>`,
+      paragraphId
     );
     const { linkedDocPopover } = getLinkedDocPopover(page);
     await expect(linkedDocPopover).toBeVisible();
@@ -132,23 +140,46 @@ test.describe('reference node', () => {
     await expect(linkedDocPopover).toBeHidden();
   });
 
-  test('should reference node attributes correctly', async ({
-    page,
-  }, testInfo) => {
+  test('should reference node attributes correctly', async ({ page }) => {
     await enterPlaygroundRoom(page);
-    await initEmptyParagraphState(page);
-    await addNewPage(page);
+    const { paragraphId } = await initEmptyParagraphState(page);
+    const { id } = await addNewPage(page);
     await focusRichText(page);
     await type(page, '[[');
     await pressEnter(page);
 
-    expect(await getPageSnapshot(page, true)).toMatchSnapshot(
-      `${testInfo.title}_1.json`
+    await assertStoreMatchJSX(
+      page,
+      `
+<affine:paragraph
+  prop:collapsed={false}
+  prop:text={
+    <>
+      <text
+        insert=" "
+        reference={
+          Object {
+            "pageId": "${id}",
+            "type": "LinkedPage",
+          }
+        }
+      />
+    </>
+  }
+  prop:type="text"
+/>`,
+      paragraphId
     );
 
     await pressBackspace(page);
-    expect(await getPageSnapshot(page, true)).toMatchSnapshot(
-      `${testInfo.title}_2.json`
+    await assertStoreMatchJSX(
+      page,
+      `
+<affine:paragraph
+  prop:collapsed={false}
+  prop:type="text"
+/>`,
+      paragraphId
     );
   });
 
@@ -180,10 +211,10 @@ test.describe('reference node', () => {
 
   test('text inserted in the between of reference nodes should not be extend attributes', async ({
     page,
-  }, testInfo) => {
+  }) => {
     await enterPlaygroundRoom(page);
-    await initEmptyParagraphState(page);
-    await addNewPage(page);
+    const { paragraphId } = await initEmptyParagraphState(page);
+    const { id } = await addNewPage(page);
     await focusRichText(page);
 
     await type(page, '1');
@@ -203,17 +234,51 @@ test.describe('reference node', () => {
     await type(page, '3');
     await assertRichTexts(page, ['1 3 2']);
 
-    expect(await getPageSnapshot(page, true)).toMatchSnapshot(
-      `${testInfo.title}.json`
-    );
+    const snapshot = `
+<affine:paragraph
+  prop:collapsed={false}
+  prop:text={
+    <>
+      <text
+        insert="1"
+      />
+      <text
+        insert=" "
+        reference={
+          Object {
+            "pageId": "${id}",
+            "type": "LinkedPage",
+          }
+        }
+      />
+      <text
+        insert="3"
+      />
+      <text
+        insert=" "
+        reference={
+          Object {
+            "pageId": "${id}",
+            "type": "LinkedPage",
+          }
+        }
+      />
+      <text
+        insert="2"
+      />
+    </>
+  }
+  prop:type="text"
+/>`;
+    await assertStoreMatchJSX(page, snapshot, paragraphId);
   });
 
   test('text can be inserted as expected when reference node is in the start or end of line', async ({
     page,
-  }, testInfo) => {
+  }) => {
     await enterPlaygroundRoom(page);
-    await initEmptyParagraphState(page);
-    await addNewPage(page);
+    const { paragraphId } = await initEmptyParagraphState(page);
+    const { id } = await addNewPage(page);
     await focusRichText(page);
 
     await type(page, '@');
@@ -239,17 +304,51 @@ test.describe('reference node', () => {
     await type(page, '1');
     await assertRichTexts(page, ['1 3 2']);
 
-    expect(await getPageSnapshot(page, true)).toMatchSnapshot(
-      `${testInfo.title}.json`
-    );
+    const snapshot = `
+<affine:paragraph
+  prop:collapsed={false}
+  prop:text={
+    <>
+      <text
+        insert="1"
+      />
+      <text
+        insert=" "
+        reference={
+          Object {
+            "pageId": "${id}",
+            "type": "LinkedPage",
+          }
+        }
+      />
+      <text
+        insert="3"
+      />
+      <text
+        insert=" "
+        reference={
+          Object {
+            "pageId": "${id}",
+            "type": "LinkedPage",
+          }
+        }
+      />
+      <text
+        insert="2"
+      />
+    </>
+  }
+  prop:type="text"
+/>`;
+    await assertStoreMatchJSX(page, snapshot, paragraphId);
   });
 
   test('should the cursor move correctly around reference node', async ({
     page,
-  }, testInfo) => {
+  }) => {
     await enterPlaygroundRoom(page);
-    await initEmptyParagraphState(page);
-    await addNewPage(page);
+    const { paragraphId } = await initEmptyParagraphState(page);
+    const { id } = await addNewPage(page);
     await focusRichText(page);
 
     await type(page, '1');
@@ -271,16 +370,57 @@ test.describe('reference node', () => {
     await type(page, '4');
     await assertRichTexts(page, ['14 32']);
 
-    expect(await getPageSnapshot(page, true)).toMatchSnapshot(
-      `${testInfo.title}_1.json`
-    );
+    const snapshot = `
+<affine:paragraph
+  prop:collapsed={false}
+  prop:text={
+    <>
+      <text
+        insert="14"
+      />
+      <text
+        insert=" "
+        reference={
+          Object {
+            "pageId": "${id}",
+            "type": "LinkedPage",
+          }
+        }
+      />
+      <text
+        insert="32"
+      />
+    </>
+  }
+  prop:type="text"
+/>`;
+    await assertStoreMatchJSX(page, snapshot, paragraphId);
 
     await page.keyboard.press('ArrowRight');
     await captureHistory(page);
     await pressBackspace(page);
-
-    expect(await getPageSnapshot(page, true)).toMatchSnapshot(
-      `${testInfo.title}_2.json`
+    await assertStoreMatchJSX(
+      page,
+      `
+<affine:paragraph
+  prop:collapsed={false}
+  prop:text="1432"
+  prop:type="text"
+/>`,
+      paragraphId
+    );
+    await undoByKeyboard(page);
+    await assertStoreMatchJSX(page, snapshot, paragraphId);
+    await redoByKeyboard(page);
+    await assertStoreMatchJSX(
+      page,
+      `
+<affine:paragraph
+  prop:collapsed={false}
+  prop:text="1432"
+  prop:type="text"
+/>`,
+      paragraphId
     );
   });
 
@@ -607,15 +747,13 @@ test.describe('linked page with clipboard', () => {
   });
 });
 
-test('should [[Selected text]] converted to linked page', async ({
-  page,
-}, testInfo) => {
+test('should [[Selected text]] converted to linked page', async ({ page }) => {
   test.info().annotations.push({
     type: 'issue',
     description: 'https://github.com/toeverything/blocksuite/issues/2730',
   });
   await enterPlaygroundRoom(page);
-  await initEmptyParagraphState(page);
+  const { paragraphId } = await initEmptyParagraphState(page);
   await focusRichText(page);
   await type(page, '1234');
 
@@ -623,8 +761,33 @@ test('should [[Selected text]] converted to linked page', async ({
   await type(page, '[');
   await assertRichTexts(page, ['1[2]34']);
   await type(page, '[');
-  expect(await getPageSnapshot(page, true)).toMatchSnapshot(
-    `${testInfo.title}.json`
+  await assertStoreMatchJSX(
+    page,
+    `
+<affine:paragraph
+  prop:collapsed={false}
+  prop:text={
+    <>
+      <text
+        insert="1"
+      />
+      <text
+        insert=" "
+        reference={
+          Object {
+            "pageId": "3",
+            "type": "LinkedPage",
+          }
+        }
+      />
+      <text
+        insert="34"
+      />
+    </>
+  }
+  prop:type="text"
+/>`,
+    paragraphId
   );
   await switchToPage(page, '3');
   await assertTitle(page, '2');
@@ -665,8 +828,6 @@ test('linked doc can be dragged from note to surface top level block', async ({
 }) => {
   await enterPlaygroundRoom(page);
   await initEmptyEdgelessState(page);
-  await focusTitle(page);
-  await type(page, 'title0');
   await focusRichText(page);
   await createAndConvertToEmbedLinkedDoc(page);
 

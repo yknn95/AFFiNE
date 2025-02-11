@@ -51,7 +51,7 @@ export const menuItem = style({
     '&.block': {
       maxWidth: '100%',
     },
-    '&[data-disabled], &.disabled': {
+    '&[data-disabled]': {
       vars: {
         [iconColor]: cssVarV2('icon/disable'),
         [labelColor]: cssVarV2('text/secondary'),
@@ -85,6 +85,7 @@ export const menuItem = style({
     '&.checked, &.selected': {
       vars: {
         [iconColor]: cssVar('primaryColor'),
+        [labelColor]: cssVar('primaryColor'),
       },
     },
   },

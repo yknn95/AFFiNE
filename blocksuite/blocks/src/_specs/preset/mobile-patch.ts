@@ -3,7 +3,6 @@ import {
   type ReferenceNodeConfig,
   ReferenceNodeConfigIdentifier,
 } from '@blocksuite/affine-components/rich-text';
-import { FeatureFlagService } from '@blocksuite/affine-shared/services';
 import {
   type BlockStdScope,
   ConfigIdentifier,
@@ -22,10 +21,9 @@ export class MobileSpecsPatches extends LifeCycleWatcher {
 
   constructor(std: BlockStdScope) {
     super(std);
-    const featureFlagService = std.get(FeatureFlagService);
 
-    featureFlagService.setFlag('enable_mobile_keyboard_toolbar', true);
-    featureFlagService.setFlag('enable_mobile_linked_doc_menu', true);
+    std.doc.awarenessStore.setFlag('enable_mobile_keyboard_toolbar', true);
+    std.doc.awarenessStore.setFlag('enable_mobile_linked_doc_menu', true);
   }
 
   static override setup(di: Container) {

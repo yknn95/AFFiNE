@@ -4,7 +4,7 @@ import type { Tag } from '@affine/core/modules/tag';
 import { TagService } from '@affine/core/modules/tag';
 import { useI18n } from '@affine/i18n';
 import { track } from '@affine/track';
-import { AddTagIcon } from '@blocksuite/icons/rc';
+import { PlusIcon } from '@blocksuite/icons/rc';
 import { useLiveData, useServices } from '@toeverything/infra';
 import { useCallback, useEffect, useState } from 'react';
 
@@ -54,7 +54,7 @@ export const ExplorerTags = () => {
             'com.affine.rootAppSidebar.explorer.tag-section-add-tooltip'
           ]()}
         >
-          <AddTagIcon />
+          <PlusIcon />
         </IconButton>
       }
     >

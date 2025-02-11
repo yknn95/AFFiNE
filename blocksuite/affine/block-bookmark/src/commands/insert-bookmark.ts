@@ -5,7 +5,11 @@ import type { EmbedCardStyle } from '@blocksuite/affine-model';
 import { EmbedOptionProvider } from '@blocksuite/affine-shared/services';
 import type { Command } from '@blocksuite/block-std';
 
-export const insertBookmarkCommand: Command<{ url: string }> = (ctx, next) => {
+export const insertBookmarkCommand: Command<
+  never,
+  'insertedLinkType',
+  { url: string }
+> = (ctx, next) => {
   const { url, std } = ctx;
   const embedOptions = std.get(EmbedOptionProvider).getEmbedBlockOptions(url);
 

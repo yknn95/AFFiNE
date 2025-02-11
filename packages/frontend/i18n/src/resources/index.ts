@@ -18,10 +18,8 @@ export type Language =
   | 'sv-SE'
   | 'ur'
   | 'ar'
-  | 'uk'
   | 'ko'
-  | 'pt-BR'
-  | 'fa';
+  | 'pt-BR';
 
 export type LanguageResource = typeof en;
 export const SUPPORTED_LANGUAGES: Record<
@@ -139,6 +137,7 @@ export const SUPPORTED_LANGUAGES: Record<
     flagEmoji: '🇸🇪',
     resource: () => /* webpackChunkName "i18n-sv_SE" */ import('./sv-SE.json'),
   },
+
   ur: {
     name: 'Urdu',
     originalName: 'اردو',
@@ -150,17 +149,5 @@ export const SUPPORTED_LANGUAGES: Record<
     originalName: 'العربية',
     flagEmoji: '🇸🇦',
     resource: () => /* webpackChunkName "i18n-ar" */ import('./ar.json'),
-  },
-  fa: {
-    name: 'Persian',
-    originalName: 'فارسی',
-    flagEmoji: '🇮🇷',
-    resource: () => /* webpackChunkName "i18n-ar" */ import('./fa.json'),
-  },
-  uk: {
-    name: 'Ukrainian',
-    originalName: 'українська',
-    flagEmoji: '🇺🇦',
-    resource: () => /* webpackChunkName "i18n-uk" */ import('./uk.json'),
   },
 };

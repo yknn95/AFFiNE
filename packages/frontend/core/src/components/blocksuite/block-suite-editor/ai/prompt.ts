@@ -8,7 +8,6 @@ export const promptKeys = [
   'debug:action:fal-remove-bg',
   'debug:action:fal-face-to-sticker',
   'Chat With AFFiNE AI',
-  'Search With AFFiNE AI',
   'Summary',
   'Generate a caption',
   'Summary the webpage',

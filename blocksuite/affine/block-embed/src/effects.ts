@@ -12,7 +12,12 @@ import { EmbedHtmlBlockComponent } from './embed-html-block';
 import { EmbedHtmlFullscreenToolbar } from './embed-html-block/components/fullscreen-toolbar';
 import { EmbedEdgelessHtmlBlockComponent } from './embed-html-block/embed-edgeless-html-block';
 import { EmbedLinkedDocBlockComponent } from './embed-linked-doc-block';
+import type {
+  InsertedLinkType,
+  insertEmbedLinkedDocCommand,
+} from './embed-linked-doc-block/commands/insert-embed-linked-doc';
 import { EmbedEdgelessLinkedDocBlockComponent } from './embed-linked-doc-block/embed-edgeless-linked-doc-block';
+import type { EmbedLinkedDocBlockConfig } from './embed-linked-doc-block/embed-linked-doc-config';
 import {
   EmbedLoomBlockComponent,
   type EmbedLoomBlockService,
@@ -114,6 +119,15 @@ declare global {
       'affine:embed-github': EmbedGithubBlockService;
       'affine:embed-loom': EmbedLoomBlockService;
       'affine:embed-youtube': EmbedYoutubeBlockService;
+    }
+    interface CommandContext {
+      insertedLinkType?: Promise<InsertedLinkType>;
+    }
+    interface BlockConfigs {
+      'affine:embed-linked-doc': EmbedLinkedDocBlockConfig;
+    }
+    interface Commands {
+      insertEmbedLinkedDoc: typeof insertEmbedLinkedDocCommand;
     }
   }
 }

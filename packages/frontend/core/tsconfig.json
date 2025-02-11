@@ -1,21 +1,33 @@
 {
-  "extends": "../../../tsconfig.web.json",
+  "extends": "../../../tsconfig.json",
   "compilerOptions": {
-    "rootDir": "./src",
-    "outDir": "./dist",
-    "tsBuildInfoFile": "./dist/tsconfig.tsbuildinfo"
+    "outDir": "lib",
+    "typeRoots": ["../../../node_modules", "../../../node_modules/@types"],
+    "types": ["webpack-env", "ses", "affine__env"]
   },
-  "include": ["./src", "src/**/*.json"],
+  "include": ["src/**/*.ts", "src/**/*.tsx", "src/**/*.json"],
+  "exclude": ["node_modules"],
   "references": [
-    { "path": "../component" },
-    { "path": "../../common/debug" },
-    { "path": "../electron-api" },
-    { "path": "../../common/env" },
-    { "path": "../graphql" },
-    { "path": "../i18n" },
-    { "path": "../../common/nbstore" },
-    { "path": "../track" },
-    { "path": "../../../blocksuite/affine/all" },
-    { "path": "../../common/infra" }
+    {
+      "path": "../../frontend/component"
+    },
+    {
+      "path": "../../frontend/graphql"
+    },
+    {
+      "path": "../../frontend/i18n"
+    },
+    {
+      "path": "../../frontend/electron-api"
+    },
+    {
+      "path": "../../common/debug"
+    },
+    {
+      "path": "../../common/env"
+    },
+    {
+      "path": "../../../blocksuite/affine/all"
+    }
   ]
 }

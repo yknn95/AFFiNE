@@ -16,7 +16,7 @@ import {
   openFileOrFiles,
   ZipTransformer,
 } from '@blocksuite/affine/blocks';
-import type { Workspace } from '@blocksuite/affine/store';
+import type { DocCollection } from '@blocksuite/affine/store';
 import {
   ExportToHtmlIcon,
   ExportToMarkdownIcon,
@@ -51,7 +51,7 @@ type ImportResult = {
 type ImportConfig = {
   fileOptions: { acceptType: AcceptType; multiple: boolean };
   importFunction: (
-    docCollection: Workspace,
+    docCollection: DocCollection,
     file: File | File[]
   ) => Promise<ImportResult>;
 };
@@ -119,10 +119,6 @@ const importOptions = [
     prefixIcon: (
       <PageIcon color={cssVarV2('icon/primary')} width={20} height={20} />
     ),
-    suffixIcon: (
-      <HelpIcon color={cssVarV2('icon/primary')} width={20} height={20} />
-    ),
-    suffixTooltip: 'com.affine.import.snapshot.tooltip',
     testId: 'editor-option-menu-import-snapshot',
     type: 'snapshot' as ImportType,
   },

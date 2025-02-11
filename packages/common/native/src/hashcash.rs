@@ -2,8 +2,8 @@ use std::convert::TryFrom;
 
 use chrono::{DateTime, Duration, NaiveDateTime, Utc};
 use rand::{
-  distr::{Alphanumeric, Distribution},
-  rng,
+  distributions::{Alphanumeric, Distribution},
+  thread_rng,
 };
 use sha3::{Digest, Sha3_256};
 
@@ -66,7 +66,7 @@ impl Stamp {
     let bits = bits.unwrap_or(20);
     let rand = String::from_iter(
       Alphanumeric
-        .sample_iter(rng())
+        .sample_iter(thread_rng())
         .take(SALT_LENGTH)
         .map(char::from),
     );
@@ -129,10 +129,9 @@ impl TryFrom<&str> for Stamp {
 
 #[cfg(test)]
 mod tests {
-  use rand::{distr::Alphanumeric, Rng};
-  use rayon::prelude::*;
-
   use super::Stamp;
+  use rand::{distributions::Alphanumeric, Rng};
+  use rayon::prelude::*;
 
   #[test]
   fn test_mint() {
@@ -188,7 +187,7 @@ mod tests {
   fn test_fuzz() {
     (0..1000).into_par_iter().for_each(|_| {
       let bit = rand::random::<u32>() % 20 + 1;
-      let resource = rand::rng()
+      let resource = rand::thread_rng()
         .sample_iter(&Alphanumeric)
         .take(7)
         .map(char::from)

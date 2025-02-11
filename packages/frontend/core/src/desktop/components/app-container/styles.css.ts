@@ -78,25 +78,27 @@ export const mainContainerStyle = style({
   width: '100%',
   display: 'flex',
   flex: 1,
+  overflow: 'clip',
   maxWidth: '100%',
 
   selectors: {
     '&[data-client-border="true"]': {
       borderRadius: 6,
-      padding: '8px',
+      margin: '8px',
+      overflow: 'clip',
       '@media': {
         print: {
           overflow: 'visible',
-          padding: '0px',
+          margin: '0px',
           borderRadius: '0px',
         },
       },
     },
     '&[data-client-border="true"][data-side-bar-open="true"]': {
-      paddingLeft: 0,
+      marginLeft: 0,
     },
     '&[data-client-border="true"][data-is-desktop="true"]': {
-      paddingTop: 0,
+      marginTop: 0,
     },
     '&[data-client-border="false"][data-is-desktop="true"][data-side-bar-open="true"]':
       {

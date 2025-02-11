@@ -1,7 +1,7 @@
-/* oxlint-disable @typescript-eslint/no-non-null-assertion */
+/* eslint-disable @typescript-eslint/no-non-null-assertion */
 import type { AttachmentBlockModel } from '@blocksuite/affine-model';
 import { humanFileSize } from '@blocksuite/affine-shared/utils';
-import { getAttachmentFileIcon } from '@blocksuite/blocks';
+import { getAttachmentFileIcons } from '@blocksuite/blocks';
 import { SignalWatcher, WithDisposable } from '@blocksuite/global/utils';
 import {
   ArrowDownBigIcon,
@@ -155,7 +155,7 @@ export class AttachmentViewerPanel extends SignalWatcher(
     const { name, size } = model;
 
     const fileType = name.split('.').pop() ?? '';
-    const icon = getAttachmentFileIcon(fileType);
+    const icon = getAttachmentFileIcons(fileType);
     const isPDF = fileType === 'pdf';
 
     this.#fileInfo.value = {

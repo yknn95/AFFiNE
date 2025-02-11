@@ -1,27 +1,27 @@
 import {
-  EmbedLinkedDocBlockComponent,
-  EmbedSyncedDocBlockComponent,
+  type BuiltInEmbedBlockComponent,
+  type BuiltInEmbedModel,
+  isEmbedCardBlockComponent,
+  isInternalEmbedModel,
+  toggleEmbedCardCaptionEditModal,
+  toggleEmbedCardEditModal,
+} from '@blocksuite/affine-block-bookmark';
+import {
   getDocContentWithMaxLength,
   getEmbedCardIcons,
 } from '@blocksuite/affine-block-embed';
 import {
-  toggleEmbedCardCaptionEditModal,
-  toggleEmbedCardEditModal,
-} from '@blocksuite/affine-components/embed-card-modal';
-import {
   CaptionIcon,
+  CenterPeekIcon,
   CopyIcon,
   EditIcon,
+  ExpandFullSmallIcon,
   MoreVerticalIcon,
   OpenIcon,
   PaletteIcon,
   SmallArrowDownIcon,
 } from '@blocksuite/affine-components/icons';
-import {
-  notifyLinkedDocClearedAliases,
-  notifyLinkedDocSwitchedToCard,
-  notifyLinkedDocSwitchedToEmbed,
-} from '@blocksuite/affine-components/notification';
+import { notifyLinkedDocSwitchedToEmbed } from '@blocksuite/affine-components/notification';
 import { isPeekable, peek } from '@blocksuite/affine-components/peek';
 import { toast } from '@blocksuite/affine-components/toast';
 import {
@@ -36,33 +36,24 @@ import {
   type AliasInfo,
   type BookmarkBlockModel,
   BookmarkStyles,
-  type BuiltInEmbedModel,
   type EmbedCardStyle,
   type EmbedGithubModel,
   type EmbedLinkedDocModel,
-  isInternalEmbedModel,
   type RootBlockModel,
 } from '@blocksuite/affine-model';
 import {
   EmbedOptionProvider,
   type EmbedOptions,
-  FeatureFlagService,
   GenerateDocUrlProvider,
   type GenerateDocUrlService,
   type LinkEventType,
-  OpenDocExtensionIdentifier,
   type TelemetryEvent,
   TelemetryProvider,
   ThemeProvider,
 } from '@blocksuite/affine-shared/services';
 import { getHostName, referenceToNode } from '@blocksuite/affine-shared/utils';
-import {
-  BlockSelection,
-  type BlockStdScope,
-  TextSelection,
-  WidgetComponent,
-} from '@blocksuite/block-std';
-import { type BlockModel, Text } from '@blocksuite/store';
+import { type BlockStdScope, WidgetComponent } from '@blocksuite/block-std';
+import { type BlockModel, DocCollection } from '@blocksuite/store';
 import { autoUpdate, computePosition, flip, offset } from '@floating-ui/dom';
 import { html, nothing, type TemplateResult } from 'lit';
 import { query, state } from 'lit/decorators.js';
@@ -70,7 +61,6 @@ import { classMap } from 'lit/directives/class-map.js';
 import { ifDefined } from 'lit/directives/if-defined.js';
 import { join } from 'lit/directives/join.js';
 import { repeat } from 'lit/directives/repeat.js';
-import * as Y from 'yjs';
 
 import {
   isBookmarkBlock,
@@ -80,10 +70,6 @@ import {
   isEmbedSyncedDocBlock,
 } from '../../edgeless/utils/query.js';
 import type { RootBlockComponent } from '../../types.js';
-import {
-  type BuiltInEmbedBlockComponent,
-  isEmbedCardBlockComponent,
-} from '../../utils/types';
 import { BUILT_IN_GROUPS } from './config.js';
 import { EmbedCardToolbarContext } from './context.js';
 import { embedCardToolbarStyle } from './styles.js';
@@ -135,35 +121,7 @@ export class EmbedCardToolbar extends WidgetComponent<
 
     this._hide();
 
-    toggleEmbedCardEditModal(
-      this.host,
-      model,
-      this._viewType,
-      originalDocInfo,
-      (std, component) => {
-        if (
-          isEmbedLinkedDocBlock(model) &&
-          component instanceof EmbedLinkedDocBlockComponent
-        ) {
-          component.refreshData();
-
-          notifyLinkedDocClearedAliases(std);
-        }
-      },
-      (std, component, props) => {
-        if (
-          isEmbedSyncedDocBlock(model) &&
-          component instanceof EmbedSyncedDocBlockComponent
-        ) {
-          component.convertToCard(props);
-
-          notifyLinkedDocSwitchedToCard(std);
-        } else {
-          this.model.doc.updateBlock(model, props);
-          component.requestUpdate();
-        }
-      }
-    );
+    toggleEmbedCardEditModal(this.host, model, this._viewType, originalDocInfo);
 
     track(this.std, model, this._viewType, 'OpenedAliasPopup', {
       control: 'edit',
@@ -239,9 +197,9 @@ export class EmbedCardToolbar extends WidgetComponent<
   private get _canConvertToEmbedView() {
     // synced doc entry controlled by awareness flag
     if (this.focusModel && isEmbedLinkedDocBlock(this.focusModel)) {
-      const isSyncedDocEnabled = this.doc
-        .get(FeatureFlagService)
-        .getFlag('enable_synced_doc_block');
+      const isSyncedDocEnabled = this.doc.awarenessStore.getFlag(
+        'enable_synced_doc_block'
+      );
       if (!isSyncedDocEnabled) {
         return false;
       }
@@ -304,7 +262,7 @@ export class EmbedCardToolbar extends WidgetComponent<
     if (!model) return undefined;
 
     const doc = isInternalEmbedModel(model)
-      ? this.std.workspace.getDoc(model.pageId)
+      ? this.std.collection.getDoc(model.pageId)
       : null;
 
     if (doc) {
@@ -323,7 +281,7 @@ export class EmbedCardToolbar extends WidgetComponent<
     if (!model) return undefined;
 
     const doc = isInternalEmbedModel(model)
-      ? this.std.workspace.getDoc(model.pageId)
+      ? this.std.collection.getDoc(model.pageId)
       : null;
 
     return doc?.meta?.title || 'Untitled';
@@ -538,42 +496,34 @@ export class EmbedCardToolbar extends WidgetComponent<
   }
 
   private _openMenuButton() {
-    const openDocConfig = this.std.get(OpenDocExtensionIdentifier);
+    const buttons: MenuItem[] = [];
+
+    if (
+      this.focusModel &&
+      (isEmbedLinkedDocBlock(this.focusModel) ||
+        isEmbedSyncedDocBlock(this.focusModel))
+    ) {
+      buttons.push({
+        type: 'open-this-doc',
+        label: 'Open this doc',
+        icon: ExpandFullSmallIcon,
+        action: () => this.focusBlock?.open(),
+      });
+    }
+
+    // open in new tab
+
     const element = this.focusBlock;
-    const buttons: MenuItem[] = openDocConfig.items
-      .map(item => {
-        if (
-          item.type === 'open-in-center-peek' &&
-          element &&
-          !isPeekable(element)
-        ) {
-          return null;
-        }
+    if (element && isPeekable(element)) {
+      buttons.push({
+        type: 'open-in-center-peek',
+        label: 'Open in center peek',
+        icon: CenterPeekIcon,
+        action: () => peek(element),
+      });
+    }
 
-        if (
-          !(
-            this.focusModel &&
-            (isEmbedLinkedDocBlock(this.focusModel) ||
-              isEmbedSyncedDocBlock(this.focusModel))
-          )
-        ) {
-          return null;
-        }
-
-        return {
-          label: item.label,
-          type: item.type,
-          icon: item.icon,
-          action: () => {
-            if (item.type === 'open-in-center-peek') {
-              element && peek(element);
-            } else {
-              this.focusBlock?.open({ openMode: item.type });
-            }
-          },
-        };
-      })
-      .filter(item => item !== null);
+    // open in split view
 
     if (buttons.length === 0) {
       return nothing;
@@ -664,11 +614,11 @@ export class EmbedCardToolbar extends WidgetComponent<
     const parent = doc.getParent(targetModel);
     const index = parent?.children.indexOf(targetModel);
 
-    const yText = new Y.Text();
+    const yText = new DocCollection.Y.Text();
     const insert = title || caption || url;
     yText.insert(0, insert);
     yText.format(0, insert.length, { link: url });
-    const text = new Text(yText);
+    const text = new doc.Text(yText);
     doc.addBlock(
       'affine:paragraph',
       {
@@ -758,13 +708,13 @@ export class EmbedCardToolbar extends WidgetComponent<
 
     this.disposables.add(
       this._selection.slots.changed.on(() => {
-        const hasTextSelection = this._selection.find(TextSelection);
+        const hasTextSelection = this._selection.find('text');
         if (hasTextSelection) {
           this._hide();
           return;
         }
 
-        const blockSelections = this._selection.filter(BlockSelection);
+        const blockSelections = this._selection.filter('block');
         if (!blockSelections || blockSelections.length !== 1) {
           this._hide();
           return;

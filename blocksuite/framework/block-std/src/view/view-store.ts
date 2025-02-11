@@ -1,35 +1,15 @@
-import { Slot } from '@blocksuite/global/utils';
-
 import { LifeCycleWatcher } from '../extension/index.js';
 import type { BlockComponent, WidgetComponent } from './element/index.js';
-
-type ViewUpdatePayload =
-  | {
-      id: string;
-      type: 'delete';
-      view: BlockComponent;
-    }
-  | {
-      id: string;
-      type: 'add';
-      view: BlockComponent;
-    };
 
 export class ViewStore extends LifeCycleWatcher {
   static override readonly key = 'viewStore';
 
   private readonly _blockMap = new Map<string, BlockComponent>();
 
-  viewUpdated: Slot<ViewUpdatePayload> = new Slot();
-
-  get views() {
-    return Array.from(this._blockMap.values());
-  }
-
   private readonly _fromId = (
     blockId: string | undefined | null
   ): BlockComponent | null => {
-    const id = blockId ?? this.std.store.root?.id;
+    const id = blockId ?? this.std.doc.root?.id;
     if (!id) {
       return null;
     }
@@ -39,12 +19,7 @@ export class ViewStore extends LifeCycleWatcher {
   private readonly _widgetMap = new Map<string, WidgetComponent>();
 
   deleteBlock = (node: BlockComponent) => {
-    this._blockMap.delete(node.model.id);
-    this.viewUpdated.emit({
-      id: node.model.id,
-      type: 'delete',
-      view: node,
-    });
+    this._blockMap.delete(node.id);
   };
 
   deleteWidget = (node: WidgetComponent) => {
@@ -66,15 +41,7 @@ export class ViewStore extends LifeCycleWatcher {
   };
 
   setBlock = (node: BlockComponent) => {
-    if (this._blockMap.has(node.model.id)) {
-      this.deleteBlock(node);
-    }
     this._blockMap.set(node.model.id, node);
-    this.viewUpdated.emit({
-      id: node.model.id,
-      type: 'add',
-      view: node,
-    });
   };
 
   setWidget = (node: WidgetComponent) => {

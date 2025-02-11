@@ -15,8 +15,8 @@ import { GroupTitle } from '../../../core/group-by/group-title.js';
 import type { GroupData } from '../../../core/group-by/trait.js';
 import { LEFT_TOOL_BAR_WIDTH } from '../consts.js';
 import type { DataViewTable } from '../pc/table-view.js';
-import { TableViewAreaSelection } from '../selection';
 import type { TableSingleView } from '../table-view-manager.js';
+import { TableAreaSelection } from '../types.js';
 
 const styles = css`
   .data-view-table-group-add-row {
@@ -57,7 +57,7 @@ export class MobileTableGroup extends SignalWatcher(
       const index = this.view.properties$.value.findIndex(
         v => v.type$.value === 'title'
       );
-      selectionController.selection = TableViewAreaSelection.create({
+      selectionController.selection = TableAreaSelection.create({
         groupKey: this.group?.key,
         focus: {
           rowIndex: this.rows.length - 1,
@@ -75,7 +75,7 @@ export class MobileTableGroup extends SignalWatcher(
       const index = this.view.properties$.value.findIndex(
         v => v.type$.value === 'title'
       );
-      selectionController.selection = TableViewAreaSelection.create({
+      selectionController.selection = TableAreaSelection.create({
         groupKey: this.group?.key,
         focus: {
           rowIndex: 0,

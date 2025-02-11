@@ -61,7 +61,7 @@ export const databaseBlockNotionHtmlAdapterMatcher: BlockNotionHtmlAdapterMatche
             const columnTypeClass = HastUtils.querySelector(o.node, 'svg')
               ?.properties?.className;
             const columnType = Array.isArray(columnTypeClass)
-              ? (ColumnClassMap[columnTypeClass[0] ?? ''] ?? 'rich-text')
+              ? (ColumnClassMap[columnTypeClass[0]] ?? 'rich-text')
               : 'rich-text';
             walkerContext.pushGlobalContextStack<BlocksuiteTableColumn>(
               'hast:table:column',
@@ -132,12 +132,8 @@ export const databaseBlockNotionHtmlAdapterMatcher: BlockNotionHtmlAdapterMatche
                       children: [],
                     }
                   );
-                  const column = columns[index];
-                  if (!column) {
-                    return;
-                  }
-                  row[column.id] = {
-                    columnId: column.id,
+                  row[columns[index].id] = {
+                    columnId: columns[index].id,
                     value: HastUtils.getTextContent(child),
                   };
                 } else if (HastUtils.querySelector(child, '.cell-title')) {
@@ -161,35 +157,33 @@ export const databaseBlockNotionHtmlAdapterMatcher: BlockNotionHtmlAdapterMatche
                   return;
                 }
                 const optionIds: string[] = [];
-                const column = columns[index];
-                if (!column) {
-                  return;
-                }
                 if (HastUtils.querySelector(child, '.selected-value')) {
-                  if (!('options' in column.data)) {
-                    column.data.options = [];
-                  }
-                  if (!['multi-select', 'select'].includes(column.type)) {
-                    column.type = 'select';
+                  if (!('options' in columns[index].data)) {
+                    columns[index].data.options = [];
                   }
                   if (
-                    column.type === 'select' &&
+                    !['multi-select', 'select'].includes(columns[index].type)
+                  ) {
+                    columns[index].type = 'select';
+                  }
+                  if (
+                    columns[index].type === 'select' &&
                     child.type === 'element' &&
                     child.children.length > 1
                   ) {
-                    column.type = 'multi-select';
+                    columns[index].type = 'multi-select';
                   }
                   child.type === 'element' &&
                     child.children.forEach(span => {
-                      const filteredArray = column.data.options?.filter(
+                      const filteredArray = columns[index].data.options?.filter(
                         option =>
                           option.value === HastUtils.getTextContent(span)
                       );
                       const id = filteredArray?.length
-                        ? (filteredArray[0]?.id ?? nanoid())
+                        ? filteredArray[0].id
                         : nanoid();
                       if (!filteredArray?.length) {
-                        column.data.options?.push({
+                        columns[index].data.options?.push({
                           id,
                           value: HastUtils.getTextContent(span),
                           color: getTagColor(),
@@ -198,48 +192,48 @@ export const databaseBlockNotionHtmlAdapterMatcher: BlockNotionHtmlAdapterMatche
                       optionIds.push(id);
                     });
                   // Expand will be done when leaving the table
-                  row[column.id] = {
-                    columnId: column.id,
+                  row[columns[index].id] = {
+                    columnId: columns[index].id,
                     value: optionIds,
                   };
                 } else if (HastUtils.querySelector(child, '.checkbox')) {
-                  if (column.type !== 'checkbox') {
-                    column.type = 'checkbox';
+                  if (columns[index].type !== 'checkbox') {
+                    columns[index].type = 'checkbox';
                   }
-                  row[column.id] = {
-                    columnId: column.id,
+                  row[columns[index].id] = {
+                    columnId: columns[index].id,
                     value: HastUtils.querySelector(child, '.checkbox-on')
                       ? true
                       : false,
                   };
-                } else if (column.type === 'number') {
+                } else if (columns[index].type === 'number') {
                   const text = HastUtils.getTextContent(child);
                   const number = Number(text);
                   if (Number.isNaN(number)) {
-                    column.type = 'rich-text';
-                    row[column.id] = {
-                      columnId: column.id,
+                    columns[index].type = 'rich-text';
+                    row[columns[index].id] = {
+                      columnId: columns[index].id,
                       value: TextUtils.createText(text),
                     };
                   } else {
-                    row[column.id] = {
-                      columnId: column.id,
+                    row[columns[index].id] = {
+                      columnId: columns[index].id,
                       value: number,
                     };
                   }
                 } else {
-                  row[column.id] = {
-                    columnId: column.id,
+                  row[columns[index].id] = {
+                    columnId: columns[index].id,
                     value: HastUtils.getTextContent(child),
                   };
                 }
                 if (
-                  column.type === 'rich-text' &&
-                  !TextUtils.isText(row[column.id].value)
+                  columns[index].type === 'rich-text' &&
+                  !TextUtils.isText(row[columns[index].id].value)
                 ) {
-                  row[column.id] = {
-                    columnId: column.id,
-                    value: TextUtils.createText(row[column.id].value),
+                  row[columns[index].id] = {
+                    columnId: columns[index].id,
+                    value: TextUtils.createText(row[columns[index].id].value),
                   };
                 }
               });
@@ -270,15 +264,11 @@ export const databaseBlockNotionHtmlAdapterMatcher: BlockNotionHtmlAdapterMatche
               .getGlobalContextStack<BlocksuiteTableRow>('hast:table:rows')
               .forEach((row, i) => {
                 Object.keys(row).forEach(columnId => {
-                  const cell = row[columnId];
-                  if (!cell) {
-                    return;
-                  }
                   if (
                     columns.find(column => column.id === columnId)?.type ===
                     'select'
                   ) {
-                    cell.value = (cell.value as string[])[0];
+                    row[columnId].value = (row[columnId].value as string[])[0];
                   }
                 });
                 cells[children.at(i)?.id ?? nanoid()] = row;

@@ -1,24 +1,22 @@
-import { ListBlockModel, ParagraphBlockModel } from '@blocksuite/affine-model';
 import type { IndentContext } from '@blocksuite/affine-shared/types';
 import {
   getNearestHeadingBefore,
   matchFlavours,
 } from '@blocksuite/affine-shared/utils';
-import { type Command, TextSelection } from '@blocksuite/block-std';
+import type { Command } from '@blocksuite/block-std';
 
 import { correctNumberedListsOrderToPrev } from './utils.js';
 
 export const canIndentListCommand: Command<
-  Partial<Omit<IndentContext, 'type' | 'flavour'>>,
-  {
-    indentContext: IndentContext;
-  }
+  never,
+  'indentContext',
+  Partial<Omit<IndentContext, 'type' | 'flavour'>>
 > = (ctx, next) => {
   let { blockId, inlineIndex } = ctx;
   const { std } = ctx;
-  const { selection, store } = std;
+  const { selection, doc } = std;
   if (!blockId) {
-    const text = selection.find(TextSelection);
+    const text = selection.find('text');
     /**
      * Do nothing if the selection:
      * - is not a text selection
@@ -54,17 +52,17 @@ export const canIndentListCommand: Command<
   /**
    * ccc
    */
-  const model = store.getBlock(blockId)?.model;
-  if (!model || !matchFlavours(model, [ListBlockModel])) {
+  const model = doc.getBlock(blockId)?.model;
+  if (!model || !matchFlavours(model, ['affine:list'])) {
     return;
   }
-  const schema = std.store.schema;
+  const schema = std.doc.schema;
   /**
    * aaa
    */
-  const previousSibling = store.getPrev(model);
+  const previousSibling = doc.getPrev(model);
   if (
-    store.readonly ||
+    doc.readonly ||
     !previousSibling ||
     !schema.isValid(model.flavour, previousSibling.flavour)
   ) {
@@ -74,7 +72,7 @@ export const canIndentListCommand: Command<
   /**
    * eee
    */
-  // const nextSibling = store.getNext(model);
+  // const nextSibling = doc.getNext(model);
 
   return next({
     indentContext: {
@@ -86,9 +84,10 @@ export const canIndentListCommand: Command<
   });
 };
 
-export const indentListCommand: Command<{
-  indentContext: IndentContext;
-}> = (ctx, next) => {
+export const indentListCommand: Command<'indentContext', never> = (
+  ctx,
+  next
+) => {
   const { indentContext, std } = ctx;
   if (
     !indentContext ||
@@ -102,21 +101,21 @@ export const indentListCommand: Command<{
   }
 
   const { blockId } = indentContext;
-  const { store, selection, host, range } = std;
+  const { doc, selection, host, range } = std;
 
-  const model = store.getBlock(blockId)?.model;
+  const model = doc.getBlock(blockId)?.model;
   if (!model) return;
 
-  const previousSibling = store.getPrev(model);
+  const previousSibling = doc.getPrev(model);
   if (!previousSibling) return;
 
-  const nextSibling = store.getNext(model);
+  const nextSibling = doc.getNext(model);
 
-  store.captureSync();
+  doc.captureSync();
 
-  store.moveBlocks([model], previousSibling);
-  correctNumberedListsOrderToPrev(store, model);
-  if (nextSibling) correctNumberedListsOrderToPrev(store, nextSibling);
+  doc.moveBlocks([model], previousSibling);
+  correctNumberedListsOrderToPrev(doc, model);
+  if (nextSibling) correctNumberedListsOrderToPrev(doc, nextSibling);
 
   // 123
   //   > # 456
@@ -126,15 +125,15 @@ export const indentListCommand: Command<{
   const nearestHeading = getNearestHeadingBefore(model);
   if (
     nearestHeading &&
-    matchFlavours(nearestHeading, [ParagraphBlockModel]) &&
+    matchFlavours(nearestHeading, ['affine:paragraph']) &&
     nearestHeading.collapsed
   ) {
-    store.updateBlock(nearestHeading, {
+    doc.updateBlock(nearestHeading, {
       collapsed: false,
     });
   }
 
-  const textSelection = selection.find(TextSelection);
+  const textSelection = selection.find('text');
   if (textSelection) {
     host.updateComplete
       .then(() => {

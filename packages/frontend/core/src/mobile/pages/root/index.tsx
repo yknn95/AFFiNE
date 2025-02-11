@@ -17,9 +17,15 @@ export const RootWrapper = () => {
     const abortController = new AbortController();
     defaultServerService.server
       .waitForConfigRevalidation(abortController.signal)
-      .then(() => setIsServerReady(true))
-      .catch(console.error);
-    return () => abortController.abort();
+      .then(() => {
+        setIsServerReady(true);
+      })
+      .catch(error => {
+        console.error(error);
+      });
+    return () => {
+      abortController.abort();
+    };
   }, [defaultServerService, isServerReady]);
 
   return (

@@ -1,4 +1,4 @@
-import type { DeltaInsert } from '@blocksuite/inline';
+import type { DeltaInsert } from '@inline/types.js';
 import { expect } from '@playwright/test';
 
 import {
@@ -50,6 +50,7 @@ import {
   assertDocTitleFocus,
   assertRichTextInlineRange,
   assertRichTexts,
+  assertStoreMatchJSX,
   assertTitle,
 } from './utils/asserts.js';
 import { test } from './utils/playwright.js';
@@ -825,20 +826,20 @@ test('press arrow down should move caret to the start of line', async ({
   await page.evaluate(() => {
     const { doc } = window;
     const rootId = doc.addBlock('affine:page', {
-      title: new window.$blocksuite.store.Text(),
+      title: new doc.Text(),
     });
     const note = doc.addBlock('affine:note', {}, rootId);
     doc.addBlock(
       'affine:paragraph',
       {
-        text: new window.$blocksuite.store.Text('0'.repeat(100)),
+        text: new doc.Text('0'.repeat(100)),
       },
       note
     );
     doc.addBlock(
       'affine:paragraph',
       {
-        text: new window.$blocksuite.store.Text('1'),
+        text: new doc.Text('1'),
       },
       note
     );
@@ -860,7 +861,7 @@ test('press arrow up in the second line should move caret to the first line', as
   await page.evaluate(() => {
     const { doc } = window;
     const rootId = doc.addBlock('affine:page', {
-      title: new window.$blocksuite.store.Text(),
+      title: new doc.Text(),
     });
     const note = doc.addBlock('affine:note', {}, rootId);
     const delta = Array.from({ length: 150 }, (_, i) => {
@@ -868,7 +869,7 @@ test('press arrow up in the second line should move caret to the first line', as
         ? { insert: 'i', attributes: { italic: true } }
         : { insert: 'b', attributes: { bold: true } };
     }) as DeltaInsert[];
-    const text = new window.$blocksuite.store.Text(delta);
+    const text = new doc.Text(delta);
     doc.addBlock('affine:paragraph', { text }, note);
     doc.addBlock('affine:paragraph', {}, note);
   });
@@ -912,7 +913,7 @@ test('press arrow down in indent line should not move caret to the start of line
   await page.evaluate(() => {
     const { doc } = window;
     const rootId = doc.addBlock('affine:page', {
-      title: new window.$blocksuite.store.Text(),
+      title: new doc.Text(),
     });
     const note = doc.addBlock('affine:note', {}, rootId);
     const p1 = doc.addBlock('affine:paragraph', {}, note);
@@ -921,7 +922,7 @@ test('press arrow down in indent line should not move caret to the start of line
     doc.addBlock(
       'affine:paragraph',
       {
-        text: new window.$blocksuite.store.Text('0'),
+        text: new doc.Text('0'),
       },
       note
     );
@@ -1003,22 +1004,20 @@ test.describe('press ArrowDown when cursor is at the last line of a block', () =
     await page.evaluate(() => {
       const { doc } = window;
       const rootId = doc.addBlock('affine:page', {
-        title: new window.$blocksuite.store.Text(),
+        title: new doc.Text(),
       });
       const note = doc.addBlock('affine:note', {}, rootId);
       doc.addBlock(
         'affine:paragraph',
         {
-          text: new window.$blocksuite.store.Text(
-            'This is the 2nd last block.'
-          ),
+          text: new doc.Text('This is the 2nd last block.'),
         },
         note
       );
       doc.addBlock(
         'affine:paragraph',
         {
-          text: new window.$blocksuite.store.Text('This is the last block.'),
+          text: new doc.Text('This is the last block.'),
         },
         note
       );
@@ -1174,7 +1173,7 @@ test('delete at the start of paragraph (multiple notes)', async ({ page }) => {
     const { doc } = window;
 
     const rootId = doc.addBlock('affine:page', {
-      title: new window.$blocksuite.store.Text(),
+      title: new doc.Text(),
     });
     doc.addBlock('affine:surface', {}, rootId);
 
@@ -1183,7 +1182,7 @@ test('delete at the start of paragraph (multiple notes)', async ({ page }) => {
       doc.addBlock(
         'affine:paragraph',
         {
-          text: new window.$blocksuite.store.Text(text),
+          text: new doc.Text(text),
         },
         noteId
       );
@@ -1234,17 +1233,17 @@ test('arrow up/down navigation within and across paragraphs containing different
   await assertRichTextInlineRange(page, 1, 125, 0);
 
   await pressArrowUp(page);
-  await assertRichTextInlineRange(page, 1, 29, 0);
+  await assertRichTextInlineRange(page, 1, 32, 0);
   await pressArrowUp(page);
   await assertRichTextInlineRange(page, 0, 125, 0);
   await pressArrowUp(page);
-  await assertRichTextInlineRange(page, 0, 32, 0);
+  await assertRichTextInlineRange(page, 0, 35, 0);
   await pressArrowUp(page);
   await assertRichTextInlineRange(page, 0, 0, 0);
   await pressArrowDown(page);
   await assertRichTextInlineRange(page, 0, 125, 0);
   await pressArrowDown(page);
-  await assertRichTextInlineRange(page, 1, 29, 0);
+  await assertRichTextInlineRange(page, 1, 32, 0);
   await pressArrowDown(page);
   await assertRichTextInlineRange(page, 1, 125, 0);
 });
@@ -1297,11 +1296,9 @@ test.describe('readonly mode', () => {
     await expect(placeholder).toBeHidden();
   });
 
-  test('should readonly mode not be able to modify text', async ({
-    page,
-  }, testInfo) => {
+  test('should readonly mode not be able to modify text', async ({ page }) => {
     await enterPlaygroundRoom(page);
-    await initEmptyParagraphState(page);
+    const { paragraphId } = await initEmptyParagraphState(page);
 
     await focusRichText(page);
     await type(page, 'hello');
@@ -1311,13 +1308,27 @@ test.describe('readonly mode', () => {
     await type(page, 'world');
     await dragBetweenIndices(page, [0, 1], [0, 3]);
     await page.keyboard.press(`${SHORT_KEY}+b`);
-    expect(await getPageSnapshot(page, true)).toMatchSnapshot(
-      `${testInfo.title}_1.json`
+    await assertStoreMatchJSX(
+      page,
+      `
+<affine:paragraph
+  prop:collapsed={false}
+  prop:text="hello"
+  prop:type="text"
+/>`,
+      paragraphId
     );
 
     await undoByKeyboard(page);
-    expect(await getPageSnapshot(page, true)).toMatchSnapshot(
-      `${testInfo.title}_2.json`
+    await assertStoreMatchJSX(
+      page,
+      `
+<affine:paragraph
+  prop:collapsed={false}
+  prop:text="hello"
+  prop:type="text"
+/>`,
+      paragraphId
     );
   });
 });

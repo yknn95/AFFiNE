@@ -5,28 +5,28 @@ import 'fake-indexeddb/auto';
 
 import { AffineSchemas } from '@blocksuite/affine/blocks/schemas';
 import { assertExists } from '@blocksuite/affine/global/utils';
-import { Schema, type Store, Text } from '@blocksuite/affine/store';
-import { TestWorkspace } from '@blocksuite/affine/store/test';
+import type { Doc } from '@blocksuite/affine/store';
+import { DocCollection, Schema } from '@blocksuite/affine/store';
 import { renderHook } from '@testing-library/react';
 import { useAtomValue } from 'jotai';
 import { beforeEach, describe, expect, test, vi } from 'vitest';
 
 import { useBlockSuitePagePreview } from '../use-block-suite-page-preview';
-let docCollection: TestWorkspace;
+let docCollection: DocCollection;
 
 const schema = new Schema();
 schema.register(AffineSchemas);
 
 beforeEach(async () => {
   vi.useFakeTimers({ toFake: ['requestIdleCallback'] });
-  docCollection = new TestWorkspace({ id: 'test', schema });
+  docCollection = new DocCollection({ id: 'test', schema });
   docCollection.meta.initialize();
-  const initPage = async (page: Store) => {
+  const initPage = async (page: Doc) => {
     page.load();
     expect(page).not.toBeNull();
     assertExists(page);
     const pageBlockId = page.addBlock('affine:page', {
-      title: new Text(''),
+      title: new page.Text(''),
     });
     const frameId = page.addBlock('affine:note', {}, pageBlockId);
     page.addBlock('affine:paragraph', {}, frameId);
@@ -36,11 +36,11 @@ beforeEach(async () => {
 
 describe('useBlockSuitePagePreview', () => {
   test('basic', async () => {
-    const page = docCollection.getDoc('page0') as Store;
+    const page = docCollection.getDoc('page0') as Doc;
     const id = page.addBlock(
       'affine:paragraph',
       {
-        text: new Text('Hello, world!'),
+        text: new page.Text('Hello, world!'),
       },
       page.getBlockByFlavour('affine:note')[0].id
     );
@@ -57,7 +57,7 @@ describe('useBlockSuitePagePreview', () => {
     page.addBlock(
       'affine:paragraph',
       {
-        text: new Text('First block!'),
+        text: new page.Text('First block!'),
       },
       page.getBlockByFlavour('affine:note')[0].id,
       0

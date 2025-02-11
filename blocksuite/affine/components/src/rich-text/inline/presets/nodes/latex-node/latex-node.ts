@@ -12,7 +12,7 @@ import {
   ZERO_WIDTH_NON_JOINER,
   ZERO_WIDTH_SPACE,
 } from '@blocksuite/inline';
-import { signal } from '@preact/signals-core';
+import { effect, signal } from '@preact/signals-core';
 import katex from 'katex';
 import { css, html, render } from 'lit';
 import { property } from 'lit/decorators.js';
@@ -88,8 +88,6 @@ export class AffineLatexNode extends SignalWatcher(
 
   readonly latex$ = signal('');
 
-  readonly latexEditorSignal = signal('');
-
   get deltaLatex() {
     return this.delta.attributes?.latex as string;
   }
@@ -102,11 +100,11 @@ export class AffineLatexNode extends SignalWatcher(
     const result = super.connectedCallback();
 
     this.latex$.value = this.deltaLatex;
-    this.latexEditorSignal.value = this.deltaLatex;
 
     this.disposables.add(
-      this.latex$.subscribe(latex => {
-        this.latexEditorSignal.value = latex;
+      effect(() => {
+        const latex = this.latex$.value;
+
         if (latex !== this.deltaLatex) {
           this.editor.formatText(
             {
@@ -118,11 +116,7 @@ export class AffineLatexNode extends SignalWatcher(
             }
           );
         }
-      })
-    );
 
-    this.disposables.add(
-      this.latexEditorSignal.subscribe(latex => {
         this.updateComplete
           .then(() => {
             const latexContainer = this.latexContainer;
@@ -167,9 +161,6 @@ export class AffineLatexNode extends SignalWatcher(
     this.disposables.addFromEvent(this, 'click', e => {
       e.preventDefault();
       e.stopPropagation();
-      if (this.readonly) {
-        return;
-      }
       this.toggleEditor();
     });
 
@@ -193,7 +184,7 @@ export class AffineLatexNode extends SignalWatcher(
     const portal = createLitPortal({
       template: html`<latex-editor-menu
         .std=${this.std}
-        .latexSignal=${this.latexEditorSignal}
+        .latexSignal=${this.latex$}
         .abortController=${this._editorAbortController}
       ></latex-editor-menu>`,
       container: blockComponent.host,
@@ -216,27 +207,9 @@ export class AffineLatexNode extends SignalWatcher(
       'abort',
       () => {
         portal.remove();
-        const latex = this.latexEditorSignal.peek();
-        this.latex$.value = latex;
-
-        if (latex !== this.deltaLatex) {
-          this.editor.formatText(
-            {
-              index: this.startOffset,
-              length: this.endOffset - this.startOffset,
-            },
-            {
-              latex,
-            }
-          );
-        }
       },
       { once: true }
     );
-  }
-
-  get readonly() {
-    return this.std.store.readonly;
   }
 
   @property({ attribute: false })

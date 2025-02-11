@@ -1,11 +1,11 @@
-import type { OnApplicationShutdown, OnModuleInit } from '@nestjs/common';
+import type { OnModuleDestroy, OnModuleInit } from '@nestjs/common';
 import { Injectable } from '@nestjs/common';
 import { Prisma, PrismaClient } from '@prisma/client';
 
 @Injectable()
 export class PrismaService
   extends PrismaClient
-  implements OnModuleInit, OnApplicationShutdown
+  implements OnModuleInit, OnModuleDestroy
 {
   static INSTANCE: PrismaService | null = null;
 
@@ -18,7 +18,7 @@ export class PrismaService
     await this.$connect();
   }
 
-  async onApplicationShutdown(): Promise<void> {
+  async onModuleDestroy(): Promise<void> {
     if (!AFFiNE.node.test) {
       await this.$disconnect();
       PrismaService.INSTANCE = null;

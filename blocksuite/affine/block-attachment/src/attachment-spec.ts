@@ -1,9 +1,15 @@
-import { BlockViewExtension, FlavourExtension } from '@blocksuite/block-std';
-import type { ExtensionType } from '@blocksuite/store';
+import {
+  BlockViewExtension,
+  type ExtensionType,
+  FlavourExtension,
+} from '@blocksuite/block-std';
 import { literal } from 'lit/static-html.js';
 
 import { AttachmentBlockNotionHtmlAdapterExtension } from './adapters/notion-html.js';
-import { AttachmentDropOption } from './attachment-service.js';
+import {
+  AttachmentBlockService,
+  AttachmentDropOption,
+} from './attachment-service.js';
 import {
   AttachmentEmbedConfigExtension,
   AttachmentEmbedService,
@@ -11,6 +17,7 @@ import {
 
 export const AttachmentBlockSpec: ExtensionType[] = [
   FlavourExtension('affine:attachment'),
+  AttachmentBlockService,
   BlockViewExtension('affine:attachment', model => {
     return model.parent?.flavour === 'affine:surface'
       ? literal`affine-edgeless-attachment`

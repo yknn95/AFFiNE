@@ -1,9 +1,4 @@
-import {
-  BlockSelection,
-  type BlockStdScope,
-  TextSelection,
-  type UIEventHandler,
-} from '@blocksuite/block-std';
+import type { BlockStdScope, UIEventHandler } from '@blocksuite/block-std';
 
 import {
   focusTextModel,
@@ -16,21 +11,21 @@ export const textCommonKeymap = (
 ): Record<string, UIEventHandler> => {
   return {
     ArrowUp: () => {
-      const text = std.selection.find(TextSelection);
+      const text = std.selection.find('text');
       if (!text) return;
       const inline = getInlineEditorByModel(std.host, text.from.blockId);
       if (!inline) return;
       return !inline.isFirstLine(inline.getInlineRange());
     },
     ArrowDown: () => {
-      const text = std.selection.find(TextSelection);
+      const text = std.selection.find('text');
       if (!text) return;
       const inline = getInlineEditorByModel(std.host, text.from.blockId);
       if (!inline) return;
       return !inline.isLastLine(inline.getInlineRange());
     },
     Escape: ctx => {
-      const text = std.selection.find(TextSelection);
+      const text = std.selection.find('text');
       if (!text) return;
 
       selectBlock(std, text.from.blockId);
@@ -38,10 +33,10 @@ export const textCommonKeymap = (
       return true;
     },
     'Mod-a': ctx => {
-      const text = std.selection.find(TextSelection);
+      const text = std.selection.find('text');
       if (!text) return;
 
-      const model = std.store.getBlock(text.from.blockId)?.model;
+      const model = std.doc.getBlock(text.from.blockId)?.model;
       if (!model || !model.text) return;
 
       ctx.get('keyboardState').raw.preventDefault();
@@ -58,11 +53,11 @@ export const textCommonKeymap = (
       return true;
     },
     Enter: ctx => {
-      const blocks = std.selection.filter(BlockSelection);
+      const blocks = std.selection.filter('block');
       const blockId = blocks.at(-1)?.blockId;
 
       if (!blockId) return;
-      const model = std.store.getBlock(blockId)?.model;
+      const model = std.doc.getBlock(blockId)?.model;
       if (!model || !model.text) return;
 
       ctx.get('keyboardState').raw.preventDefault();
@@ -73,7 +68,5 @@ export const textCommonKeymap = (
 };
 
 function selectBlock(std: BlockStdScope, blockId: string) {
-  std.selection.setGroup('note', [
-    std.selection.create(BlockSelection, { blockId }),
-  ]);
+  std.selection.setGroup('note', [std.selection.create('block', { blockId })]);
 }

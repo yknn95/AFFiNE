@@ -1,12 +1,10 @@
 import process from 'node:process';
 
-import { testResultDir } from '@affine-test/kit/playwright';
 import type { PlaywrightWorkerOptions } from '@playwright/test';
 import { defineConfig } from '@playwright/test';
 
 export default defineConfig({
   testDir: '.',
-  outputDir: testResultDir,
   timeout: process.env.CI ? 40000 : 999999,
   fullyParallel: true,
   snapshotDir: 'snapshots',

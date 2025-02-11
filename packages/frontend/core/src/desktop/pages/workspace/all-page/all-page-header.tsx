@@ -9,7 +9,7 @@ import { WorkspaceModeFilterTab } from '@affine/core/components/pure/workspace-m
 import { WorkspaceDialogService } from '@affine/core/modules/dialogs';
 import { WorkbenchService } from '@affine/core/modules/workbench';
 import { WorkspaceService } from '@affine/core/modules/workspace';
-import { inferOpenMode } from '@affine/core/utils';
+import { isNewTabTrigger } from '@affine/core/utils';
 import type { Filter } from '@affine/env/filter';
 import { track } from '@affine/track';
 import { PlusIcon } from '@blocksuite/icons/rc';
@@ -89,9 +89,15 @@ export const AllPageHeader = ({
               styles.headerCreateNewButton,
               !showCreateNew && styles.headerCreateNewButtonHidden
             )}
-            onCreateEdgeless={e => createEdgeless({ at: inferOpenMode(e) })}
-            onCreatePage={e => createPage('page', { at: inferOpenMode(e) })}
-            onCreateDoc={e => createPage(undefined, { at: inferOpenMode(e) })}
+            onCreateEdgeless={e =>
+              createEdgeless(isNewTabTrigger(e) ? 'new-tab' : true)
+            }
+            onCreatePage={e =>
+              createPage('page', isNewTabTrigger(e) ? 'new-tab' : true)
+            }
+            onCreateDoc={e =>
+              createPage(undefined, isNewTabTrigger(e) ? 'new-tab' : true)
+            }
             onImportFile={onImportFile}
           >
             <PlusIcon />

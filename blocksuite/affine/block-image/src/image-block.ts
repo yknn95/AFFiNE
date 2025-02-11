@@ -1,7 +1,6 @@
 import { CaptionedBlockComponent } from '@blocksuite/affine-components/caption';
 import { Peekable } from '@blocksuite/affine-components/peek';
 import type { ImageBlockModel } from '@blocksuite/affine-model';
-import { BlockSelection } from '@blocksuite/block-std';
 import { IS_MOBILE } from '@blocksuite/global/env';
 import { html } from 'lit';
 import { property, query, state } from 'lit/decorators.js';
@@ -10,6 +9,7 @@ import { when } from 'lit/directives/when.js';
 
 import type { ImageBlockFallbackCard } from './components/image-block-fallback.js';
 import type { ImageBlockPageComponent } from './components/page-image-block.js';
+import type { ImageBlockService } from './image-service.js';
 import {
   copyImageBlob,
   downloadImageBlob,
@@ -20,7 +20,10 @@ import {
 @Peekable({
   enableOn: () => !IS_MOBILE,
 })
-export class ImageBlockComponent extends CaptionedBlockComponent<ImageBlockModel> {
+export class ImageBlockComponent extends CaptionedBlockComponent<
+  ImageBlockModel,
+  ImageBlockService
+> {
   convertToCardView = () => {
     turnImageIntoCardView(this).catch(console.error);
   };
@@ -48,7 +51,7 @@ export class ImageBlockComponent extends CaptionedBlockComponent<ImageBlockModel
 
     event.stopPropagation();
     const selectionManager = this.host.selection;
-    const blockSelection = selectionManager.create(BlockSelection, {
+    const blockSelection = selectionManager.create('block', {
       blockId: this.blockId,
     });
     selectionManager.setGroup('note', [blockSelection]);

@@ -20,8 +20,8 @@ import {
   noop,
   pick,
 } from '@blocksuite/global/utils';
+import { DocCollection, type Y } from '@blocksuite/store';
 import { generateKeyBetween } from 'fractional-indexing';
-import * as Y from 'yjs';
 import { z } from 'zod';
 
 import { ConnectorMode } from '../../consts/connector.js';
@@ -183,9 +183,9 @@ export class MindmapElementModel extends GfxGroupLikeElementModel<MindmapElement
     if (
       props.children &&
       !isNodeType(props.children as Record<string, unknown>) &&
-      !(props.children instanceof Y.Map)
+      !(props.children instanceof DocCollection.Y.Map)
     ) {
-      const children: Y.Map<NodeDetail> = new Y.Map();
+      const children: Y.Map<NodeDetail> = new DocCollection.Y.Map();
 
       keys(props.children).forEach(key => {
         const detail = pick<Record<string, unknown>, keyof NodeDetail>(
@@ -284,7 +284,9 @@ export class MindmapElementModel extends GfxGroupLikeElementModel<MindmapElement
       throw new Error(`Parent node ${parent} not found`);
     }
 
-    props['text'] = new Y.Text((props['text'] as string) ?? 'New node');
+    props['text'] = new DocCollection.Y.Text(
+      (props['text'] as string) ?? 'New node'
+    );
 
     const type = (props.type as string) ?? 'shape';
     let id: string;
@@ -917,12 +919,12 @@ export class MindmapElementModel extends GfxGroupLikeElementModel<MindmapElement
   }
 
   @convert((initialValue, instance) => {
-    if (!(initialValue instanceof Y.Map)) {
+    if (!(initialValue instanceof DocCollection.Y.Map)) {
       nodeSchema.parse(initialValue);
 
       assertType<NodeType>(initialValue);
 
-      const map: Y.Map<NodeDetail> = new Y.Map();
+      const map: Y.Map<NodeDetail> = new DocCollection.Y.Map();
       const surface = instance.surface;
       const doc = surface.doc;
       const recursive = (
@@ -965,7 +967,7 @@ export class MindmapElementModel extends GfxGroupLikeElementModel<MindmapElement
   // since this model package is imported by playwright
   @observe(observeChildren)
   @field()
-  accessor children: Y.Map<NodeDetail> = new Y.Map();
+  accessor children: Y.Map<NodeDetail> = new DocCollection.Y.Map();
 
   @watch(watchLayoutType)
   @field()

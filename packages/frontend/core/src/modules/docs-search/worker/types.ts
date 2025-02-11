@@ -36,14 +36,14 @@ export type WorkerInput =
     }
   | {
       type: 'doc';
-      docId: string;
+      storageDocId: string;
       rootDocId: string;
       rootDocBuffer: Uint8Array;
       docBuffer: Uint8Array;
     };
 
 export interface WorkerOutput {
-  reindexDoc?: { docId: string }[];
+  reindexDoc?: { docId: string; storageDocId: string }[];
   addedDoc?: {
     id: string;
     blocks: Document<BlockIndexSchema>[];

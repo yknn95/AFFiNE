@@ -10,11 +10,7 @@ import {
 } from '@blocksuite/affine-components/toolbar';
 import type { ImageBlockModel } from '@blocksuite/affine-model';
 import { PAGE_HEADER_HEIGHT } from '@blocksuite/affine-shared/consts';
-import {
-  BlockSelection,
-  TextSelection,
-  WidgetComponent,
-} from '@blocksuite/block-std';
+import { WidgetComponent } from '@blocksuite/block-std';
 import { limitShift, shift } from '@floating-ui/dom';
 import { html } from 'lit';
 
@@ -39,7 +35,7 @@ export class AffineImageToolbarWidget extends WidgetComponent<
         const imageBlock = this.block;
         const selection = this.host.selection;
 
-        const textSelection = selection.find(TextSelection);
+        const textSelection = selection.find('text');
         if (
           !!textSelection &&
           (!!textSelection.to || !!textSelection.from.length)
@@ -47,7 +43,7 @@ export class AffineImageToolbarWidget extends WidgetComponent<
           return null;
         }
 
-        const blockSelections = selection.filter(BlockSelection);
+        const blockSelections = selection.filter('block');
         if (
           blockSelections.length > 1 ||
           (blockSelections.length === 1 &&

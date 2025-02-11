@@ -1,5 +1,5 @@
 import type { ColorScheme } from '@blocksuite/affine-model';
-import type { Slot } from '@blocksuite/global/utils';
+import type { Slot } from '@blocksuite/store';
 import { createContext } from '@lit/context';
 
 import type { EdgelessToolbarWidget } from './edgeless-toolbar.js';

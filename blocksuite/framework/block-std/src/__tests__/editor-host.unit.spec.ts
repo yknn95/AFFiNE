@@ -1,8 +1,4 @@
-import { Schema } from '@blocksuite/store';
-import {
-  createAutoIncrementIdGenerator,
-  TestWorkspace,
-} from '@blocksuite/store/test';
+import { DocCollection, IdGeneratorType, Schema } from '@blocksuite/store';
 import { describe, expect, test } from 'vitest';
 
 import { effects } from '../effects.js';
@@ -18,7 +14,7 @@ import { testSpecs } from './test-spec.js';
 effects();
 
 function createTestOptions() {
-  const idGenerator = createAutoIncrementIdGenerator();
+  const idGenerator = IdGeneratorType.AutoIncrement;
   const schema = new Schema();
   schema.register([RootBlockSchema, NoteBlockSchema, HeadingBlockSchema]);
   return { id: 'test-collection', idGenerator, schema };
@@ -30,7 +26,7 @@ function wait(time: number) {
 
 describe('editor host', () => {
   test('editor host should rerender model when view changes', async () => {
-    const collection = new TestWorkspace(createTestOptions());
+    const collection = new DocCollection(createTestOptions());
 
     collection.meta.initialize();
     const doc = collection.createDoc({ id: 'home' });

@@ -1,17 +1,12 @@
 import { Menu, type MenuProps } from '@affine/component';
 import { useNavigateHelper } from '@affine/core/components/hooks/use-navigate-helper';
 import { GlobalContextService } from '@affine/core/modules/global-context';
-import { WorkbenchService } from '@affine/core/modules/workbench';
 import {
   type WorkspaceMetadata,
   WorkspacesService,
 } from '@affine/core/modules/workspace';
 import { track } from '@affine/track';
-import {
-  useLiveData,
-  useServiceOptional,
-  useServices,
-} from '@toeverything/infra';
+import { useLiveData, useServices } from '@toeverything/infra';
 import { useCallback, useEffect, useState } from 'react';
 
 import { UserWithWorkspaceList } from './user-with-workspace-list';
@@ -25,6 +20,7 @@ interface WorkspaceSelectorProps {
     metadata: WorkspaceMetadata;
     defaultDocId?: string;
   }) => void;
+  showSettingsButton?: boolean;
   showEnableCloudButton?: boolean;
   showArrowDownIcon?: boolean;
   showSyncStatus?: boolean;
@@ -37,6 +33,7 @@ export const WorkspaceSelector = ({
   workspaceMetadata: outerWorkspaceMetadata,
   onSelectWorkspace,
   onCreatedWorkspace,
+  showSettingsButton,
   showArrowDownIcon,
   disable,
   open: outerOpen,
@@ -87,6 +84,7 @@ export const WorkspaceSelector = ({
           onClickWorkspace={onSelectWorkspace}
           onCreatedWorkspace={onCreatedWorkspace}
           showEnableCloudButton={showEnableCloudButton}
+          showSettingsButton={showSettingsButton}
         />
       }
       contentOptions={{
@@ -126,33 +124,22 @@ export const WorkspaceNavigator = ({
   ...props
 }: WorkspaceSelectorProps) => {
   const { jumpToPage } = useNavigateHelper();
-  const workbench = useServiceOptional(WorkbenchService)?.workbench;
 
   const handleClickWorkspace = useCallback(
     (workspaceMetadata: WorkspaceMetadata) => {
       onSelectWorkspace?.(workspaceMetadata);
-
-      const closeInactiveViews = () =>
-        workbench?.views$.value.forEach(view => {
-          if (workbench?.activeView$.value !== view) {
-            workbench?.close(view);
-          }
-        });
-
       if (document.startViewTransition) {
         document.startViewTransition(() => {
-          closeInactiveViews();
           jumpToPage(workspaceMetadata.id, 'all');
           return new Promise(resolve =>
             setTimeout(resolve, 150)
           ); /* start transition after 150ms */
         });
       } else {
-        closeInactiveViews();
         jumpToPage(workspaceMetadata.id, 'all');
       }
     },
-    [jumpToPage, onSelectWorkspace, workbench]
+    [onSelectWorkspace, jumpToPage]
   );
   const handleCreatedWorkspace = useCallback(
     (payload: { metadata: WorkspaceMetadata; defaultDocId?: string }) => {

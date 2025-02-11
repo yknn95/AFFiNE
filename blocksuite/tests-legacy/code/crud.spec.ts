@@ -29,6 +29,7 @@ import {
 import {
   assertBlockCount,
   assertRichTexts,
+  assertStoreMatchJSX,
   assertTitle,
 } from '../utils/asserts.js';
 import { test } from '../utils/playwright.js';
@@ -149,9 +150,9 @@ test('use shortcut can create code block', async ({ page }) => {
   await expect(locator).toBeVisible();
 });
 
-test('change code language can work', async ({ page }, testInfo) => {
+test('change code language can work', async ({ page }) => {
   await enterPlaygroundRoom(page);
-  await initEmptyCodeBlockState(page);
+  const { codeBlockId } = await initEmptyCodeBlockState(page);
   await focusRichText(page);
 
   const codeBlockController = getCodeBlock(page);
@@ -169,12 +170,26 @@ test('change code language can work', async ({ page }, testInfo) => {
   await codeBlockController.codeBlock.hover();
   await expect(codeBlockController.languageButton).toHaveText('Rust');
 
-  expect(await getPageSnapshot(page, true)).toMatchSnapshot(
-    `${testInfo.title}_1.json`
+  await assertStoreMatchJSX(
+    page,
+    /*xml*/ `
+<affine:code
+  prop:caption=""
+  prop:language="rust"
+  prop:wrap={false}
+/>`,
+    codeBlockId
   );
   await undoByKeyboard(page);
-  expect(await getPageSnapshot(page, true)).toMatchSnapshot(
-    `${testInfo.title}_2.json`
+  await assertStoreMatchJSX(
+    page,
+    /*xml*/ `
+<affine:code
+  prop:caption=""
+  prop:language={null}
+  prop:wrap={false}
+/>`,
+    codeBlockId
   );
 
   // Can switch to another language
@@ -258,33 +273,54 @@ test('undo and redo works in code block', async ({ page }) => {
   await assertRichTexts(page, ['const a = 10;']);
 });
 
-test('toggle code block wrap can work', async ({ page }, testInfo) => {
+test('toggle code block wrap can work', async ({ page }) => {
   await enterPlaygroundRoom(page);
-  await initEmptyCodeBlockState(page);
+  const { codeBlockId } = await initEmptyCodeBlockState(page);
 
   const codeBlockController = getCodeBlock(page);
-  expect(await getPageSnapshot(page, true)).toMatchSnapshot(
-    `${testInfo.title}_1.json`
+  await assertStoreMatchJSX(
+    page,
+    /*xml*/ `
+<affine:code
+  prop:caption=""
+  prop:language={null}
+  prop:wrap={false}
+/>`,
+    codeBlockId
   );
 
   await codeBlockController.codeBlock.hover();
   await (await codeBlockController.openMore()).wrapButton.click();
 
-  expect(await getPageSnapshot(page, true)).toMatchSnapshot(
-    `${testInfo.title}_2.json`
+  await assertStoreMatchJSX(
+    page,
+    /*xml*/ `
+<affine:code
+  prop:caption=""
+  prop:language={null}
+  prop:wrap={true}
+/>`,
+    codeBlockId
   );
 
   await codeBlockController.codeBlock.hover();
   await (await codeBlockController.openMore()).cancelWrapButton.click();
 
-  expect(await getPageSnapshot(page, true)).toMatchSnapshot(
-    `${testInfo.title}_3.json`
+  await assertStoreMatchJSX(
+    page,
+    /*xml*/ `
+<affine:code
+  prop:caption=""
+  prop:language={null}
+  prop:wrap={false}
+/>`,
+    codeBlockId
   );
 });
 
-test('add caption works', async ({ page }, testInfo) => {
+test('add caption works', async ({ page }) => {
   await enterPlaygroundRoom(page);
-  await initEmptyCodeBlockState(page);
+  const { codeBlockId } = await initEmptyCodeBlockState(page);
 
   const codeBlockController = getCodeBlock(page);
   await codeBlockController.codeBlock.hover();
@@ -293,31 +329,59 @@ test('add caption works', async ({ page }, testInfo) => {
   await pressEnter(page);
   await waitNextFrame(page, 100);
 
-  expect(await getPageSnapshot(page, true)).toMatchSnapshot(
-    `${testInfo.title}.json`
+  await assertStoreMatchJSX(
+    page,
+    /*xml*/ `
+<affine:code
+  prop:caption="BlockSuite"
+  prop:language={null}
+  prop:wrap={false}
+/>`,
+    codeBlockId
   );
 });
 
-test('undo code block wrap can work', async ({ page }, testInfo) => {
+test('undo code block wrap can work', async ({ page }) => {
   await enterPlaygroundRoom(page);
-  await initEmptyCodeBlockState(page);
+  const { codeBlockId } = await initEmptyCodeBlockState(page);
   await focusRichText(page);
 
   const codeBlockController = getCodeBlock(page);
-  expect(await getPageSnapshot(page, true)).toMatchSnapshot(
-    `${testInfo.title}_1.json`
+  await assertStoreMatchJSX(
+    page,
+    /*xml*/ `
+<affine:code
+  prop:caption=""
+  prop:language={null}
+  prop:wrap={false}
+/>`,
+    codeBlockId
   );
 
   await codeBlockController.codeBlock.hover();
   await (await codeBlockController.openMore()).wrapButton.click();
-  expect(await getPageSnapshot(page, true)).toMatchSnapshot(
-    `${testInfo.title}_2.json`
+  await assertStoreMatchJSX(
+    page,
+    /*xml*/ `
+<affine:code
+  prop:caption=""
+  prop:language={null}
+  prop:wrap={true}
+/>`,
+    codeBlockId
   );
 
   await focusRichText(page);
   await undoByKeyboard(page);
-  expect(await getPageSnapshot(page, true)).toMatchSnapshot(
-    `${testInfo.title}_3.json`
+  await assertStoreMatchJSX(
+    page,
+    /*xml*/ `
+<affine:code
+  prop:caption=""
+  prop:language={null}
+  prop:wrap={false}
+/>`,
+    codeBlockId
   );
 });
 

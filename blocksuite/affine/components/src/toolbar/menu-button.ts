@@ -204,7 +204,6 @@ export class EditorMenuAction extends LitElement {
 
     ::slotted(svg) {
       color: var(--affine-icon-color);
-      font-size: 20px;
     }
   `;
 

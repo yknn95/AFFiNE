@@ -1,8 +1,8 @@
 import { getConnectorText } from '../../../utils/text.js';
-import { ElementToMarkdownAdapterExtension } from '../type.js';
+import type { ElementModelToMarkdownAdapterMatcher } from '../type.js';
 
-export const connectorToMarkdownAdapterMatcher =
-  ElementToMarkdownAdapterExtension({
+export const connectorToMarkdownAdapterMatcher: ElementModelToMarkdownAdapterMatcher =
+  {
     name: 'connector',
     match: elementModel => elementModel.type === 'connector',
     toAST: elementModel => {
@@ -22,4 +22,4 @@ export const connectorToMarkdownAdapterMatcher =
         ],
       };
     },
-  });
+  };

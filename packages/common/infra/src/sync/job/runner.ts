@@ -48,10 +48,7 @@ export class JobRunner<J> {
             // TODO: retry logic
             await this.queue.return(jobs);
           }
-          logger.error(
-            'Error processing jobs',
-            err instanceof Error ? (err.stack ?? err.message) : err
-          );
+          logger.error('Error processing jobs', err);
         }
       } else {
         await new Promise(resolve => setTimeout(resolve, 1000));

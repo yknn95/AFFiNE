@@ -1,29 +1,28 @@
 import { focusTextModel } from '@blocksuite/affine-components/rich-text';
-import { type Command, TextSelection } from '@blocksuite/block-std';
+import type { Command } from '@blocksuite/block-std';
 
 /**
  * Add a paragraph next to the current block.
  */
 export const addParagraphCommand: Command<
+  never,
+  'paragraphConvertedId',
   {
     blockId?: string;
-  },
-  {
-    paragraphConvertedId: string;
   }
 > = (ctx, next) => {
   const { std } = ctx;
-  const { store, selection } = std;
-  store.captureSync();
+  const { doc, selection } = std;
+  doc.captureSync();
 
   let blockId = ctx.blockId;
   if (!blockId) {
-    const text = selection.find(TextSelection);
+    const text = selection.find('text');
     blockId = text?.blockId;
   }
   if (!blockId) return;
 
-  const model = store.getBlock(blockId)?.model;
+  const model = doc.getBlock(blockId)?.model;
   if (!model) return;
 
   let id: string;
@@ -36,9 +35,9 @@ export const addParagraphCommand: Command<
     // aaa
     //   |
     //   bbb
-    id = store.addBlock('affine:paragraph', {}, model, 0);
+    id = doc.addBlock('affine:paragraph', {}, model, 0);
   } else {
-    const parent = store.getParent(model);
+    const parent = doc.getParent(model);
     if (!parent) return;
     const index = parent.children.indexOf(model);
     if (index < 0) return;
@@ -48,7 +47,7 @@ export const addParagraphCommand: Command<
     // after:
     // aaa
     // |
-    id = store.addBlock('affine:paragraph', {}, parent, index + 1);
+    id = doc.addBlock('affine:paragraph', {}, parent, index + 1);
   }
 
   focusTextModel(std, id);

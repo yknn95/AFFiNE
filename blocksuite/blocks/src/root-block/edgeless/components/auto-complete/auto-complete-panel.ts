@@ -1,6 +1,6 @@
-import { insertEdgelessTextCommand } from '@blocksuite/affine-block-edgeless-text';
 import {
   CanvasElementType,
+  CommonUtils,
   EdgelessCRUDIdentifier,
 } from '@blocksuite/affine-block-surface';
 import {
@@ -27,7 +27,6 @@ import {
 } from '@blocksuite/affine-model';
 import {
   EditPropsStore,
-  FeatureFlagService,
   ThemeProvider,
 } from '@blocksuite/affine-shared/services';
 import { captureEventTarget } from '@blocksuite/affine-shared/utils';
@@ -37,20 +36,17 @@ import type { XYWH } from '@blocksuite/global/utils';
 import {
   assertInstanceOf,
   Bound,
-  clamp,
-  normalizeDegAngle,
   serializeXYWH,
-  toDegree,
   Vec,
   WithDisposable,
 } from '@blocksuite/global/utils';
+import { DocCollection } from '@blocksuite/store';
 import { consume } from '@lit/context';
 import { baseTheme } from '@toeverything/theme';
 import { css, html, LitElement, nothing, unsafeCSS } from 'lit';
 import { property } from 'lit/decorators.js';
 import { repeat } from 'lit/directives/repeat.js';
 import { styleMap } from 'lit/directives/style-map.js';
-import * as Y from 'yjs';
 
 import type { EdgelessRootBlockComponent } from '../../edgeless-root-block.js';
 import {
@@ -158,12 +154,15 @@ export class EdgelessAutoCompletePanel extends WithDisposable(LitElement) {
     const { service, surfaceBlockModel } = edgeless;
     const frameMgr = service.frame;
     const frameIndex = service.frames.length + 1;
-    const props = this.std.get(EditPropsStore).applyLastProps('affine:frame', {
-      title: new Y.Text(`Frame ${frameIndex}`),
-      xywh: serializeXYWH(...xywh),
-      presentationIndex: frameMgr.generatePresentationIndex(),
-    });
-    const id = this.crud.addBlock('affine:frame', props, surfaceBlockModel);
+    const id = this.crud.addBlock(
+      'affine:frame',
+      {
+        title: new DocCollection.Y.Text(`Frame ${frameIndex}`),
+        xywh: serializeXYWH(...xywh),
+        presentationIndex: frameMgr.generatePresentationIndex(),
+      },
+      surfaceBlockModel
+    );
     edgeless.doc.captureSync();
     const frame = this.crud.getElementById(id);
     if (!frame) return;
@@ -248,17 +247,14 @@ export class EdgelessAutoCompletePanel extends WithDisposable(LitElement) {
     const { xywh, position } = target;
     const bound = Bound.fromXYWH(xywh);
 
-    const textFlag = this.edgeless.doc
-      .get(FeatureFlagService)
-      .getFlag('enable_edgeless_text');
+    const textFlag = this.edgeless.doc.awarenessStore.getFlag(
+      'enable_edgeless_text'
+    );
     if (textFlag) {
-      const [_, { textId }] = this.edgeless.std.command.exec(
-        insertEdgelessTextCommand,
-        {
-          x: bound.x,
-          y: bound.y,
-        }
-      );
+      const { textId } = this.edgeless.std.command.exec('insertEdgelessText', {
+        x: bound.x,
+        y: bound.y,
+      });
       if (!textId) return;
 
       const textElement = this.crud.getElementById(textId);
@@ -279,7 +275,7 @@ export class EdgelessAutoCompletePanel extends WithDisposable(LitElement) {
     } else {
       const textId = this.crud.addElement(CanvasElementType.TEXT, {
         xywh: bound.serialize(),
-        text: new Y.Text(),
+        text: new DocCollection.Y.Text(),
         textAlign: 'left',
         fontSize: 24,
         fontFamily: FontFamily.Inter,
@@ -346,8 +342,10 @@ export class EdgelessAutoCompletePanel extends WithDisposable(LitElement) {
     if (!point) return;
 
     const len = connector.path.length;
-    const angle = normalizeDegAngle(
-      toDegree(Vec.angle(connector.path[len - 2], connector.path[len - 1]))
+    const angle = CommonUtils.normalizeDegAngle(
+      CommonUtils.toDegree(
+        Vec.angle(connector.path[len - 2], connector.path[len - 1])
+      )
     );
     let nextBound: Bound;
     let position: Connection['position'];
@@ -401,8 +399,8 @@ export class EdgelessAutoCompletePanel extends WithDisposable(LitElement) {
     const coord = viewport.toViewCoord(pos[0], pos[1]);
     const { width, height } = viewportRect;
 
-    coord[0] = clamp(coord[0], 20, width - 20 - PANEL_WIDTH);
-    coord[1] = clamp(coord[1], 20, height - 20 - PANEL_HEIGHT);
+    coord[0] = CommonUtils.clamp(coord[0], 20, width - 20 - PANEL_WIDTH);
+    coord[1] = CommonUtils.clamp(coord[1], 20, height - 20 - PANEL_HEIGHT);
 
     return coord;
   }

@@ -22,7 +22,6 @@ import GraphQLUpload from 'graphql-upload/GraphQLUpload.mjs';
 import {
   CallMetric,
   CopilotFailedToCreateMessage,
-  CopilotSessionNotFound,
   FileUpload,
   RequestMutex,
   Throttle,
@@ -56,17 +55,6 @@ class CreateChatSessionInput {
 
   @Field(() => String)
   docId!: string;
-
-  @Field(() => String, {
-    description: 'The prompt name to use for the session',
-  })
-  promptName!: string;
-}
-
-@InputType()
-class UpdateChatSessionInput {
-  @Field(() => String)
-  sessionId!: string;
 
   @Field(() => String, {
     description: 'The prompt name to use for the session',
@@ -119,7 +107,7 @@ class CreateChatMessageInput implements Omit<SubmittedMessage, 'content'> {
   blobs!: Promise<FileUpload>[] | undefined;
 
   @Field(() => GraphQLJSON, { nullable: true })
-  params!: Record<string, any> | undefined;
+  params!: Record<string, string> | undefined;
 }
 
 enum ChatHistoryOrder {
@@ -335,7 +323,6 @@ export class CopilotResolver {
       await this.permissions.checkCloudPagePermission(
         workspaceId,
         docId,
-        'Doc.Read',
         user.id
       );
     } else {
@@ -369,7 +356,6 @@ export class CopilotResolver {
     await this.permissions.checkCloudPagePermission(
       options.workspaceId,
       options.docId,
-      'Doc.Update',
       user.id
     );
     const lockFlag = `${COPILOT_LOCKER}:session:${user.id}:${options.workspaceId}`;
@@ -387,39 +373,6 @@ export class CopilotResolver {
   }
 
   @Mutation(() => String, {
-    description: 'Update a chat session',
-  })
-  @CallMetric('ai', 'chat_session_update')
-  async updateCopilotSession(
-    @CurrentUser() user: CurrentUser,
-    @Args({ name: 'options', type: () => UpdateChatSessionInput })
-    options: UpdateChatSessionInput
-  ) {
-    const session = await this.chatSession.get(options.sessionId);
-    if (!session) {
-      throw new CopilotSessionNotFound();
-    }
-    const { workspaceId, docId } = session.config;
-    await this.permissions.checkCloudPagePermission(
-      workspaceId,
-      docId,
-      'Doc.Update',
-      user.id
-    );
-    const lockFlag = `${COPILOT_LOCKER}:session:${user.id}:${workspaceId}`;
-    await using lock = await this.mutex.acquire(lockFlag);
-    if (!lock) {
-      return new TooManyRequest('Server is busy');
-    }
-
-    await this.chatSession.checkQuota(user.id);
-    return await this.chatSession.updateSessionPrompt({
-      ...options,
-      userId: user.id,
-    });
-  }
-
-  @Mutation(() => String, {
     description: 'Create a chat session',
   })
   @CallMetric('ai', 'chat_session_fork')
@@ -431,7 +384,6 @@ export class CopilotResolver {
     await this.permissions.checkCloudPagePermission(
       options.workspaceId,
       options.docId,
-      'Doc.Update',
       user.id
     );
     const lockFlag = `${COPILOT_LOCKER}:session:${user.id}:${options.workspaceId}`;
@@ -460,7 +412,6 @@ export class CopilotResolver {
     await this.permissions.checkCloudPagePermission(
       options.workspaceId,
       options.docId,
-      'Doc.Update',
       user.id
     );
     if (!options.sessionIds.length) {

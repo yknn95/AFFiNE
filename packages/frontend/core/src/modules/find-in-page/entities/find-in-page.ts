@@ -75,11 +75,9 @@ export class FindInPage extends Entity {
     // TODO(@Peng): hide on navigation
   }
 
-  findInPage(searchText?: string) {
+  findInPage(searchText: string) {
     this.onChangeVisible(true);
-    if (searchText !== undefined) {
-      this.searchText$.next(searchText);
-    }
+    this.searchText$.next(searchText);
   }
 
   onChangeVisible(visible: boolean) {

@@ -1,23 +1,21 @@
 import { focusTextModel } from '@blocksuite/affine-components/rich-text';
-import { ListBlockModel } from '@blocksuite/affine-model';
 import { matchFlavours } from '@blocksuite/affine-shared/utils';
 import type { Command } from '@blocksuite/block-std';
 
 export const listToParagraphCommand: Command<
+  never,
+  'listConvertedId',
   {
     id: string;
     stopCapturing?: boolean;
-  },
-  {
-    listConvertedId: string;
   }
 > = (ctx, next) => {
   const { id, stopCapturing = true } = ctx;
   const std = ctx.std;
-  const doc = std.store;
+  const doc = std.doc;
   const model = doc.getBlock(id)?.model;
 
-  if (!model || !matchFlavours(model, [ListBlockModel])) return false;
+  if (!model || !matchFlavours(model, ['affine:list'])) return false;
 
   const parent = doc.getParent(model);
   if (!parent) return false;
@@ -28,7 +26,7 @@ export const listToParagraphCommand: Command<
     text: model.text?.clone(),
     children: model.children,
   };
-  if (stopCapturing) std.store.captureSync();
+  if (stopCapturing) std.doc.captureSync();
   doc.deleteBlock(model, {
     deleteChildren: false,
   });

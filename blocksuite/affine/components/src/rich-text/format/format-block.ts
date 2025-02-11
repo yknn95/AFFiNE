@@ -1,4 +1,3 @@
-import { getSelectedBlocksCommand } from '@blocksuite/affine-shared/commands';
 import type { AffineTextAttributes } from '@blocksuite/affine-shared/types';
 import type { BlockSelection, Command } from '@blocksuite/block-std';
 import { assertExists } from '@blocksuite/global/utils';
@@ -7,12 +6,15 @@ import { INLINE_ROOT_ATTR, type InlineRootElement } from '@blocksuite/inline';
 import { FORMAT_BLOCK_SUPPORT_FLAVOURS } from './consts.js';
 
 // for block selection
-export const formatBlockCommand: Command<{
-  currentBlockSelections?: BlockSelection[];
-  blockSelections?: BlockSelection[];
-  styles: AffineTextAttributes;
-  mode?: 'replace' | 'merge';
-}> = (ctx, next) => {
+export const formatBlockCommand: Command<
+  'currentBlockSelections',
+  never,
+  {
+    blockSelections?: BlockSelection[];
+    styles: AffineTextAttributes;
+    mode?: 'replace' | 'merge';
+  }
+> = (ctx, next) => {
   const blockSelections = ctx.blockSelections ?? ctx.currentBlockSelections;
   assertExists(
     blockSelections,
@@ -26,7 +28,7 @@ export const formatBlockCommand: Command<{
 
   const success = ctx.std.command
     .chain()
-    .pipe(getSelectedBlocksCommand, {
+    .getSelectedBlocks({
       blockSelections,
       filter: el =>
         FORMAT_BLOCK_SUPPORT_FLAVOURS.includes(
@@ -34,7 +36,7 @@ export const formatBlockCommand: Command<{
         ),
       types: ['block'],
     })
-    .pipe((ctx, next) => {
+    .inline((ctx, next) => {
       const { selectedBlocks } = ctx;
       assertExists(selectedBlocks);
 

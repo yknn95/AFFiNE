@@ -1,26 +1,26 @@
+import { getElectronAPIs } from '@affine/electron-api/web-worker';
 import type {
-  AffineTextAttributes,
   AttachmentBlockModel,
   BookmarkBlockModel,
   EmbedBlockModel,
   ImageBlockModel,
-  TableBlockModel,
 } from '@blocksuite/affine/blocks';
 import {
   defaultBlockMarkdownAdapterMatchers,
-  InlineDeltaToMarkdownAdapterExtensions,
+  inlineDeltaToMarkdownAdapterMatchers,
   MarkdownAdapter,
-  MarkdownInlineToDeltaAdapterExtensions,
-  TableModelFlavour,
+  markdownInlineToDeltaMatchers,
 } from '@blocksuite/affine/blocks';
 import { Container } from '@blocksuite/affine/global/di';
 import {
   createYProxy,
+  DocCollection,
   type DraftModel,
-  Transformer,
-  type TransformerMiddleware,
+  Job,
+  type JobMiddleware,
   type YBlock,
 } from '@blocksuite/affine/store';
+import type { AffineTextAttributes } from '@blocksuite/affine-shared/types';
 import type { DeltaInsert } from '@blocksuite/inline';
 import { Document } from '@toeverything/infra';
 import { toHexString } from 'lib0/buffer.js';
@@ -35,7 +35,6 @@ import {
 } from 'yjs';
 
 import { getAFFiNEWorkspaceSchema } from '../../workspace/global-schema';
-import { WorkspaceImpl } from '../../workspace/impls/workspace';
 import type { BlockIndexSchema, DocIndexSchema } from '../schema';
 import type {
   WorkerIngoingMessage,
@@ -50,6 +49,11 @@ const LRU_CACHE_SIZE = 5;
 
 // lru cache for ydoc instances, last used at the end of the array
 const lruCache = [] as { doc: YDoc; hash: string }[];
+
+const electronAPIs = BUILD_CONFIG.isElectron ? getElectronAPIs() : null;
+
+// @ts-expect-error test
+globalThis.__electronAPIs = electronAPIs;
 
 async function digest(data: Uint8Array) {
   if (
@@ -114,7 +118,7 @@ const bookmarkFlavours = new Set([
   'affine:embed-loom',
 ]);
 
-const markdownPreviewDocCollection = new WorkspaceImpl({
+const markdownPreviewDocCollection = new DocCollection({
   id: 'indexer',
   schema: blocksuiteSchema,
 });
@@ -151,7 +155,7 @@ function generateMarkdownPreviewBuilder(
     };
   }
 
-  const titleMiddleware: TransformerMiddleware = ({ adapterConfigs }) => {
+  const titleMiddleware: JobMiddleware = ({ adapterConfigs }) => {
     const pages = yRootDoc.getMap('meta').get('pages');
     if (!(pages instanceof YArray)) {
       return;
@@ -172,31 +176,23 @@ function generateMarkdownPreviewBuilder(
     return `${baseUrl}/${docId}?${searchParams.toString()}`;
   }
 
-  const docLinkBaseURLMiddleware: TransformerMiddleware = ({
-    adapterConfigs,
-  }) => {
+  const docLinkBaseURLMiddleware: JobMiddleware = ({ adapterConfigs }) => {
     adapterConfigs.set('docLinkBaseUrl', baseUrl);
   };
 
   const container = new Container();
   [
-    ...MarkdownInlineToDeltaAdapterExtensions,
+    ...markdownInlineToDeltaMatchers,
     ...defaultBlockMarkdownAdapterMatchers,
-    ...InlineDeltaToMarkdownAdapterExtensions,
+    ...inlineDeltaToMarkdownAdapterMatchers,
   ].forEach(ext => {
     ext.setup(container);
   });
 
   const provider = container.provider();
   const markdownAdapter = new MarkdownAdapter(
-    new Transformer({
-      schema: markdownPreviewDocCollection.schema,
-      blobCRUD: markdownPreviewDocCollection.blobSync,
-      docCRUD: {
-        create: (id: string) => markdownPreviewDocCollection.createDoc({ id }),
-        get: (id: string) => markdownPreviewDocCollection.getDoc(id),
-        delete: (id: string) => markdownPreviewDocCollection.removeDoc(id),
-      },
+    new Job({
+      collection: markdownPreviewDocCollection,
       middlewares: [docLinkBaseURLMiddleware, titleMiddleware],
     }),
     provider
@@ -374,23 +370,6 @@ function generateMarkdownPreviewBuilder(
     return `[${draftModel.name}](${draftModel.sourceId})\n`;
   };
 
-  const generateTableMarkdownPreview = (block: BlockDocumentInfo) => {
-    const isTableModel = (
-      model: DraftModel | null
-    ): model is DraftModel<TableBlockModel> => {
-      return model?.flavour === TableModelFlavour;
-    };
-
-    const draftModel = yblockToDraftModal(block.yblock);
-    if (!isTableModel(draftModel)) {
-      return null;
-    }
-
-    const url = getDocLink(block.docId, draftModel.id);
-
-    return `[table][](${url})\n`;
-  };
-
   const generateMarkdownPreview = async (block: BlockDocumentInfo) => {
     if (markdownPreviewCache.has(block)) {
       return markdownPreviewCache.get(block);
@@ -434,8 +413,6 @@ function generateMarkdownPreviewBuilder(
       markdown = generateLatexMarkdownPreview(block);
     } else if (bookmarkFlavours.has(flavour)) {
       markdown = generateBookmarkMarkdownPreview(block);
-    } else if (flavour === TableModelFlavour) {
-      markdown = generateTableMarkdownPreview(block);
     } else {
       console.warn(`unknown flavour: ${flavour}`);
     }
@@ -493,7 +470,7 @@ function unindentMarkdown(markdown: string) {
 
 async function crawlingDocData({
   docBuffer,
-  docId,
+  storageDocId,
   rootDocBuffer,
   rootDocId,
 }: WorkerInput & { type: 'doc' }): Promise<WorkerOutput> {
@@ -503,6 +480,18 @@ async function crawlingDocData({
   }
 
   const yRootDoc = await getOrCreateCachedYDoc(rootDocBuffer);
+
+  let docId = null;
+  for (const [id, subdoc] of yRootDoc.getMap('spaces')) {
+    if (subdoc instanceof YDoc && storageDocId === subdoc.guid) {
+      docId = id;
+      break;
+    }
+  }
+
+  if (docId === null) {
+    return {};
+  }
 
   let docExists: boolean | null = null;
 
@@ -822,10 +811,7 @@ async function crawlingDocData({
           ...commonBlockProps,
           content: block.get('prop:latex')?.toString() ?? '',
         });
-      } else if (
-        bookmarkFlavours.has(flavour) ||
-        flavour === TableModelFlavour
-      ) {
+      } else if (bookmarkFlavours.has(flavour)) {
         blockDocuments.push({
           ...commonBlockProps,
         });

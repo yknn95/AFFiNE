@@ -7,7 +7,7 @@ import { property } from 'lit/decorators.js';
 import { classMap } from 'lit/directives/class-map.js';
 import { ifDefined } from 'lit/directives/if-defined.js';
 import { repeat } from 'lit/directives/repeat.js';
-import { isEqual } from 'lodash-es';
+import isEqual from 'lodash.isequal';
 
 function TransparentIcon(hollowCircle = false) {
   const CircleIcon: TemplateResult | typeof nothing = hollowCircle
@@ -223,14 +223,13 @@ export class EdgelessColorPanel extends LitElement {
         palette => palette.key,
         palette => {
           const resolvedColor = resolveColor(palette.value, this.theme);
-          const activated = isEqual(resolvedColor, resolvedValue);
           return html`<edgeless-color-button
             class=${classMap({ large: true })}
             .label=${palette.key}
             .color=${palette.value}
             .theme=${this.theme}
             .hollowCircle=${this.hollowCircle}
-            ?active=${activated}
+            ?active=${isEqual(resolvedColor, resolvedValue)}
             @click=${() => {
               this.onSelect(palette);
               this.value = resolvedColor;

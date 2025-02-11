@@ -11,7 +11,7 @@ import {
   Config,
   verifyChallengeResponse,
 } from '../../base';
-import { Models, TokenType } from '../../models';
+import { TokenService, TokenType } from '../../core/auth/token';
 import { CaptchaConfig } from './types';
 
 const validator = z
@@ -26,7 +26,7 @@ export class CaptchaService {
 
   constructor(
     private readonly config: Config,
-    private readonly models: Models
+    private readonly token: TokenService
   ) {
     assert(config.plugins.captcha);
     this.captcha = config.plugins.captcha;
@@ -47,7 +47,7 @@ export class CaptchaService {
       body: formData,
       method: 'POST',
     });
-    const outcome: any = await result.json();
+    const outcome = await result.json();
 
     return (
       !!outcome.success &&
@@ -66,7 +66,7 @@ export class CaptchaService {
 
   async getChallengeToken() {
     const resource = randomUUID();
-    const challenge = await this.models.verificationToken.create(
+    const challenge = await this.token.createToken(
       TokenType.Challenge,
       resource,
       5 * 60
@@ -90,8 +90,8 @@ export class CaptchaService {
     const challenge = credential.challenge;
     let resource: string | null = null;
     if (typeof challenge === 'string' && challenge) {
-      resource = await this.models.verificationToken
-        .get(TokenType.Challenge, challenge)
+      resource = await this.token
+        .getToken(TokenType.Challenge, challenge)
         .then(token => token?.credential || null);
     }
 

@@ -8,7 +8,7 @@ import {
   stdContext,
 } from '@blocksuite/block-std';
 import { WithDisposable } from '@blocksuite/global/utils';
-import type { BlockModel, Store } from '@blocksuite/store';
+import type { BlockModel, Doc } from '@blocksuite/store';
 import { Text } from '@blocksuite/store';
 import { consume } from '@lit/context';
 import { css, html, nothing } from 'lit';
@@ -161,7 +161,7 @@ export class BlockCaptionEditor<
   accessor display = false;
 
   @consume({ context: docContext })
-  accessor doc!: Store;
+  accessor doc!: Doc;
 
   @query('.block-caption-editor')
   accessor input!: HTMLInputElement;

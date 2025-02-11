@@ -8,7 +8,7 @@ import {
 } from '@blocksuite/affine-components/icons';
 import { openFileOrFiles } from '@blocksuite/affine-shared/utils';
 import { WithDisposable } from '@blocksuite/global/utils';
-import type { Workspace } from '@blocksuite/store';
+import type { DocCollection } from '@blocksuite/store';
 import { html, LitElement, type PropertyValues } from 'lit';
 import { query, state } from 'lit/decorators.js';
 
@@ -30,7 +30,7 @@ export class ImportDoc extends WithDisposable(LitElement) {
   static override styles = styles;
 
   constructor(
-    private readonly collection: Workspace,
+    private readonly collection: DocCollection,
     private readonly onSuccess?: OnSuccessHandler,
     private readonly onFail?: OnFailHandler,
     private readonly abortController = new AbortController()

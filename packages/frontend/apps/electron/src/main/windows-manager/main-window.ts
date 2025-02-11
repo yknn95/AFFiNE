@@ -269,6 +269,12 @@ export async function openUrlInHiddenWindow(urlObj: URL) {
     win.webContents.openDevTools();
   }
 
+  win.on('close', e => {
+    e.preventDefault();
+    if (win && !win.isDestroyed()) {
+      win.destroy();
+    }
+  });
   logger.info('loading page at', url);
   win.loadURL(url).catch(e => {
     logger.error('failed to load url', e);

@@ -9,12 +9,8 @@ import {
 } from '@blocksuite/affine-components/toolbar';
 import type { CodeBlockModel } from '@blocksuite/affine-model';
 import { PAGE_HEADER_HEIGHT } from '@blocksuite/affine-shared/consts';
-import {
-  BlockSelection,
-  TextSelection,
-  WidgetComponent,
-} from '@blocksuite/block-std';
-import { limitShift, shift, size } from '@floating-ui/dom';
+import { WidgetComponent } from '@blocksuite/block-std';
+import { limitShift, shift } from '@floating-ui/dom';
 import { html } from 'lit';
 
 import type { CodeBlockComponent } from '../code-block.js';
@@ -38,7 +34,7 @@ export class AffineCodeToolbarWidget extends WidgetComponent<
         const codeBlock = this.block;
         const selection = this.host.selection;
 
-        const textSelection = selection.find(TextSelection);
+        const textSelection = selection.find('text');
         if (
           !!textSelection &&
           (!!textSelection.to || !!textSelection.from.length)
@@ -46,7 +42,7 @@ export class AffineCodeToolbarWidget extends WidgetComponent<
           return null;
         }
 
-        const blockSelections = selection.filter(BlockSelection);
+        const blockSelections = selection.filter('block');
         if (
           blockSelections.length > 1 ||
           (blockSelections.length === 1 &&
@@ -82,13 +78,8 @@ export class AffineCodeToolbarWidget extends WidgetComponent<
           },
           computePosition: {
             referenceElement: codeBlock,
-            placement: 'top',
+            placement: 'right-start',
             middleware: [
-              size({
-                apply({ rects, elements }) {
-                  elements.floating.style.width = `${rects.reference.width}px`;
-                },
-              }),
               shift({
                 crossAxis: true,
                 padding: {

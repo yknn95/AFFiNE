@@ -36,16 +36,15 @@ export class EdgelessNoteSeniorButton extends EdgelessToolbarToolMixin(
       --paper-foriegn-color: rgba(0, 0, 0, 0.1);
       --paper-shadow: 0px 2px 4px rgba(0, 0, 0, 0.25);
       --icon-card-bg: #fff;
-      --icon-card-shadow:
-        0px 2px 4px rgba(0, 0, 0, 0.22), inset 0px -2px 1px rgba(0, 0, 0, 0.14);
+      --icon-card-shadow: 0px 2px 4px rgba(0, 0, 0, 0.22),
+        inset 0px -2px 1px rgba(0, 0, 0, 0.14);
     }
     .note-root[data-app-theme='dark'] {
       --paper-border-color: var(--affine-divider-color);
       --paper-foriegn-color: rgba(255, 255, 255, 0.12);
       --paper-shadow: 0px 2px 6px rgba(0, 0, 0, 0.8);
       --icon-card-bg: #343434;
-      --icon-card-shadow:
-        0px 2px 4px rgba(0, 0, 0, 0.6),
+      --icon-card-shadow: 0px 2px 4px rgba(0, 0, 0, 0.6),
         inset 0px -2px 1px rgba(255, 255, 255, 0.06);
     }
 

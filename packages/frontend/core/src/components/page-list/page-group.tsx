@@ -1,10 +1,9 @@
-import { shallowEqual } from '@affine/component';
 import { DocDisplayMetaService } from '@affine/core/modules/doc-display-meta';
 import type { Tag } from '@affine/env/filter';
 import { useI18n } from '@affine/i18n';
 import { assertExists } from '@blocksuite/affine/global/utils';
-import type { DocMeta, Workspace } from '@blocksuite/affine/store';
-import { ToggleRightIcon, ViewLayersIcon } from '@blocksuite/icons/rc';
+import type { DocCollection, DocMeta } from '@blocksuite/affine/store';
+import { ToggleCollapseIcon, ViewLayersIcon } from '@blocksuite/icons/rc';
 import * as Collapsible from '@radix-ui/react-collapsible';
 import { useLiveData, useService } from '@toeverything/infra';
 import clsx from 'clsx';
@@ -35,6 +34,7 @@ import type {
   TagListItemProps,
   TagMeta,
 } from './types';
+import { shallowEqual } from './utils';
 
 export const ItemGroupHeader = memo(function ItemGroupHeader<
   T extends ListItem,
@@ -90,7 +90,7 @@ export const ItemGroupHeader = memo(function ItemGroupHeader<
         data-testid="page-list-group-header-collapsed-button"
         className={styles.collapsedIconContainer}
       >
-        <ToggleRightIcon
+        <ToggleCollapseIcon
           className={styles.collapsedIcon}
           data-collapsed={!!collapsed}
         />
@@ -156,7 +156,7 @@ export const ItemGroup = <T extends ListItem>({
             data-testid="page-list-group-header-collapsed-button"
             className={styles.collapsedIconContainer}
           >
-            <ToggleRightIcon
+            <ToggleCollapseIcon
               className={styles.collapsedIcon}
               data-collapsed={collapsed !== false}
             />
@@ -274,7 +274,7 @@ export const TagListItemRenderer = memo(function TagListItemRenderer(
 
 function tagIdToTagOption(
   tagId: string,
-  docCollection: Workspace
+  docCollection: DocCollection
 ): Tag | undefined {
   return docCollection.meta.properties.tags?.options.find(
     opt => opt.id === tagId

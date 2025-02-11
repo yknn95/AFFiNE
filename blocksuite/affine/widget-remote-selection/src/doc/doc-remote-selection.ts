@@ -1,24 +1,14 @@
-import {
-  AttachmentBlockModel,
-  BookmarkBlockModel,
-  CodeBlockModel,
-  DatabaseBlockModel,
-  ImageBlockModel,
-  SurfaceRefBlockModel,
-} from '@blocksuite/affine-model';
-import { getSelectionRectsCommand } from '@blocksuite/affine-shared/commands';
-import { EMBED_BLOCK_MODEL_LIST } from '@blocksuite/affine-shared/consts';
 import { matchFlavours } from '@blocksuite/affine-shared/utils';
 import {
+  type BaseSelection,
   BlockSelection,
   TextSelection,
   WidgetComponent,
 } from '@blocksuite/block-std';
-import { throttle } from '@blocksuite/global/utils';
-import type { BaseSelection, UserInfo } from '@blocksuite/store';
-import { computed, effect } from '@preact/signals-core';
-import { css, html, nothing, type PropertyValues } from 'lit';
-import { state } from 'lit/decorators.js';
+import { assertExists } from '@blocksuite/global/utils';
+import type { UserInfo } from '@blocksuite/store';
+import { computed } from '@preact/signals-core';
+import { css, html, nothing } from 'lit';
 import { styleMap } from 'lit/directives/style-map.js';
 
 import { RemoteColorManager } from '../manager/remote-color-manager';
@@ -44,14 +34,6 @@ export class AffineDocRemoteSelectionWidget extends WidgetComponent {
     }
   `;
 
-  @state()
-  private accessor _selections: Array<{
-    id: number;
-    selections: BaseSelection[];
-    rects: SelectionRect[];
-    user?: UserInfo;
-  }> = [];
-
   private readonly _abortController = new AbortController();
 
   private _remoteColorManager: RemoteColorManager | null = null;
@@ -76,15 +58,16 @@ export class AffineDocRemoteSelectionWidget extends WidgetComponent {
   private get _config(): DocRemoteSelectionConfig {
     return {
       blockSelectionBackgroundTransparent: block => {
-        return matchFlavours(block, [
-          CodeBlockModel,
-          DatabaseBlockModel,
-          ImageBlockModel,
-          AttachmentBlockModel,
-          BookmarkBlockModel,
-          SurfaceRefBlockModel,
-          ...EMBED_BLOCK_MODEL_LIST,
-        ]);
+        return (
+          matchFlavours(block, [
+            'affine:code',
+            'affine:database',
+            'affine:image',
+            'affine:attachment',
+            'affine:bookmark',
+            'affine:surface-ref',
+          ]) || /affine:embed-*/.test(block.flavour)
+        );
       },
     };
   }
@@ -99,47 +82,6 @@ export class AffineDocRemoteSelectionWidget extends WidgetComponent {
 
   private get _selectionManager() {
     return this.host.selection;
-  }
-
-  private _getTextRange(textSelection: TextSelection): Range | null {
-    const toBlockId = textSelection.to
-      ? textSelection.to.blockId
-      : textSelection.from.blockId;
-
-    let range = this.std.range.textSelectionToRange(
-      this._selectionManager.create(TextSelection, {
-        from: {
-          blockId: toBlockId,
-          index: textSelection.to
-            ? textSelection.to.index + textSelection.to.length
-            : textSelection.from.index + textSelection.from.length,
-          length: 0,
-        },
-        to: null,
-      })
-    );
-
-    if (!range) {
-      // If no range, maybe the block is not updated yet
-      // We just set the range to the end of the block
-      const block = this.std.view.getBlock(toBlockId);
-      if (!block) return null;
-
-      range = this.std.range.textSelectionToRange(
-        this._selectionManager.create(TextSelection, {
-          from: {
-            blockId: toBlockId,
-            index: block.model.text?.length ?? 0,
-            length: 0,
-          },
-          to: null,
-        })
-      );
-
-      if (!range) return null;
-    }
-
-    return range;
   }
 
   private _getCursorRect(selections: BaseSelection[]): SelectionRect | null {
@@ -158,8 +100,24 @@ export class AffineDocRemoteSelectionWidget extends WidgetComponent {
     const containerRect = this._containerRect;
 
     if (textSelection) {
-      const range = this._getTextRange(textSelection);
-      if (!range) return null;
+      const range = this.std.range.textSelectionToRange(
+        this._selectionManager.create('text', {
+          from: {
+            blockId: textSelection.to
+              ? textSelection.to.blockId
+              : textSelection.from.blockId,
+            index: textSelection.to
+              ? textSelection.to.index + textSelection.to.length
+              : textSelection.from.index + textSelection.from.length,
+            length: 0,
+          },
+          to: null,
+        })
+      );
+
+      if (!range) {
+        return null;
+      }
 
       const container = this._container;
       const containerRect = this._containerRect;
@@ -204,9 +162,7 @@ export class AffineDocRemoteSelectionWidget extends WidgetComponent {
     return null;
   }
 
-  private readonly _getSelectionRect = (
-    selections: BaseSelection[]
-  ): SelectionRect[] => {
+  private _getSelectionRect(selections: BaseSelection[]): SelectionRect[] {
     if (this.block.model.flavour !== 'affine:page') {
       console.error('remote selection widget must be used in page component');
       return [];
@@ -221,13 +177,10 @@ export class AffineDocRemoteSelectionWidget extends WidgetComponent {
 
     if (!textSelection && !blockSelections.length) return [];
 
-    const [_, { selectionRects }] = this.std.command.exec(
-      getSelectionRectsCommand,
-      {
-        textSelection,
-        blockSelections,
-      }
-    );
+    const { selectionRects } = this.std.command.exec('getSelectionRects', {
+      textSelection,
+      blockSelections,
+    });
 
     if (!selectionRects) return [];
 
@@ -246,7 +199,7 @@ export class AffineDocRemoteSelectionWidget extends WidgetComponent {
         transparent: isTransparent,
       };
     });
-  };
+  }
 
   override connectedCallback() {
     super.connectedCallback();
@@ -268,51 +221,36 @@ export class AffineDocRemoteSelectionWidget extends WidgetComponent {
     this._abortController.abort();
   }
 
-  private readonly _updateSelections = throttle(
-    (selections: typeof this._remoteSelections.value) => {
-      const remoteUsers = new Set<number>();
-      this._selections = selections.flatMap(({ selections, id, user }) => {
-        if (remoteUsers.has(id)) {
-          return [];
-        } else {
-          remoteUsers.add(id);
-        }
-
-        return {
-          id,
-          selections,
-          rects: this._getSelectionRect(selections),
-          user,
-        };
-      });
-    },
-    60
-  );
-
-  protected override firstUpdated(_changedProperties: PropertyValues): void {
-    this.disposables.add(
-      effect(() => {
-        const selections = this._remoteSelections.value;
-        this._updateSelections(selections);
-      })
-    );
-
-    this.disposables.add(
-      this.std.store.slots.blockUpdated.on(() => {
-        this._updateSelections(this._remoteSelections.peek());
-      })
-    );
-  }
-
   override render() {
-    if (this._selections.length === 0) {
+    if (this._remoteSelections.value.length === 0) {
       return nothing;
     }
 
+    const remoteUsers = new Set<number>();
+    const selections: Array<{
+      id: number;
+      selections: BaseSelection[];
+      rects: SelectionRect[];
+      user?: UserInfo;
+    }> = this._remoteSelections.value.flatMap(({ selections, id, user }) => {
+      if (remoteUsers.has(id)) {
+        return [];
+      } else {
+        remoteUsers.add(id);
+      }
+
+      return {
+        id,
+        selections,
+        rects: this._getSelectionRect(selections),
+        user,
+      };
+    });
+
     const remoteColorManager = this._remoteColorManager;
-    if (!remoteColorManager) return nothing;
+    assertExists(remoteColorManager);
     return html`<div>
-      ${this._selections.map(selection => {
+      ${selections.flatMap(selection => {
         const color = remoteColorManager.get(selection.id);
         if (!color) return [];
         const cursorRect = this._getCursorRect(selection.selections);

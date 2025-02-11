@@ -1,7 +1,7 @@
 generator client {
   provider        = "prisma-client-js"
   binaryTargets   = ["native", "debian-openssl-3.0.x", "linux-arm64-openssl-3.0.x"]
-  previewFeatures = ["metrics", "relationJoins", "nativeDistinct"]
+  previewFeatures = ["metrics", "tracing", "relationJoins", "nativeDistinct"]
 }
 
 datasource db {
@@ -25,16 +25,16 @@ model User {
   features              UserFeature[]
   userStripeCustomer    UserStripeCustomer?
   workspacePermissions  WorkspaceUserPermission[]
-  docPermissions        WorkspaceDocUserPermission[]
+  pagePermissions       WorkspacePageUserPermission[]
   connectedAccounts     ConnectedAccount[]
   sessions              UserSession[]
   aiSessions            AiSession[]
   updatedRuntimeConfigs RuntimeConfig[]
   userSnapshots         UserSnapshot[]
-  createdSnapshot       Snapshot[]                   @relation("createdSnapshot")
-  updatedSnapshot       Snapshot[]                   @relation("updatedSnapshot")
-  createdUpdate         Update[]                     @relation("createdUpdate")
-  createdHistory        SnapshotHistory[]            @relation("createdHistory")
+  createdSnapshot       Snapshot[]                    @relation("createdSnapshot")
+  updatedSnapshot       Snapshot[]                    @relation("updatedSnapshot")
+  createdUpdate         Update[]                      @relation("createdUpdate")
+  createdHistory        SnapshotHistory[]             @relation("createdHistory")
 
   @@index([email])
   @@map("users")
@@ -102,11 +102,11 @@ model Workspace {
   enableAi         Boolean  @default(true) @map("enable_ai")
   enableUrlPreview Boolean  @default(false) @map("enable_url_preview")
 
-  features       WorkspaceFeature[]
-  docs           WorkspaceDoc[]
-  permissions    WorkspaceUserPermission[]
-  docPermissions WorkspaceDocUserPermission[]
-  blobs          Blob[]
+  pages           WorkspacePage[]
+  permissions     WorkspaceUserPermission[]
+  pagePermissions WorkspacePageUserPermission[]
+  features        WorkspaceFeature[]
+  blobs           Blob[]
 
   @@map("workspaces")
 }
@@ -115,19 +115,17 @@ model Workspace {
 // NOTE:
 //   We won't make sure every page has a corresponding record in this table.
 //   Only the ones that have ever changed will have records here,
-//   and for others we will make sure it's has a default value return in our business logic.
-model WorkspaceDoc {
+//   and for others we will make sure it's has a default value return in our bussiness logic.
+model WorkspacePage {
   workspaceId String  @map("workspace_id") @db.VarChar
-  docId       String  @map("page_id") @db.VarChar
+  pageId      String  @map("page_id") @db.VarChar
   public      Boolean @default(false)
-  // Workspace user's default role in this page, default is `Manager`
-  defaultRole Int     @default(30) @db.SmallInt
   // Page/Edgeless
   mode        Int     @default(0) @db.SmallInt
 
   workspace Workspace @relation(fields: [workspaceId], references: [id], onDelete: Cascade)
 
-  @@id([workspaceId, docId])
+  @@id([workspaceId, pageId])
   @@map("workspace_pages")
 }
 
@@ -143,7 +141,7 @@ model WorkspaceUserPermission {
   id          String                @id @default(uuid()) @db.VarChar
   workspaceId String                @map("workspace_id") @db.VarChar
   userId      String                @map("user_id") @db.VarChar
-  // Workspace Role, Owner/Admin/Collaborator/External
+  // Read/Write
   type        Int                   @db.SmallInt
   /// @deprecated Whether the permission invitation is accepted by the user
   accepted    Boolean               @default(false)
@@ -162,89 +160,98 @@ model WorkspaceUserPermission {
   @@map("workspace_user_permissions")
 }
 
-model WorkspaceDocUserPermission {
+model WorkspacePageUserPermission {
+  id          String   @id @default(uuid()) @db.VarChar
   workspaceId String   @map("workspace_id") @db.VarChar
-  docId       String   @map("page_id") @db.VarChar
+  pageId      String   @map("page_id") @db.VarChar
   userId      String   @map("user_id") @db.VarChar
-  // External/Reader/Editor/Manager/Owner
+  // Read/Write
   type        Int      @db.SmallInt
+  /// Whether the permission invitation is accepted by the user
+  accepted    Boolean  @default(false)
   createdAt   DateTime @default(now()) @map("created_at") @db.Timestamptz(3)
 
   user      User      @relation(fields: [userId], references: [id], onDelete: Cascade)
   workspace Workspace @relation(fields: [workspaceId], references: [id], onDelete: Cascade)
 
-  @@id([workspaceId, docId, userId])
+  @@unique([workspaceId, pageId, userId])
   @@map("workspace_page_user_permissions")
 }
 
-model Feature {
-  id                Int      @id @default(autoincrement())
-  name              String   @map("feature") @db.VarChar
-  configs           Json     @default("{}") @db.Json
-  createdAt         DateTime @default(now()) @map("created_at") @db.Timestamptz(3)
-  updatedAt         DateTime @default(now()) @updatedAt @map("updated_at") @db.Timestamptz(3)
-  /// TODO(@forehalo): remove in the coming version
-  /// @deprecated
-  /// we don't need to record all the historical version of features
-  deprecatedVersion Int      @default(0) @map("version") @db.Integer
-  /// @deprecated
-  /// we don't need to record type of features any more, there are always static,
-  /// but set it in `WorkspaceFeature` and `UserFeature` for fast query with just a little redundant.
-  deprecatedType    Int      @default(0) @map("type") @db.Integer
-
-  userFeatures      UserFeature[]
-  workspaceFeatures WorkspaceFeature[]
-
-  @@unique([name, deprecatedVersion])
-  @@map("features")
-}
-
+// feature gates is a way to enable/disable features for a user
+// for example:
+// - early access is a feature that allow some users to access the insider version
+// - pro plan is a quota that allow some users access to more resources after they pay
 model UserFeature {
-  id        Int       @id @default(autoincrement())
-  userId    String    @map("user_id") @db.VarChar
-  featureId Int       @map("feature_id") @db.Integer
-  // it should be typed as `optional` in the codebase, but we would keep all values exists during data migration.
-  // so it's safe to assert it a non-null value.
-  name      String    @default("") @map("name") @db.VarChar
-  // a little redundant, but fast the queries
-  type      Int       @default(0) @map("type") @db.Integer
+  id        Int    @id @default(autoincrement())
+  userId    String @map("user_id") @db.VarChar
+  featureId Int    @map("feature_id") @db.Integer
+
+  // we will record the reason why the feature is enabled/disabled
+  // for example:
+  // - pro_plan_v1: "user buy the pro plan"
   reason    String    @db.VarChar
+  // record the quota enabled time
   createdAt DateTime  @default(now()) @map("created_at") @db.Timestamptz(3)
+  // record the quota expired time, pay plan is a subscription, so it will expired
   expiredAt DateTime? @map("expired_at") @db.Timestamptz(3)
+  // whether the feature is activated
+  // for example:
+  // - if we switch the user to another plan, we will set the old plan to deactivated, but dont delete it
   activated Boolean   @default(false)
 
   feature Feature @relation(fields: [featureId], references: [id], onDelete: Cascade)
   user    User    @relation(fields: [userId], references: [id], onDelete: Cascade)
 
   @@index([userId])
-  @@index([name])
-  @@index([featureId])
   @@map("user_features")
 }
 
+// feature gates is a way to enable/disable features for a workspace
+// for example:
+// - copilet is a feature that allow some users in a workspace to access the copilet feature
 model WorkspaceFeature {
-  id          Int       @id @default(autoincrement())
-  workspaceId String    @map("workspace_id") @db.VarChar
-  featureId   Int       @map("feature_id") @db.Integer
-  // it should be typed as `optional` in the codebase, but we would keep all values exists during data migration.
-  // so it's safe to assert it a non-null value.
-  name        String    @default("") @map("name") @db.VarChar
-  // a little redundant, but fast the queries
-  type        Int       @default(0) @map("type") @db.Integer
-  /// overrides for the default feature configs
-  configs     Json      @default("{}") @db.Json
-  reason      String    @db.VarChar
-  createdAt   DateTime  @default(now()) @map("created_at") @db.Timestamptz(3)
-  activated   Boolean   @default(false)
-  expiredAt   DateTime? @map("expired_at") @db.Timestamptz(3)
+  id          Int    @id @default(autoincrement())
+  workspaceId String @map("workspace_id") @db.VarChar
+  featureId   Int    @map("feature_id") @db.Integer
+
+  // override quota's configs
+  configs   Json      @default("{}") @db.Json
+  // we will record the reason why the feature is enabled/disabled
+  // for example:
+  // - copilet_v1: "owner buy the copilet feature package"
+  reason    String    @db.VarChar
+  // record the feature enabled time
+  createdAt DateTime  @default(now()) @map("created_at") @db.Timestamptz(3)
+  // record the quota expired time, pay plan is a subscription, so it will expired
+  expiredAt DateTime? @map("expired_at") @db.Timestamptz(3)
+  // whether the feature is activated
+  // for example:
+  // - if owner unsubscribe a feature package, we will set the feature to deactivated, but dont delete it
+  activated Boolean   @default(false)
 
   feature   Feature   @relation(fields: [featureId], references: [id], onDelete: Cascade)
   workspace Workspace @relation(fields: [workspaceId], references: [id], onDelete: Cascade)
 
   @@index([workspaceId])
-  @@index([name])
-  @@index([featureId])
   @@map("workspace_features")
+}
+
+model Feature {
+  id        Int      @id @default(autoincrement())
+  feature   String   @db.VarChar
+  version   Int      @default(0) @db.Integer
+  // 0: feature, 1: quota
+  type      Int      @db.Integer
+  // configs, define by feature controller
+  configs   Json     @db.Json
+  createdAt DateTime @default(now()) @map("created_at") @db.Timestamptz(3)
+
+  UserFeatureGates  UserFeature[]
+  WorkspaceFeatures WorkspaceFeature[]
+
+  @@unique([feature, version])
+  @@map("features")
 }
 
 // the latest snapshot of each doc that we've seen
@@ -279,7 +286,7 @@ model Snapshot {
 
 // user snapshots are special snapshots for user storage like personal app settings, distinguished from workspace snapshots
 // basically they share the same structure with workspace snapshots
-// but for convenience, we don't fork the updates queue and history for user snapshots, until we have to
+// but for convenience, we don't fork the updates queue and hisotry for user snapshots, until we have to
 // which means all operation on user snapshot will happen in-pace
 model UserSnapshot {
   userId    String   @map("user_id") @db.VarChar
@@ -301,7 +308,7 @@ model Update {
   createdAt   DateTime @map("created_at") @db.Timestamptz(3)
   createdBy   String?  @map("created_by") @db.VarChar
 
-  // will delete creator record if creator's account is deleted
+  // will delete createor record if createor's account is deleted
   createdByUser User? @relation(name: "createdUpdate", fields: [createdBy], references: [id], onDelete: SetNull)
 
   // @deprecated use createdAt only
@@ -320,7 +327,7 @@ model SnapshotHistory {
   expiredAt   DateTime @map("expired_at") @db.Timestamptz(3)
   createdBy   String?  @map("created_by") @db.VarChar
 
-  // will delete creator record if creator's account is deleted
+  // will delete createor record if creator's account is deleted
   createdByUser User? @relation(name: "createdHistory", fields: [createdBy], references: [id], onDelete: SetNull)
 
   @@id([workspaceId, id, timestamp])
@@ -410,7 +417,7 @@ model AiSession {
 
 model DataMigration {
   id         String    @id @default(uuid()) @db.VarChar
-  name       String    @unique @db.VarChar
+  name       String    @db.VarChar
   startedAt  DateTime  @default(now()) @map("started_at") @db.Timestamptz(3)
   finishedAt DateTime? @map("finished_at") @db.Timestamptz(3)
 
@@ -545,58 +552,32 @@ model Subscription {
 }
 
 model Invoice {
-  stripeInvoiceId             String   @id @map("stripe_invoice_id")
-  targetId                    String   @map("target_id") @db.VarChar
-  currency                    String   @db.VarChar(3)
+  stripeInvoiceId  String   @id @map("stripe_invoice_id")
+  targetId         String   @map("target_id") @db.VarChar
+  currency         String   @db.VarChar(3)
   // CNY 12.50 stored as 1250
-  amount                      Int      @db.Integer
-  status                      String   @db.VarChar(20)
-  createdAt                   DateTime @default(now()) @map("created_at") @db.Timestamptz(3)
-  updatedAt                   DateTime @updatedAt @map("updated_at") @db.Timestamptz(3)
+  amount           Int      @db.Integer
+  status           String   @db.VarChar(20)
+  createdAt        DateTime @default(now()) @map("created_at") @db.Timestamptz(3)
+  updatedAt        DateTime @updatedAt @map("updated_at") @db.Timestamptz(3)
   // billing reason
-  reason                      String?  @db.VarChar
-  lastPaymentError            String?  @map("last_payment_error") @db.Text
+  reason           String?  @db.VarChar
+  lastPaymentError String?  @map("last_payment_error") @db.Text
   // stripe hosted invoice link
-  link                        String?  @db.Text
-  // whether the onetime subscription has been redeemed
-  onetimeSubscriptionRedeemed Boolean  @default(false) @map("onetime_subscription_redeemed")
+  link             String?  @db.Text
 
   @@index([targetId])
   @@map("invoices")
 }
-
-model License {
-  key         String    @id @map("key") @db.VarChar
-  createdAt   DateTime  @default(now()) @map("created_at") @db.Timestamptz(3)
-  revealedAt  DateTime? @map("revealed_at") @db.Timestamptz(3)
-  installedAt DateTime? @map("installed_at") @db.Timestamptz(3)
-  validateKey String?   @map("validate_key") @db.VarChar
-
-  @@map("licenses")
-}
-
-model InstalledLicense {
-  key         String    @id @map("key") @db.VarChar
-  workspaceId String    @unique @map("workspace_id") @db.VarChar
-  quantity    Int       @default(1) @db.Integer
-  recurring   String    @db.VarChar
-  installedAt DateTime  @default(now()) @map("installed_at") @db.Timestamptz(3)
-  validateKey String    @map("validate_key") @db.VarChar
-  validatedAt DateTime  @map("validated_at") @db.Timestamptz(3)
-  expiredAt   DateTime? @map("expired_at") @db.Timestamptz(3)
-
-  @@map("installed_licenses")
-}
-
 // Blob table only exists for fast non-data queries.
 // like, total size of blobs in a workspace, or blob list for sync service.
 // it should only be a map of metadata of blobs stored anywhere else
 model Blob {
-  workspaceId String    @map("workspace_id") @db.VarChar
-  key         String    @db.VarChar
-  size        Int       @db.Integer
-  mime        String    @db.VarChar
-  createdAt   DateTime  @default(now()) @map("created_at") @db.Timestamptz(3)
+  workspaceId String   @map("workspace_id") @db.VarChar
+  key         String   @db.VarChar
+  size        Int      @db.Integer
+  mime        String   @db.VarChar
+  createdAt   DateTime @default(now()) @map("created_at") @db.Timestamptz(3)
   deletedAt   DateTime? @map("deleted_at") @db.Timestamptz(3)
 
   workspace Workspace @relation(fields: [workspaceId], references: [id], onDelete: Cascade)

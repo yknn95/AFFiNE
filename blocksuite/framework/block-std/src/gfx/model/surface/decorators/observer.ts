@@ -1,4 +1,4 @@
-import type * as Y from 'yjs';
+import type { Y } from '@blocksuite/store';
 
 import type { GfxPrimitiveElementModel } from '../element-model.js';
 import { getObjectPropMeta, setObjectPropMeta } from './common.js';

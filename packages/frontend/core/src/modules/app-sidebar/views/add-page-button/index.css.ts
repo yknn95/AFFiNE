@@ -10,23 +10,3 @@ export const root = style({
   borderColor: cssVarV2('layer/insideBorder/border'),
   background: cssVarV2('button/siderbarPrimary/background'),
 });
-
-export const withAskRoot = style([
-  root,
-  {
-    width: 'auto',
-    padding: 6,
-  },
-]);
-
-export const withAskContent = style({
-  fontSize: 20,
-  display: 'flex',
-  alignItems: 'center',
-  gap: 2,
-  color: cssVarV2.icon.primary,
-});
-
-export const templateMenu = style({
-  width: 280,
-});

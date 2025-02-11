@@ -1,10 +1,14 @@
 {
-  "extends": "../../../tsconfig.web.json",
+  "extends": "../../../tsconfig.json",
   "include": ["./src"],
   "compilerOptions": {
-    "rootDir": "./src",
-    "outDir": "./dist",
-    "tsBuildInfoFile": "./dist/tsconfig.tsbuildinfo"
+    "composite": true,
+    "noEmit": false,
+    "outDir": "lib"
   },
-  "references": [{ "path": "../../common/env" }]
+  "references": [
+    {
+      "path": "../../common/env"
+    }
+  ]
 }

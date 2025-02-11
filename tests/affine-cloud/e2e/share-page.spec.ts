@@ -22,8 +22,11 @@ let user: {
   password: string;
 };
 
-test.beforeEach(async ({ page }) => {
+test.beforeEach(async () => {
   user = await createRandomUser();
+});
+
+test.beforeEach(async ({ page }) => {
   await loginUser(page, user);
 });
 
@@ -346,62 +349,4 @@ test('Should show no permission page when the share page is not found', async ({
   await expect(
     page.getByText('You do not have access or this content does not exist.')
   ).toBeVisible();
-});
-
-test('Inline latex modal should be not shown in shared mode when clicking', async ({
-  page,
-  browser,
-}) => {
-  await page.reload();
-  await waitForEditorLoad(page);
-  await createLocalWorkspace(
-    {
-      name: 'test',
-    },
-    page
-  );
-  await enableCloudWorkspaceFromShareButton(page);
-  const title = getBlockSuiteEditorTitle(page);
-  await title.pressSequentially('TEST TITLE', {
-    delay: 50,
-  });
-  await page.keyboard.press('Enter', { delay: 50 });
-
-  await page.keyboard.type('$$E=mc^2$$');
-  await page.keyboard.press('Space');
-
-  // there should be a inline latex node
-  const latexLocator = page.locator('affine-latex-node');
-  await expect(latexLocator).toBeVisible();
-
-  // click the latex node
-  // the latex editor should be shown when the doc can be editing
-  await latexLocator.click();
-  const modalLocator = page.locator('.latex-editor-container');
-  await expect(modalLocator).toBeVisible();
-
-  // enable share page and copy page link
-  await enableShare(page);
-  await page.getByTestId('share-menu-copy-link-button').click();
-  await page.getByTestId('share-link-menu-copy-page').click();
-
-  // check share page is accessible
-  {
-    const context = await browser.newContext();
-    await skipOnboarding(context);
-    const url: string = await page.evaluate(() =>
-      navigator.clipboard.readText()
-    );
-    const page2 = await context.newPage();
-    await page2.goto(url);
-    await waitForEditorLoad(page2);
-
-    // click the latex node
-    const latexLocator = page2.locator('affine-latex-node');
-    await latexLocator.click();
-
-    // the latex editor should not be shown when the doc is readonly
-    const modalLocator = page2.locator('.latex-editor-container');
-    await expect(modalLocator).not.toBeVisible();
-  }
 });

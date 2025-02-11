@@ -1,4 +1,3 @@
-import { isNoteBlock } from '@blocksuite/affine-block-surface';
 import { SmallScissorsIcon } from '@blocksuite/affine-components/icons';
 import { DEFAULT_NOTE_HEIGHT } from '@blocksuite/affine-model';
 import { EDGELESS_BLOCK_CHILD_PADDING } from '@blocksuite/affine-shared/consts';
@@ -23,6 +22,7 @@ import type {
   NoteBlockModel,
   RootBlockModel,
 } from '../../../../index.js';
+import { isNoteBlock } from '../../utils/query.js';
 
 const DIVIDING_LINE_OFFSET = 4;
 const NEW_NOTE_GAP = 40;

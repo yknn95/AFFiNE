@@ -1,14 +1,11 @@
-import { type EditorHost, TextSelection } from '@blocksuite/affine/block-std';
-import {
-  type AffineAIPanelWidget,
-  type AffineAIPanelWidgetConfig,
-  type AIError,
-  type AIItemGroupConfig,
-  createLitPortal,
+import type { EditorHost } from '@blocksuite/affine/block-std';
+import type {
+  AffineAIPanelWidget,
+  AffineAIPanelWidgetConfig,
+  AIError,
 } from '@blocksuite/affine/blocks';
 import { assertExists } from '@blocksuite/affine/global/utils';
-import { flip, offset } from '@floating-ui/dom';
-import { html, type TemplateResult } from 'lit';
+import type { TemplateResult } from 'lit';
 
 import {
   buildCopyConfig,
@@ -110,7 +107,7 @@ export function actionToStream<T extends keyof BlockSuitePresets.AIActions>(
           control,
           where,
           docId: host.doc.id,
-          workspaceId: host.doc.workspace.id,
+          workspaceId: host.doc.collection.id,
         } as Parameters<typeof action>[0];
         // @ts-expect-error TODO(@Peng): maybe fix this
         stream = action(options);
@@ -210,19 +207,15 @@ export function actionToHandler<T extends keyof BlockSuitePresets.AIActions>(
   };
 }
 
-export function handleInlineAskAIAction(
-  host: EditorHost,
-  actionGroups?: AIItemGroupConfig[]
-) {
+export function handleInlineAskAIAction(host: EditorHost) {
   const panel = getAIPanelWidget(host);
-  const selection = host.selection.find(TextSelection);
+  const selection = host.selection.find('text');
   const lastBlockPath = selection
     ? (selection.to?.blockId ?? selection.blockId)
     : null;
   if (!lastBlockPath) return;
   const block = host.view.getBlock(lastBlockPath);
   if (!block) return;
-
   const generateAnswer: AffineAIPanelWidgetConfig['generateAnswer'] = ({
     finish,
     input,
@@ -245,60 +238,13 @@ export function handleInlineAskAIAction(
           where: 'inline-chat-panel',
           control: 'chat-send',
           docId: host.doc.id,
-          workspaceId: host.doc.workspace.id,
+          workspaceId: host.doc.collection.id,
         });
         bindTextStream(stream, { update, finish, signal });
       })
       .catch(console.error);
   };
-  if (!panel.config) return;
-
+  assertExists(panel.config);
   panel.config.generateAnswer = generateAnswer;
-
-  if (!actionGroups) {
-    panel.toggle(block);
-    return;
-  }
-
-  let actionPanel: HTMLDivElement | null = null;
-  let abortController: AbortController | null = null;
-  const clear = () => {
-    abortController?.abort();
-    actionPanel = null;
-    abortController = null;
-  };
-
-  panel.config.inputCallback = text => {
-    if (!actionPanel) return;
-    actionPanel.style.visibility = text ? 'hidden' : 'visible';
-  };
-  panel.config.hideCallback = () => {
-    clear();
-  };
-
   panel.toggle(block);
-
-  setTimeout(() => {
-    abortController = new AbortController();
-    actionPanel = createLitPortal({
-      template: html`
-        <ask-ai-panel
-          .host=${host}
-          .actionGroups=${actionGroups}
-          .onItemClick=${() => {
-            panel.restoreSelection();
-            clear();
-          }}
-        ></ask-ai-panel>
-      `,
-      computePosition: {
-        referenceElement: panel,
-        placement: 'top-start',
-        middleware: [flip(), offset({ mainAxis: 3 })],
-        autoUpdate: true,
-      },
-      abortController: abortController,
-      closeOnClickAway: true,
-    });
-  }, 0);
 }

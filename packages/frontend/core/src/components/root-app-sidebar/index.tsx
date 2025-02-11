@@ -1,8 +1,8 @@
-// Import is already correct, no changes needed
 import {
   AddPageButton,
   AppDownloadButton,
   AppSidebar,
+  CategoryDivider,
   MenuItem,
   MenuLinkItem,
   QuickSearchInput,
@@ -10,9 +10,11 @@ import {
   SidebarScrollableContainer,
 } from '@affine/core/modules/app-sidebar/views';
 import { ExternalMenuLinkItem } from '@affine/core/modules/app-sidebar/views/menu-item/external-menu-link-item';
-import { WorkspaceDialogService } from '@affine/core/modules/dialogs';
 import {
-  CollapsibleSection,
+  GlobalDialogService,
+  WorkspaceDialogService,
+} from '@affine/core/modules/dialogs';
+import {
   ExplorerCollections,
   ExplorerFavorites,
   ExplorerMigrationFavorites,
@@ -23,9 +25,10 @@ import { CMDKQuickSearchService } from '@affine/core/modules/quicksearch/service
 import type { Workspace } from '@affine/core/modules/workspace';
 import { useI18n } from '@affine/i18n';
 import { track } from '@affine/track';
-import type { Store } from '@blocksuite/affine/store';
+import type { Doc } from '@blocksuite/affine/store';
 import {
   AllDocsIcon,
+  GithubIcon,
   ImportIcon,
   JournalIcon,
   SettingsIcon,
@@ -43,7 +46,6 @@ import {
   workspaceWrapper,
 } from './index.css';
 import { AppSidebarJournalButton } from './journal-button';
-import { TemplateDocEntrance } from './template-doc-entrance';
 import { TrashButton } from './trash-button';
 import { UpdaterButton } from './updater-button';
 import { UserInfo } from './user-info';
@@ -54,7 +56,7 @@ export type RootAppSidebarProps = {
   onOpenSettingModal: () => void;
   currentWorkspace: Workspace;
   openPage: (pageId: string) => void;
-  createPage: () => Store;
+  createPage: () => Doc;
   paths: {
     all: (workspaceId: string) => string;
     trash: (workspaceId: string) => string;
@@ -92,6 +94,7 @@ export const RootAppSidebar = memo((): ReactElement => {
     CMDKQuickSearchService,
   });
   const t = useI18n();
+  const globalDialogService = useService(GlobalDialogService);
   const workspaceDialogService = useService(WorkspaceDialogService);
   const workbench = workbenchService.workbench;
   const onOpenQuickSearchModal = useCallback(() => {
@@ -99,11 +102,11 @@ export const RootAppSidebar = memo((): ReactElement => {
   }, [cMDKQuickSearchService]);
 
   const onOpenSettingModal = useCallback(() => {
-    workspaceDialogService.open('setting', {
+    globalDialogService.open('setting', {
       activeTab: 'appearance',
     });
     track.$.navigationPanel.$.openSettings();
-  }, [workspaceDialogService]);
+  }, [globalDialogService]);
 
   const handleOpenDocs = useCallback(
     (result: {
@@ -144,7 +147,11 @@ export const RootAppSidebar = memo((): ReactElement => {
       <SidebarContainer>
         <div className={workspaceAndUserWrapper}>
           <div className={workspaceWrapper}>
-            <WorkspaceNavigator showEnableCloudButton showSyncStatus />
+            <WorkspaceNavigator
+              showEnableCloudButton
+              showSettingsButton
+              showSyncStatus
+            />
           </div>
           <UserInfo />
         </div>
@@ -175,11 +182,8 @@ export const RootAppSidebar = memo((): ReactElement => {
         <ExplorerMigrationFavorites />
         <ExplorerCollections />
         <ExplorerTags />
-        <CollapsibleSection
-          name="others"
-          title={t['com.affine.rootAppSidebar.others']()}
-          contentStyle={{ padding: '6px 8px 0 8px' }}
-        >
+        <CategoryDivider label={t['com.affine.rootAppSidebar.others']()} />
+        <div style={{ padding: '0 8px' }}>
           <TrashButton />
           <MenuItem
             data-testid="slider-bar-import-button"
@@ -188,13 +192,17 @@ export const RootAppSidebar = memo((): ReactElement => {
           >
             <span data-testid="import-modal-trigger">{t['Import']()}</span>
           </MenuItem>
-          <TemplateDocEntrance />
           <ExternalMenuLinkItem
             href="https://affine.pro/blog?tag=Release+Note"
             icon={<JournalIcon />}
             label={t['com.affine.app-sidebar.learn-more']()}
           />
-        </CollapsibleSection>
+          <ExternalMenuLinkItem
+            href="https://github.com/toeverything/affine"
+            icon={<GithubIcon />}
+            label={t['com.affine.app-sidebar.star-us']()}
+          />
+        </div>
       </SidebarScrollableContainer>
       <SidebarContainer>
         {BUILD_CONFIG.isElectron ? <UpdaterButton /> : <AppDownloadButton />}

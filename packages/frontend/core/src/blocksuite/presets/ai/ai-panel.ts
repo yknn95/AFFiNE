@@ -1,4 +1,3 @@
-import { AINetworkSearchService } from '@affine/core/modules/ai-button/services/network-search';
 import type { EditorHost } from '@blocksuite/affine/block-std';
 import {
   type AffineAIPanelWidget,
@@ -7,11 +6,9 @@ import {
   ImageBlockModel,
   isInsideEdgelessEditor,
   matchFlavours,
-  NoteBlockModel,
   NoteDisplayMode,
 } from '@blocksuite/affine/blocks';
 import { assertExists, Bound } from '@blocksuite/affine/global/utils';
-import type { FrameworkProvider } from '@toeverything/infra';
 import type { TemplateResult } from 'lit';
 
 import { createTextRenderer, insertFromMarkdown } from '../_common';
@@ -116,13 +113,15 @@ function createNewNote(host: EditorHost): AIItemConfig {
 
             // set the viewport to show the new note block and original note block
             const newNote = doc.getBlock(noteBlockId)?.model;
-            if (!newNote || !matchFlavours(newNote, [NoteBlockModel])) return;
+            if (!newNote || !matchFlavours(newNote, ['affine:note'])) return;
             const newNoteBound = Bound.deserialize(newNote.xywh);
+
             const bounds = [bound, newNoteBound];
-            service.gfx.fitToScreen({
-              bounds,
-              padding: [20, 20, 20, 20],
-            });
+            const { zoom, centerX, centerY } = service.getFitToScreenData(
+              [20, 20, 20, 20],
+              bounds
+            );
+            service.viewport.setViewport(zoom, [centerX, centerY]);
           })
           .catch(err => {
             console.error(err);
@@ -190,7 +189,10 @@ function buildPageResponseConfig<T extends keyof BlockSuitePresets.AIActions>(
           icon: ChatWithAIIcon,
           handler: () => {
             reportResponse('result:continue-in-chat');
-            AIProvider.slots.requestOpenWithChat.emit({ host });
+            AIProvider.slots.requestOpenWithChat.emit({
+              host,
+              appendCard: true,
+            });
             panel.hide();
           },
         },
@@ -285,21 +287,14 @@ export function buildCopyConfig(panel: AffineAIPanelWidget) {
 }
 
 export function buildAIPanelConfig(
-  panel: AffineAIPanelWidget,
-  framework: FrameworkProvider
+  panel: AffineAIPanelWidget
 ): AffineAIPanelWidgetConfig {
   const ctx = new AIContext();
-  const searchService = framework.get(AINetworkSearchService);
   return {
     answerRenderer: createTextRenderer(panel.host, { maxHeight: 320 }),
     finishStateConfig: buildFinishConfig(panel, 'chat', ctx),
     generatingStateConfig: buildGeneratingConfig(),
     errorStateConfig: buildErrorConfig(panel),
     copy: buildCopyConfig(panel),
-    networkSearchConfig: {
-      visible: searchService.visible,
-      enabled: searchService.enabled,
-      setEnabled: searchService.setEnabled,
-    },
   };
 }

@@ -1,5 +1,6 @@
 import {
   type CanvasElementWithText,
+  CommonUtils,
   GRID_GAP_MAX,
   GRID_GAP_MIN,
 } from '@blocksuite/affine-block-surface';
@@ -19,6 +20,7 @@ import {
   type FrameBlockModel,
   type ImageBlockModel,
   MindmapElementModel,
+  type NoteBlockModel,
   ShapeElementModel,
   TextElementModel,
 } from '@blocksuite/affine-model';
@@ -34,15 +36,23 @@ import type {
   Viewport,
 } from '@blocksuite/block-std/gfx';
 import type { PointLocation } from '@blocksuite/global/utils';
-import { Bound, clamp } from '@blocksuite/global/utils';
+import { Bound } from '@blocksuite/global/utils';
 import type { BlockModel } from '@blocksuite/store';
 
 import type { Connectable } from '../../../_common/utils/index.js';
+
+const { clamp } = CommonUtils;
 
 export function isMindmapNode(
   element: GfxBlockElementModel | BlockSuite.EdgelessModel | null
 ) {
   return element?.group instanceof MindmapElementModel;
+}
+
+export function isNoteBlock(
+  element: BlockModel | BlockSuite.EdgelessModel | null
+): element is NoteBlockModel {
+  return !!element && 'flavour' in element && element.flavour === 'affine:note';
 }
 
 export function isEdgelessTextBlock(

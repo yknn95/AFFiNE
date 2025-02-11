@@ -1,8 +1,7 @@
-import type { Workspace } from '@blocksuite/store';
-import { Text } from '@blocksuite/store';
+import type { DocCollection } from '@blocksuite/store';
 
 export function createDefaultDoc(
-  collection: Workspace,
+  collection: DocCollection,
   options: { id?: string; title?: string } = {}
 ) {
   const doc = collection.createDoc({ id: options.id });
@@ -10,12 +9,13 @@ export function createDefaultDoc(
   doc.load();
   const title = options.title ?? '';
   const rootId = doc.addBlock('affine:page', {
-    title: new Text(title),
+    title: new doc.Text(title),
   });
-  collection.meta.setDocMeta(doc.id, {
+  collection.setDocMeta(doc.id, {
     title,
   });
 
+  // @ts-expect-error FIXME: will be fixed when surface model migrated to affine-model
   doc.addBlock('affine:surface', {}, rootId);
   const noteId = doc.addBlock('affine:note', {}, rootId);
   doc.addBlock('affine:paragraph', {}, noteId);

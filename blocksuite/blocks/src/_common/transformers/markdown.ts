@@ -1,15 +1,13 @@
-import {
-  InlineDeltaToMarkdownAdapterExtensions,
-  MarkdownInlineToDeltaAdapterExtensions,
-} from '@blocksuite/affine-components/rich-text';
 import { MarkdownAdapter } from '@blocksuite/affine-shared/adapters';
 import { Container } from '@blocksuite/global/di';
 import { BlockSuiteError, ErrorCode } from '@blocksuite/global/exceptions';
 import { assertExists, sha } from '@blocksuite/global/utils';
-import type { Store, Workspace } from '@blocksuite/store';
-import { extMimeMap, Transformer } from '@blocksuite/store';
+import type { Doc, DocCollection } from '@blocksuite/store';
+import { extMimeMap, Job } from '@blocksuite/store';
 
 import { defaultBlockMarkdownAdapterMatchers } from '../adapters/index.js';
+import { inlineDeltaToMarkdownAdapterMatchers } from '../adapters/markdown/delta-converter/inline-delta.js';
+import { markdownInlineToDeltaMatchers } from '../adapters/markdown/delta-converter/markdown-inline.js';
 import {
   defaultImageProxyMiddleware,
   docLinkBaseURLMiddleware,
@@ -20,9 +18,9 @@ import { createAssetsArchive, download, Unzip } from './utils.js';
 
 const container = new Container();
 [
-  ...MarkdownInlineToDeltaAdapterExtensions,
+  ...markdownInlineToDeltaMatchers,
   ...defaultBlockMarkdownAdapterMatchers,
-  ...InlineDeltaToMarkdownAdapterExtensions,
+  ...inlineDeltaToMarkdownAdapterMatchers,
 ].forEach(ext => {
   ext.setup(container);
 });
@@ -30,19 +28,19 @@ const container = new Container();
 const provider = container.provider();
 
 type ImportMarkdownToBlockOptions = {
-  doc: Store;
+  doc: Doc;
   markdown: string;
   blockId: string;
 };
 
 type ImportMarkdownToDocOptions = {
-  collection: Workspace;
+  collection: DocCollection;
   markdown: string;
   fileName?: string;
 };
 
 type ImportMarkdownZipOptions = {
-  collection: Workspace;
+  collection: DocCollection;
   imported: Blob;
 };
 
@@ -51,19 +49,10 @@ type ImportMarkdownZipOptions = {
  * @param doc The doc to export
  * @returns A Promise that resolves when the export is complete
  */
-async function exportDoc(doc: Store) {
-  const job = new Transformer({
-    schema: doc.schema,
-    blobCRUD: doc.blobSync,
-    docCRUD: {
-      create: (id: string) => doc.workspace.createDoc({ id }),
-      get: (id: string) => doc.workspace.getDoc(id),
-      delete: (id: string) => doc.workspace.removeDoc(id),
-    },
-    middlewares: [
-      docLinkBaseURLMiddleware(doc.workspace.id),
-      titleMiddleware(doc.workspace.meta.docMetas),
-    ],
+async function exportDoc(doc: Doc) {
+  const job = new Job({
+    collection: doc.collection,
+    middlewares: [docLinkBaseURLMiddleware, titleMiddleware],
   });
   const snapshot = job.docToSnapshot(doc);
 
@@ -111,24 +100,15 @@ async function importMarkdownToBlock({
   markdown,
   blockId,
 }: ImportMarkdownToBlockOptions) {
-  const job = new Transformer({
-    schema: doc.schema,
-    blobCRUD: doc.blobSync,
-    docCRUD: {
-      create: (id: string) => doc.workspace.createDoc({ id }),
-      get: (id: string) => doc.workspace.getDoc(id),
-      delete: (id: string) => doc.workspace.removeDoc(id),
-    },
-    middlewares: [
-      defaultImageProxyMiddleware,
-      docLinkBaseURLMiddleware(doc.workspace.id),
-    ],
+  const job = new Job({
+    collection: doc.collection,
+    middlewares: [defaultImageProxyMiddleware, docLinkBaseURLMiddleware],
   });
   const adapter = new MarkdownAdapter(job, provider);
   const snapshot = await adapter.toSliceSnapshot({
     file: markdown,
     assets: job.assetsManager,
-    workspaceId: doc.workspace.id,
+    workspaceId: doc.collection.id,
     pageId: doc.id,
   });
 
@@ -156,18 +136,12 @@ async function importMarkdownToDoc({
   markdown,
   fileName,
 }: ImportMarkdownToDocOptions) {
-  const job = new Transformer({
-    schema: collection.schema,
-    blobCRUD: collection.blobSync,
-    docCRUD: {
-      create: (id: string) => collection.createDoc({ id }),
-      get: (id: string) => collection.getDoc(id),
-      delete: (id: string) => collection.removeDoc(id),
-    },
+  const job = new Job({
+    collection,
     middlewares: [
       defaultImageProxyMiddleware,
       fileNameMiddleware(fileName),
-      docLinkBaseURLMiddleware(collection.id),
+      docLinkBaseURLMiddleware,
     ],
   });
   const mdAdapter = new MarkdownAdapter(job, provider);
@@ -220,18 +194,12 @@ async function importMarkdownZip({
   await Promise.all(
     markdownBlobs.map(async ([fileName, blob]) => {
       const fileNameWithoutExt = fileName.replace(/\.[^/.]+$/, '');
-      const job = new Transformer({
-        schema: collection.schema,
-        blobCRUD: collection.blobSync,
-        docCRUD: {
-          create: (id: string) => collection.createDoc({ id }),
-          get: (id: string) => collection.getDoc(id),
-          delete: (id: string) => collection.removeDoc(id),
-        },
+      const job = new Job({
+        collection,
         middlewares: [
           defaultImageProxyMiddleware,
           fileNameMiddleware(fileNameWithoutExt),
-          docLinkBaseURLMiddleware(collection.id),
+          docLinkBaseURLMiddleware,
         ],
       });
       const assets = job.assets;

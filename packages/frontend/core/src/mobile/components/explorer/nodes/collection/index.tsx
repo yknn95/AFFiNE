@@ -8,7 +8,7 @@ import { CompatibleFavoriteItemsAdapter } from '@affine/core/modules/favorite';
 import { GlobalContextService } from '@affine/core/modules/global-context';
 import { ShareDocsListService } from '@affine/core/modules/share-doc';
 import type { Collection } from '@affine/env/filter';
-import { PublicDocMode } from '@affine/graphql';
+import { PublicPageMode } from '@affine/graphql';
 import { useI18n } from '@affine/i18n';
 import track from '@affine/track';
 import type { DocMeta } from '@blocksuite/affine/store';
@@ -161,9 +161,9 @@ const ExplorerCollectionNodeChildren = ({
     const pageData = {
       meta: meta as DocMeta,
       publicMode:
-        publicMode === PublicDocMode.Edgeless
+        publicMode === PublicPageMode.Edgeless
           ? ('edgeless' as const)
-          : publicMode === PublicDocMode.Page
+          : publicMode === PublicPageMode.Page
             ? ('page' as const)
             : undefined,
       favorite: favourites.some(fav => fav.id === meta.id),

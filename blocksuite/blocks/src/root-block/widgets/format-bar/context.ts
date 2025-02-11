@@ -1,10 +1,4 @@
 import { MenuContext } from '@blocksuite/affine-components/toolbar';
-import {
-  getBlockSelectionsCommand,
-  getImageSelectionsCommand,
-  getSelectedModelsCommand,
-  getTextSelectionCommand,
-} from '@blocksuite/affine-shared/commands';
 
 import type { AffineFormatBarWidget } from './format-bar.js';
 
@@ -21,11 +15,11 @@ export class FormatBarContext extends MenuContext {
     const [success, result] = this.std.command
       .chain()
       .tryAll(chain => [
-        chain.pipe(getTextSelectionCommand),
-        chain.pipe(getBlockSelectionsCommand),
-        chain.pipe(getImageSelectionsCommand),
+        chain.getTextSelection(),
+        chain.getBlockSelections(),
+        chain.getImageSelections(),
       ])
-      .pipe(getSelectedModelsCommand, {
+      .getSelectedModels({
         mode: 'highest',
       })
       .run();

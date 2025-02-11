@@ -1,6 +1,5 @@
 import EventEmitter2 from 'eventemitter2';
-
-import { MANUALLY_STOP } from '../utils/throw-if-aborted';
+import { throttle } from 'lodash-es';
 
 export type ConnectionStatus =
   | 'idle'
@@ -11,7 +10,6 @@ export type ConnectionStatus =
 
 export interface Connection<T = any> {
   readonly status: ConnectionStatus;
-  readonly error?: Error;
   readonly inner: T;
   connect(): void;
   disconnect(): void;
@@ -24,18 +22,17 @@ export interface Connection<T = any> {
 export abstract class AutoReconnectConnection<T = any>
   implements Connection<T>
 {
-  private readonly event = new EventEmitter2({
-    maxListeners: 100,
-  });
-  private _inner: T | undefined = undefined;
+  private readonly event = new EventEmitter2();
+  private _inner: T | null = null;
   private _status: ConnectionStatus = 'idle';
-  private _error: Error | undefined = undefined;
-  retryDelay = 3000;
+  protected error?: Error;
   private refCount = 0;
+  private _enableAutoReconnect = false;
   private connectingAbort?: AbortController;
-  private reconnectingAbort?: AbortController;
 
-  constructor() {}
+  constructor() {
+    this.autoReconnect();
+  }
 
   get shareId(): string | undefined {
     return undefined;
@@ -46,7 +43,7 @@ export abstract class AutoReconnectConnection<T = any>
   }
 
   get inner(): T {
-    if (this._inner === undefined) {
+    if (!this._inner) {
       throw new Error(
         `Connection ${this.constructor.name} has not been established.`
       );
@@ -55,7 +52,7 @@ export abstract class AutoReconnectConnection<T = any>
     return this._inner;
   }
 
-  private set inner(inner: T | undefined) {
+  protected set inner(inner: T | null) {
     this._inner = inner;
   }
 
@@ -63,23 +60,12 @@ export abstract class AutoReconnectConnection<T = any>
     return this._status;
   }
 
-  get error() {
-    return this._error;
-  }
-
-  protected set error(error: Error | undefined) {
-    this.handleError(error);
-  }
-
-  private setStatus(status: ConnectionStatus, error?: Error) {
-    const shouldEmit = status !== this._status || error !== this._error;
+  protected setStatus(status: ConnectionStatus, error?: Error) {
+    const shouldEmit = status !== this._status || error !== this.error;
     this._status = status;
-    // we only clear-up error when status is connected
-    if (error || status === 'connected') {
-      this._error = error;
-    }
+    this.error = error;
     if (shouldEmit) {
-      this.emitStatusChanged(status, this._error);
+      this.emitStatusChanged(status, error);
     }
   }
 
@@ -87,15 +73,15 @@ export abstract class AutoReconnectConnection<T = any>
   protected abstract doDisconnect(conn: T): void;
 
   private innerConnect() {
-    if (this.status !== 'connecting') {
+    if (this.status === 'idle' || this.status === 'error') {
+      this._enableAutoReconnect = true;
       this.setStatus('connecting');
       this.connectingAbort = new AbortController();
-      const signal = this.connectingAbort.signal;
-      this.doConnect(signal)
+      this.doConnect(this.connectingAbort.signal)
         .then(value => {
-          if (!signal.aborted) {
-            this._inner = value;
+          if (!this.connectingAbort?.signal.aborted) {
             this.setStatus('connected');
+            this._inner = value;
           } else {
             try {
               this.doDisconnect(value);
@@ -105,43 +91,11 @@ export abstract class AutoReconnectConnection<T = any>
           }
         })
         .catch(error => {
-          if (!signal.aborted) {
-            console.error('failed to connect', error);
-            this.handleError(error as any);
+          if (!this.connectingAbort?.signal.aborted) {
+            this.setStatus('error', error as any);
           }
         });
     }
-  }
-
-  private innerDisconnect() {
-    this.connectingAbort?.abort(MANUALLY_STOP);
-    this.reconnectingAbort?.abort(MANUALLY_STOP);
-    try {
-      if (this._inner) {
-        this.doDisconnect(this._inner);
-      }
-    } catch (error) {
-      console.error('failed to disconnect', error);
-    }
-    this.reconnectingAbort = undefined;
-    this.connectingAbort = undefined;
-    this._inner = undefined;
-  }
-
-  private handleError(reason?: Error) {
-    // on error
-    console.error('connection error, will reconnect', reason);
-    this.innerDisconnect();
-    this.setStatus('error', reason);
-    // reconnect
-
-    this.reconnectingAbort = new AbortController();
-    const signal = this.reconnectingAbort.signal;
-    setTimeout(() => {
-      if (!signal.aborted) {
-        this.innerConnect();
-      }
-    }, this.retryDelay);
   }
 
   connect() {
@@ -151,16 +105,36 @@ export abstract class AutoReconnectConnection<T = any>
     }
   }
 
-  disconnect(force?: boolean) {
-    if (force) {
-      this.refCount = 0;
-    } else {
-      this.refCount = Math.max(this.refCount - 1, 0);
-    }
+  disconnect() {
+    this.refCount--;
     if (this.refCount === 0) {
-      this.innerDisconnect();
+      this._enableAutoReconnect = false;
+      this.connectingAbort?.abort();
+      try {
+        if (this._inner) {
+          this.doDisconnect(this._inner);
+        }
+      } catch (error) {
+        console.error('failed to disconnect', error);
+      }
       this.setStatus('closed');
+      this._inner = null;
     }
+  }
+
+  private autoReconnect() {
+    // TODO:
+    //   - maximum retry count
+    //   - dynamic sleep time (attempt < 3 ? 1s : 1min)?
+    this.onStatusChanged(
+      throttle(() => {
+        () => {
+          if (this._enableAutoReconnect) {
+            this.innerConnect();
+          }
+        };
+      }, 1000)
+    );
   }
 
   waitForConnected(signal?: AbortSignal) {
@@ -170,16 +144,14 @@ export abstract class AutoReconnectConnection<T = any>
         return;
       }
 
-      const off = this.onStatusChanged(status => {
+      this.onStatusChanged(status => {
         if (status === 'connected') {
           resolve();
-          off();
         }
       });
 
       signal?.addEventListener('abort', reason => {
         reject(reason);
-        off();
       });
     });
   }

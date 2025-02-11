@@ -13,7 +13,7 @@ import {
 import { LatexBlockPlainTextAdapterExtension } from '@blocksuite/affine-block-latex';
 import { ListBlockPlainTextAdapterExtension } from '@blocksuite/affine-block-list';
 import { ParagraphBlockPlainTextAdapterExtension } from '@blocksuite/affine-block-paragraph';
-import type { ExtensionType } from '@blocksuite/store';
+import type { ExtensionType } from '@blocksuite/block-std';
 
 export const defaultBlockPlainTextAdapterMatchers: ExtensionType[] = [
   ParagraphBlockPlainTextAdapterExtension,

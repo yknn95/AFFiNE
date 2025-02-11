@@ -3,37 +3,30 @@ import type {
   SurfaceBlockModel,
 } from '@blocksuite/affine-block-surface';
 import {
+  CommonUtils,
   EdgelessLegacySlotIdentifier,
-  normalizeWheelDeltaY,
 } from '@blocksuite/affine-block-surface';
-import {
-  NoteBlockModel,
-  NoteDisplayMode,
-  type RootBlockModel,
-  type ShapeElementModel,
+import type {
+  RootBlockModel,
+  ShapeElementModel,
 } from '@blocksuite/affine-model';
-import { EDGELESS_BLOCK_CHILD_PADDING } from '@blocksuite/affine-shared/consts';
 import {
-  DocModeProvider,
-  EditorSettingProvider,
   EditPropsStore,
-  FeatureFlagService,
   FontLoaderService,
   ThemeProvider,
 } from '@blocksuite/affine-shared/services';
 import type { Viewport } from '@blocksuite/affine-shared/types';
 import {
   isTouchPadPinchEvent,
-  matchFlavours,
   requestConnectedFrame,
   requestThrottledConnectedFrame,
 } from '@blocksuite/affine-shared/utils';
-import {
-  BlockComponent,
-  type GfxBlockComponent,
+import type {
+  GfxBlockComponent,
   SurfaceSelection,
-  type UIEventHandler,
+  UIEventHandler,
 } from '@blocksuite/block-std';
+import { BlockComponent } from '@blocksuite/block-std';
 import {
   GfxControllerIdentifier,
   type GfxViewportElement,
@@ -53,6 +46,9 @@ import { EdgelessPageKeyboardManager } from './edgeless-keyboard.js';
 import type { EdgelessRootService } from './edgeless-root-service.js';
 import { getBackgroundGrid, isCanvasElement } from './utils/query.js';
 import { mountShapeTextEditor } from './utils/text.js';
+import { fitToScreen } from './utils/viewport.js';
+
+const { normalizeWheelDeltaY } = CommonUtils;
 
 export class EdgelessRootBlockComponent extends BlockComponent<
   RootBlockModel,
@@ -229,13 +225,9 @@ export class EdgelessRootBlockComponent extends BlockComponent<
         const [p1, p2] = multiPointersState.pointers;
 
         const dx =
-          (0.25 * (p1.delta.x + p2.delta.x)) /
-          viewport.zoom /
-          viewport.viewScale;
+          (0.25 * (p1.delta.x + p2.delta.x)) / viewport.zoom / viewport.scale;
         const dy =
-          (0.25 * (p1.delta.y + p2.delta.y)) /
-          viewport.zoom /
-          viewport.viewScale;
+          (0.25 * (p1.delta.y + p2.delta.y)) / viewport.zoom / viewport.scale;
 
         // direction is opposite
         viewport.applyDeltaCenter(-dx, -dy);
@@ -346,65 +338,13 @@ export class EdgelessRootBlockComponent extends BlockComponent<
   private _initViewport() {
     const { std, gfx } = this;
 
-    const pageBlockViewportFitAnimation = () => {
-      const primaryMode = std.get(DocModeProvider).getPrimaryMode(this.doc.id);
-      const note = this.model.children.find(
-        (child): child is NoteBlockModel =>
-          matchFlavours(child, [NoteBlockModel]) &&
-          child.displayMode !== NoteDisplayMode.EdgelessOnly
-      );
-
-      if (primaryMode !== 'page' || !note || note.edgeless.collapse)
-        return false;
-
-      const leftPadding = parseInt(
-        window
-          .getComputedStyle(this)
-          .getPropertyValue('--affine-editor-side-padding')
-          .replace('px', '')
-      );
-      if (isNaN(leftPadding)) return false;
-
-      let editorWidth = parseInt(
-        window
-          .getComputedStyle(this)
-          .getPropertyValue('--affine-editor-width')
-          .replace('px', '')
-      );
-      if (isNaN(editorWidth)) return false;
-
-      const containerWidth = this.getBoundingClientRect().width;
-      const leftMargin =
-        containerWidth > editorWidth ? (containerWidth - editorWidth) / 2 : 0;
-
-      const pageTitleAnchor = gfx.viewport.toModelCoord(
-        leftPadding + leftMargin,
-        0
-      );
-
-      const noteBound = Bound.deserialize(note.xywh);
-      const edgelessTitleAnchor = Vec.add(noteBound.tl, [
-        EDGELESS_BLOCK_CHILD_PADDING,
-        12,
-      ]);
-
-      const center = Vec.sub(edgelessTitleAnchor, pageTitleAnchor);
-      gfx.viewport.setCenter(center[0], center[1]);
-      gfx.viewport.smoothZoom(0.65, undefined, 15);
-
-      return true;
-    };
-
     const run = () => {
       const storedViewport = std.get(EditPropsStore).getStorage('viewport');
-      if (!storedViewport) {
-        const enablePageBlock = this.std
-          .get(FeatureFlagService)
-          .getFlag('enable_page_block');
 
-        if (!(enablePageBlock && pageBlockViewportFitAnimation())) {
-          this.gfx.fitToScreen();
-        }
+      if (!storedViewport) {
+        fitToScreen(this.gfx.gfxElements, gfx.viewport, {
+          smooth: false,
+        });
         return;
       }
 
@@ -431,10 +371,8 @@ export class EdgelessRootBlockComponent extends BlockComponent<
   private _initWheelEvent() {
     this._disposables.add(
       this.dispatcher.add('wheel', ctx => {
-        const config = this.std.getOptional(EditorSettingProvider);
         const state = ctx.get('defaultState');
         const e = state.event as WheelEvent;
-        const edgelessScrollZoom = config?.peek().edgelessScrollZoom ?? false;
 
         e.preventDefault();
 
@@ -442,7 +380,7 @@ export class EdgelessRootBlockComponent extends BlockComponent<
         if (viewport.locked) return;
 
         // zoom
-        if (isTouchPadPinchEvent(e) || edgelessScrollZoom) {
+        if (isTouchPadPinchEvent(e)) {
           const rect = this.getBoundingClientRect();
           // Perform zooming relative to the mouse position
           const [baseX, baseY] = this.gfx.viewport.toModelCoord(
@@ -515,7 +453,7 @@ export class EdgelessRootBlockComponent extends BlockComponent<
 
     this.handleEvent('selectionChange', () => {
       const surface = this.host.selection.value.find(
-        (sel): sel is SurfaceSelection => sel.is(SurfaceSelection)
+        (sel): sel is SurfaceSelection => sel.is('surface')
       );
       if (!surface) return;
 

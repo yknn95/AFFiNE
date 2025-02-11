@@ -527,7 +527,7 @@ async function responseToCreateSlides(host: EditorHost, ctx: AIContext) {
       await job.insertTemplate(content);
     }
 
-    getSurfaceElementFromEditor(host)?.refresh();
+    getSurfaceElementFromEditor(host).refresh();
   } catch (error) {
     console.error('Error creating slides:', error);
   }
@@ -566,7 +566,10 @@ export function actionToResponse<T extends keyof BlockSuitePresets.AIActions>(
             handler: () => {
               reportResponse('result:continue-in-chat');
               const panel = getAIPanelWidget(host);
-              AIProvider.slots.requestOpenWithChat.emit({ host });
+              AIProvider.slots.requestOpenWithChat.emit({
+                host,
+                appendCard: true,
+              });
               panel.hide();
             },
           },

@@ -17,7 +17,7 @@ import * as styles from './journal.css';
 import type { PropertyValueProps } from './types';
 
 const stopPropagation = (e: React.MouseEvent) => e.stopPropagation();
-export const JournalValue = ({ readonly }: PropertyValueProps) => {
+export const JournalValue = ({ onChange }: PropertyValueProps) => {
   const t = useI18n();
 
   const journalService = useService(JournalService);
@@ -53,8 +53,9 @@ export const JournalValue = ({ readonly }: PropertyValueProps) => {
       const date = dayjs(day).format('YYYY-MM-DD');
       setSelectedDate(date);
       journalService.setJournalDate(doc.id, date);
+      onChange?.(date, true);
     },
-    [journalService, doc.id]
+    [journalService, doc.id, onChange]
   );
 
   const handleCheck = useCallback(
@@ -62,11 +63,12 @@ export const JournalValue = ({ readonly }: PropertyValueProps) => {
       if (!v) {
         journalService.removeJournalDate(doc.id);
         setShowDatePicker(false);
+        onChange?.(null, true);
       } else {
         handleDateSelect(selectedDate);
       }
     },
-    [journalService, doc.id, handleDateSelect, selectedDate]
+    [onChange, journalService, doc.id, handleDateSelect, selectedDate]
   );
 
   const workbench = useService(WorkbenchService).workbench;
@@ -86,12 +88,11 @@ export const JournalValue = ({ readonly }: PropertyValueProps) => {
 
   const toggle = useCallback(
     (e: React.MouseEvent) => {
-      if (readonly) return;
       if (propertyRef.current?.contains(e.target as Node)) {
         handleCheck(null, !checked);
       }
     },
-    [checked, handleCheck, readonly]
+    [checked, handleCheck]
   );
 
   return (
@@ -99,14 +100,9 @@ export const JournalValue = ({ readonly }: PropertyValueProps) => {
       ref={propertyRef}
       className={styles.property}
       onClick={toggle}
-      readonly={readonly}
     >
       <div className={styles.root}>
-        <Checkbox
-          className={styles.checkbox}
-          checked={checked}
-          disabled={readonly}
-        />
+        <Checkbox className={styles.checkbox} checked={checked} />
         {checked ? (
           <Menu
             contentOptions={{
@@ -117,7 +113,7 @@ export const JournalValue = ({ readonly }: PropertyValueProps) => {
             }}
             rootOptions={{
               modal: true,
-              open: !readonly && showDatePicker,
+              open: showDatePicker,
               onOpenChange: setShowDatePicker,
             }}
             items={
@@ -136,7 +132,6 @@ export const JournalValue = ({ readonly }: PropertyValueProps) => {
               onClick={e => {
                 e.stopPropagation();
               }}
-              data-disabled={readonly ? 'true' : undefined}
             >
               {displayDate}
             </div>

@@ -1,7 +1,6 @@
 import EventEmitter2 from 'eventemitter2';
 import { defer, from, fromEvent, Observable, of, take, takeUntil } from 'rxjs';
 
-import { MANUALLY_STOP } from '../utils';
 import {
   AutoMessageHandler,
   type CallMessage,
@@ -46,7 +45,7 @@ export class OpConsumer<Ops extends OpSchema> extends AutoMessageHandler {
     };
   }
 
-  private readonly handleCallMessage: MessageHandlers['call'] = msg => {
+  private readonly handleCallMessage: MessageHandlers['call'] = async msg => {
     const abortController = new AbortController();
     this.processing.set(msg.id, abortController);
 
@@ -120,7 +119,7 @@ export class OpConsumer<Ops extends OpSchema> extends AutoMessageHandler {
       return;
     }
 
-    abortController.abort(MANUALLY_STOP);
+    abortController.abort();
   };
 
   register<Op extends OpNames<Ops>>(op: Op, handler: OpHandler<Ops, Op>) {
@@ -182,7 +181,7 @@ export class OpConsumer<Ops extends OpSchema> extends AutoMessageHandler {
     super.close();
     this.registeredOpHandlers.clear();
     this.processing.forEach(controller => {
-      controller.abort(MANUALLY_STOP);
+      controller.abort();
     });
     this.processing.clear();
     this.eventBus.removeAllListeners();

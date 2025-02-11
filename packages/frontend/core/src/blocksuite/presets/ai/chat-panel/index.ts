@@ -5,30 +5,18 @@ import type { EditorHost } from '@blocksuite/affine/block-std';
 import { ShadowlessElement } from '@blocksuite/affine/block-std';
 import { NotificationProvider } from '@blocksuite/affine/blocks';
 import { debounce, WithDisposable } from '@blocksuite/affine/global/utils';
-import type { Store } from '@blocksuite/affine/store';
+import type { Doc } from '@blocksuite/affine/store';
 import { css, html, type PropertyValues } from 'lit';
 import { property, state } from 'lit/decorators.js';
 import { createRef, type Ref, ref } from 'lit/directives/ref.js';
-import { throttle } from 'lodash-es';
 
 import { AIHelpIcon, SmallHintIcon } from '../_common/icons';
 import { AIProvider } from '../provider';
-import { extractSelectedContent } from '../utils/extract';
 import {
   getSelectedImagesAsBlobs,
   getSelectedTextContent,
 } from '../utils/selection-utils';
-import type {
-  AINetworkSearchConfig,
-  DocDisplayConfig,
-  DocSearchMenuConfig,
-} from './chat-config';
-import type {
-  ChatAction,
-  ChatContextValue,
-  ChatItem,
-  DocChip,
-} from './chat-context';
+import type { ChatAction, ChatContextValue, ChatItem } from './chat-context';
 import type { ChatPanelMessages } from './chat-panel-messages';
 
 export class ChatPanel extends WithDisposable(ShadowlessElement) {
@@ -119,8 +107,8 @@ export class ChatPanel extends WithDisposable(ShadowlessElement) {
       const { doc } = this;
 
       const [histories, actions] = await Promise.all([
-        AIProvider.histories?.chats(doc.workspace.id, doc.id, { fork: false }),
-        AIProvider.histories?.actions(doc.workspace.id, doc.id),
+        AIProvider.histories?.chats(doc.collection.id, doc.id, { fork: false }),
+        AIProvider.histories?.actions(doc.collection.id, doc.id),
       ]);
 
       if (counter !== this._resettingCounter) return;
@@ -135,13 +123,6 @@ export class ChatPanel extends WithDisposable(ShadowlessElement) {
         AIProvider.LAST_ROOT_SESSION_ID = history.sessionId;
       }
 
-      const { chips } = this.chatContextValue;
-      const defaultChip: DocChip = {
-        docId: this.doc.id,
-        state: 'candidate',
-      };
-      const nextChips =
-        items.length === 0 && chips.length === 0 ? [defaultChip] : chips;
       this.chatContextValue = {
         ...this.chatContextValue,
         items: items.sort((a, b) => {
@@ -149,7 +130,6 @@ export class ChatPanel extends WithDisposable(ShadowlessElement) {
             new Date(a.createdAt).getTime() - new Date(b.createdAt).getTime()
           );
         }),
-        chips: nextChips,
       };
 
       this.isLoading = false;
@@ -161,16 +141,7 @@ export class ChatPanel extends WithDisposable(ShadowlessElement) {
   accessor host!: EditorHost;
 
   @property({ attribute: false })
-  accessor doc!: Store;
-
-  @property({ attribute: false })
-  accessor networkSearchConfig!: AINetworkSearchConfig;
-
-  @property({ attribute: false })
-  accessor docSearchMenuConfig!: DocSearchMenuConfig;
-
-  @property({ attribute: false })
-  accessor docDisplayConfig!: DocDisplayConfig;
+  accessor doc!: Doc;
 
   @state()
   accessor isLoading = false;
@@ -181,7 +152,6 @@ export class ChatPanel extends WithDisposable(ShadowlessElement) {
     images: [],
     abortController: null,
     items: [],
-    chips: [],
     status: 'idle',
     error: null,
     markdown: '',
@@ -191,8 +161,6 @@ export class ChatPanel extends WithDisposable(ShadowlessElement) {
   private readonly _scrollToEnd = () => {
     this._chatMessages.value?.scrollToEnd();
   };
-
-  private readonly _throttledScrollToEnd = throttle(this._scrollToEnd, 1000);
 
   private readonly _cleanupHistories = async () => {
     const notification = this.host.std.getOptional(NotificationProvider);
@@ -207,7 +175,7 @@ export class ChatPanel extends WithDisposable(ShadowlessElement) {
         cancelText: 'Cancel',
       })
     ) {
-      await AIProvider.histories?.cleanup(this.doc.workspace.id, this.doc.id, [
+      await AIProvider.histories?.cleanup(this.doc.collection.id, this.doc.id, [
         this.chatContextValue.chatSessionId ?? '',
         ...(
           this.chatContextValue.items.filter(
@@ -225,26 +193,24 @@ export class ChatPanel extends WithDisposable(ShadowlessElement) {
     if (_changedProperties.has('doc')) {
       requestAnimationFrame(() => {
         this.chatContextValue.chatSessionId = null;
-        // TODO get from CopilotContext
-        this.chatContextValue.chips = [];
         this._resetItems();
       });
     }
 
     if (
+      !this.isLoading &&
       _changedProperties.has('chatContextValue') &&
-      (this.chatContextValue.status === 'loading' ||
+      this.chatContextValue.status !== 'idle'
+    ) {
+      if (this.chatContextValue.status === 'transmitting') {
+        this._scrollToEnd();
+      } else if (
+        this.chatContextValue.status === 'loading' ||
         this.chatContextValue.status === 'error' ||
-        this.chatContextValue.status === 'success')
-    ) {
-      setTimeout(this._scrollToEnd, 500);
-    }
-
-    if (
-      _changedProperties.has('chatContextValue') &&
-      this.chatContextValue.status === 'transmitting'
-    ) {
-      this._throttledScrollToEnd();
+        this.chatContextValue.status === 'success'
+      ) {
+        setTimeout(this._scrollToEnd, 500);
+      }
     }
   }
 
@@ -252,34 +218,30 @@ export class ChatPanel extends WithDisposable(ShadowlessElement) {
     super.connectedCallback();
     if (!this.doc) throw new Error('doc is required');
 
-    this._disposables.add(
-      AIProvider.slots.actions.on(({ action, event }) => {
-        const { status } = this.chatContextValue;
-        if (
-          action !== 'chat' &&
-          event === 'finished' &&
-          (status === 'idle' || status === 'success')
-        ) {
-          this._resetItems();
-        }
-      })
-    );
-    this._disposables.add(
-      AIProvider.slots.userInfo.on(userInfo => {
-        if (userInfo) {
-          this._resetItems();
-        }
-      })
-    );
-    this._disposables.add(
-      AIProvider.slots.requestOpenWithChat.on(async ({ host }) => {
-        if (this.host === host) {
-          const context = await extractSelectedContent(host);
-          if (!context) return;
-          this.updateContext(context);
-        }
-      })
-    );
+    AIProvider.slots.actions.on(({ action, event }) => {
+      const { status } = this.chatContextValue;
+
+      if (
+        action !== 'chat' &&
+        event === 'finished' &&
+        (status === 'idle' || status === 'success')
+      ) {
+        this._resetItems();
+      }
+
+      if (action === 'chat' && event === 'finished') {
+        AIProvider.slots.toggleChatCards.emit({
+          visible: true,
+          ok: status === 'success',
+        });
+      }
+    });
+
+    AIProvider.slots.userInfo.on(userInfo => {
+      if (userInfo) {
+        this._resetItems();
+      }
+    });
   }
 
   updateContext = (context: Partial<ChatContextValue>) => {
@@ -316,16 +278,8 @@ export class ChatPanel extends WithDisposable(ShadowlessElement) {
         .host=${this.host}
         .isLoading=${this.isLoading}
       ></chat-panel-messages>
-      <chat-panel-chips
-        .host=${this.host}
-        .chatContextValue=${this.chatContextValue}
-        .updateContext=${this.updateContext}
-        .docDisplayConfig=${this.docDisplayConfig}
-        .docSearchMenuConfig=${this.docSearchMenuConfig}
-      ></chat-panel-chips>
       <chat-panel-input
         .chatContextValue=${this.chatContextValue}
-        .networkSearchConfig=${this.networkSearchConfig}
         .updateContext=${this.updateContext}
         .host=${this.host}
         .cleanupHistories=${this._cleanupHistories}

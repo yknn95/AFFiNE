@@ -1,7 +1,6 @@
 import { toast, useConfirmModal } from '@affine/component';
 import { useBlockSuiteMetaHelper } from '@affine/core/components/hooks/affine/use-block-suite-meta-helper';
 import { useBlockSuiteDocMeta } from '@affine/core/components/hooks/use-block-suite-page-meta';
-import { GuardService } from '@affine/core/modules/permissions';
 import { WorkspaceService } from '@affine/core/modules/workspace';
 import { Trans, useI18n } from '@affine/i18n';
 import type { DocMeta } from '@blocksuite/affine/store';
@@ -17,15 +16,8 @@ import type { ItemListHandle, ListItem } from './types';
 import { useFilteredPageMetas } from './use-filtered-page-metas';
 import { VirtualizedList } from './virtualized-list';
 
-export const VirtualizedTrashList = ({
-  disableMultiDelete,
-  disableMultiRestore,
-}: {
-  disableMultiDelete?: boolean;
-  disableMultiRestore?: boolean;
-}) => {
+export const VirtualizedTrashList = () => {
   const currentWorkspace = useService(WorkspaceService).workspace;
-  const guardService = useService(GuardService);
   const docCollection = currentWorkspace.docCollection;
   const { restoreFromTrash, permanentlyDeletePage } = useBlockSuiteMetaHelper();
   const pageMetas = useBlockSuiteDocMeta(docCollection);
@@ -90,38 +82,16 @@ export const VirtualizedTrashList = ({
     (item: ListItem) => {
       const page = item as DocMeta;
       const onRestorePage = () => {
-        guardService
-          .can('Doc_Delete', page.id)
-          .then(can => {
-            if (can) {
-              restoreFromTrash(page.id);
-              toast(
-                t['com.affine.toastMessage.restored']({
-                  title: page.title || 'Untitled',
-                })
-              );
-            } else {
-              toast(t['com.affine.no-permission']());
-            }
+        restoreFromTrash(page.id);
+        toast(
+          t['com.affine.toastMessage.restored']({
+            title: page.title || 'Untitled',
           })
-          .catch(e => {
-            console.error(e);
-          });
+        );
       };
       const onPermanentlyDeletePage = () => {
-        guardService
-          .can('Doc_Delete', page.id)
-          .then(can => {
-            if (can) {
-              permanentlyDeletePage(page.id);
-              toast(t['com.affine.toastMessage.permanentlyDeleted']());
-            } else {
-              toast(t['com.affine.no-permission']());
-            }
-          })
-          .catch(e => {
-            console.error(e);
-          });
+        permanentlyDeletePage(page.id);
+        toast(t['com.affine.toastMessage.permanentlyDeleted']());
       };
 
       return (
@@ -132,7 +102,7 @@ export const VirtualizedTrashList = ({
       );
     },
 
-    [guardService, permanentlyDeletePage, restoreFromTrash, t]
+    [permanentlyDeletePage, restoreFromTrash, t]
   );
   const pageItemRenderer = useCallback((item: ListItem) => {
     return <PageListItemRenderer {...item} />;
@@ -158,9 +128,9 @@ export const VirtualizedTrashList = ({
       />
       <ListFloatingToolbar
         open={showFloatingToolbar}
-        onDelete={disableMultiDelete ? undefined : onConfirmPermanentlyDelete}
+        onDelete={onConfirmPermanentlyDelete}
         onClose={hideFloatingToolbar}
-        onRestore={disableMultiRestore ? undefined : handleMultiRestore}
+        onRestore={handleMultiRestore}
         content={
           <Trans
             i18nKey="com.affine.page.toolbar.selected"

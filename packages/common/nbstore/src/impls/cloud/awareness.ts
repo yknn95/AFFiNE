@@ -1,38 +1,35 @@
+import type { SocketOptions } from 'socket.io-client';
+
+import { share } from '../../connection';
 import {
   type AwarenessRecord,
   AwarenessStorageBase,
+  type AwarenessStorageOptions,
 } from '../../storage/awareness';
-import type { SpaceType } from '../../utils/universal-id';
 import {
   base64ToUint8Array,
   SocketConnection,
   uint8ArrayToBase64,
 } from './socket';
 
-interface CloudAwarenessStorageOptions {
-  serverBaseUrl: string;
-  type: SpaceType;
-  id: string;
+interface CloudAwarenessStorageOptions extends AwarenessStorageOptions {
+  socketOptions: SocketOptions;
 }
 
-export class CloudAwarenessStorage extends AwarenessStorageBase {
-  static readonly identifier = 'CloudAwarenessStorage';
-
-  constructor(private readonly options: CloudAwarenessStorageOptions) {
-    super();
-  }
-
-  connection = new SocketConnection(`${this.options.serverBaseUrl}/`);
+export class CloudAwarenessStorage extends AwarenessStorageBase<CloudAwarenessStorageOptions> {
+  connection = share(
+    new SocketConnection(this.peer, this.options.socketOptions)
+  );
 
   private get socket() {
-    return this.connection.inner.socket;
+    return this.connection.inner;
   }
 
   override async update(record: AwarenessRecord): Promise<void> {
     const encodedUpdate = await uint8ArrayToBase64(record.bin);
     this.socket.emit('space:update-awareness', {
-      spaceType: this.options.type,
-      spaceId: this.options.id,
+      spaceType: this.spaceType,
+      spaceId: this.spaceId,
       docId: record.docId,
       awarenessUpdate: encodedUpdate,
     });
@@ -43,46 +40,32 @@ export class CloudAwarenessStorage extends AwarenessStorageBase {
     onUpdate: (update: AwarenessRecord, origin?: string) => void,
     onCollect: () => Promise<AwarenessRecord | null>
   ): () => void {
+    // TODO: handle disconnect
     // leave awareness
     const leave = () => {
-      if (this.connection.status !== 'connected') return;
-      this.socket.off('space:collect-awareness', handleCollectAwareness);
-      this.socket.off(
-        'space:broadcast-awareness-update',
-        handleBroadcastAwarenessUpdate
-      );
       this.socket.emit('space:leave-awareness', {
-        spaceType: this.options.type,
-        spaceId: this.options.id,
+        spaceType: this.spaceType,
+        spaceId: this.spaceId,
         docId: id,
       });
     };
 
     // join awareness, and collect awareness from others
     const joinAndCollect = async () => {
-      this.socket.on('space:collect-awareness', handleCollectAwareness);
-      this.socket.on(
-        'space:broadcast-awareness-update',
-        handleBroadcastAwarenessUpdate
-      );
       await this.socket.emitWithAck('space:join-awareness', {
-        spaceType: this.options.type,
-        spaceId: this.options.id,
+        spaceType: this.spaceType,
+        spaceId: this.spaceId,
         docId: id,
         clientVersion: BUILD_CONFIG.appVersion,
       });
       this.socket.emit('space:load-awarenesses', {
-        spaceType: this.options.type,
-        spaceId: this.options.id,
+        spaceType: this.spaceType,
+        spaceId: this.spaceId,
         docId: id,
       });
     };
 
-    if (this.connection.status === 'connected') {
-      joinAndCollect().catch(err =>
-        console.error('awareness join failed', err)
-      );
-    }
+    joinAndCollect().catch(err => console.error('awareness join failed', err));
 
     const unsubscribeConnectionStatusChanged = this.connection.onStatusChanged(
       status => {
@@ -104,8 +87,8 @@ export class CloudAwarenessStorage extends AwarenessStorageBase {
       docId: string;
     }) => {
       if (
-        spaceId === this.options.id &&
-        spaceType === this.options.type &&
+        spaceId === this.spaceId &&
+        spaceType === this.spaceType &&
         docId === id
       ) {
         (async () => {
@@ -113,8 +96,8 @@ export class CloudAwarenessStorage extends AwarenessStorageBase {
           if (record) {
             const encodedUpdate = await uint8ArrayToBase64(record.bin);
             this.socket.emit('space:update-awareness', {
-              spaceType: this.options.type,
-              spaceId: this.options.id,
+              spaceType: this.spaceType,
+              spaceId: this.spaceId,
               docId: record.docId,
               awarenessUpdate: encodedUpdate,
             });
@@ -135,8 +118,8 @@ export class CloudAwarenessStorage extends AwarenessStorageBase {
       awarenessUpdate: string;
     }) => {
       if (
-        spaceId === this.options.id &&
-        spaceType === this.options.type &&
+        spaceId === this.spaceId &&
+        spaceType === this.spaceType &&
         docId === id
       ) {
         onUpdate({
@@ -146,9 +129,18 @@ export class CloudAwarenessStorage extends AwarenessStorageBase {
       }
     };
 
+    this.socket.on('space:collect-awareness', handleCollectAwareness);
+    this.socket.on(
+      'space:broadcast-awareness-update',
+      handleBroadcastAwarenessUpdate
+    );
     return () => {
       leave();
-
+      this.socket.off('space:collect-awareness', handleCollectAwareness);
+      this.socket.off(
+        'space:broadcast-awareness-update',
+        handleBroadcastAwarenessUpdate
+      );
       unsubscribeConnectionStatusChanged();
     };
   }

@@ -38,11 +38,9 @@ export const ParagraphBlockSchema = defineBlockSchema({
 });
 
 export class ParagraphBlockModel extends BlockModel<ParagraphProps> {
-  override text!: Text;
+  override flavour!: 'affine:paragraph';
 
-  override isEmpty(): boolean {
-    return this.text$.value.length === 0 && this.children.length === 0;
-  }
+  override text!: Text;
 }
 
 declare global {
