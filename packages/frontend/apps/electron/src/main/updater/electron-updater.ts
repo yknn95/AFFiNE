@@ -31,8 +31,8 @@ export type UpdaterConfig = {
 };
 
 const config: UpdaterConfig = {
-  autoCheckUpdate: true,
-  autoDownloadUpdate: true,
+  autoCheckUpdate: false,
+  autoDownloadUpdate: false,
 };
 
 export const getConfig = (): UpdaterConfig => {
