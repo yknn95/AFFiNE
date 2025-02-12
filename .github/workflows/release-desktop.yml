@@ -196,7 +196,6 @@ jobs:
   finalize-installer-windows:
     needs:
       [
-        sign-installer-artifacts-windows-x64,
         before-make,
       ]
     strategy:
