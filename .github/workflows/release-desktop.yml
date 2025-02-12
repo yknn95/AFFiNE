@@ -121,6 +121,24 @@ jobs:
           SKIP_WEB_BUILD: 1
           HOIST_NODE_MODULES: 1
 
+      - name: get all files to be signed
+        id: get_files_to_be_signed
+        run: |
+          Set-Variable -Name FILES_TO_BE_SIGNED -Value ((Get-ChildItem -Path packages/frontend/apps/electron/out -Recurse -File | Where-Object { $_.Extension -in @(".exe", ".node", ".dll", ".msi") } | ForEach-Object { '"' + $_.FullName.Replace((Get-Location).Path + '\packages\frontend\apps\electron\out\', '') + '"' }) -join ' ')
+          "FILES_TO_BE_SIGNED_${{ matrix.spec.arch }}=$FILES_TO_BE_SIGNED" >> $env:GITHUB_OUTPUT
+          echo $FILES_TO_BE_SIGNED
+
+      - name: Zip artifacts for faster upload
+        run: Compress-Archive -CompressionLevel Fastest -Path packages/frontend/apps/electron/out/* -DestinationPath archive.zip
+
+      - name: Save packaged artifacts for signing
+        uses: actions/upload-artifact@v4
+        with:
+          name: packaged-${{ matrix.spec.platform }}-${{ matrix.spec.arch }}
+          path: |
+            archive.zip
+            !**/*.map
+
       - name: Make nsis.windows installer
         run: yarn affine @affine/electron make-nsis --platform=${{ matrix.spec.platform }} --arch=${{ matrix.spec.arch }}
 
