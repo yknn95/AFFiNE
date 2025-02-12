@@ -121,14 +121,11 @@ jobs:
           SKIP_WEB_BUILD: 1
           HOIST_NODE_MODULES: 1
 
-      - name: Make squirrel.windows installer
-        run: yarn affine @affine/electron make-squirrel --platform=${{ matrix.spec.platform }} --arch=${{ matrix.spec.arch }}
-
       - name: Make nsis.windows installer
         run: yarn affine @affine/electron make-nsis --platform=${{ matrix.spec.platform }} --arch=${{ matrix.spec.arch }}
 
       - name: Zip artifacts for faster upload
-        run: Compress-Archive -CompressionLevel Fastest -Path packages/frontend/apps/electron/out/${{ env.BUILD_TYPE }}/make/* -DestinationPath archive.zip
+        run: Compress-Archive -CompressionLevel Fastest -Path packages/frontend/apps/electron/out/${{ env.BUILD_TYPE }}/make/nsis.windows/ -DestinationPath archive.zip
 
       - name: Save installer for signing
         uses: actions/upload-artifact@v4
