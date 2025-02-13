@@ -140,6 +140,7 @@ jobs:
             !**/*.map
 
   make-windows-installer:
+    needs: package-distribution-windows
     strategy:
       fail-fast: false
       matrix:
