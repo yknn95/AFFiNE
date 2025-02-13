@@ -139,6 +139,38 @@ jobs:
             archive.zip
             !**/*.map
 
+  make-windows-installer:
+    strategy:
+      fail-fast: false
+      matrix:
+        spec:
+          - platform: win32
+            arch: x64
+    runs-on: windows-latest
+    outputs:
+      FILES_TO_BE_SIGNED_x64: ${{ steps.get_files_to_be_signed.outputs.FILES_TO_BE_SIGNED_x64 }}
+    steps:
+      - uses: actions/checkout@v4
+      - name: Setup Version
+        id: version
+        uses: ./.github/actions/setup-version
+      - name: Setup Node.js
+        timeout-minutes: 10
+        uses: ./.github/actions/setup-node
+        with:
+          extra-flags: workspaces focus @affine/electron @affine/monorepo
+          hard-link-nm: false
+          nmHoistingLimits: workspaces
+        env:
+          npm_config_arch: ${{ matrix.spec.arch }}
+      - name: Download and overwrite packaged artifacts
+        uses: actions/download-artifact@v4
+        with:
+          name: signed-packaged-${{ matrix.spec.platform }}-${{ matrix.spec.arch }}
+          path: .
+      - name: unzip file
+        run: Expand-Archive -Path signed.zip -DestinationPath packages/frontend/apps/electron/out
+
       - name: Make nsis.windows installer
         run: yarn affine @affine/electron make-nsis --platform=${{ matrix.spec.platform }} --arch=${{ matrix.spec.arch }}
 
