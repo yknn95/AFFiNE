@@ -101,12 +101,12 @@ export const FeatureConfigs: {
     configs: {
       // quota name
       name: 'Free',
-      blobLimit: 10 * OneGB,
-      businessBlobLimit: 10 * OneGB,
-      storageQuota: 300 * OneGB,
-      historyPeriod: 30 * OneDay,
-      memberLimit: 1000,
-      copilotActionLimit: 10000,
+      blobLimit: 10 * OneMB,
+      businessBlobLimit: 100 * OneMB,
+      storageQuota: 10 * OneGB,
+      historyPeriod: 7 * OneDay,
+      memberLimit: 3,
+      copilotActionLimit: 10,
     },
   },
   pro_plan_v1: {
@@ -114,11 +114,11 @@ export const FeatureConfigs: {
     deprecatedVersion: 2,
     configs: {
       name: 'Pro',
-      blobLimit: 100 * OneMB,
-      storageQuota: 100 * OneGB,
+      blobLimit: 10 * OneGB,
+      storageQuota: 300 * OneGB,
       historyPeriod: 30 * OneDay,
-      memberLimit: 10,
-      copilotActionLimit: 10,
+      memberLimit: 100,
+      copilotActionLimit: 10000,
     },
   },
   lifetime_pro_plan_v1: {
