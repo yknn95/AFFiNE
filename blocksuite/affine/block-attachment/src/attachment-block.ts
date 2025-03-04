@@ -30,11 +30,7 @@ import { AttachmentEmbedProvider } from './embed.js';
 import { styles } from './styles.js';
 import { checkAttachmentBlob, downloadAttachmentBlob } from './utils.js';
 
-@Peekable({
-  enableOn: ({ model }: AttachmentBlockComponent) => {
-    return model.type.endsWith('pdf');
-  },
-})
+@Peekable()
 export class AttachmentBlockComponent extends CaptionedBlockComponent<AttachmentBlockModel> {
   static override styles = styles;
 
