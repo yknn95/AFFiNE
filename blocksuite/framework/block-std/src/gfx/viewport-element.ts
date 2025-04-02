@@ -39,18 +39,23 @@ function setBlockState(view: BlockComponent | null, state: 'active' | 'idle') {
   if (!view) return;
 
   if (state === 'active') {
-    view.style.visibility = 'visible';
+    //view.style.visibility = 'visible';
     view.style.pointerEvents = 'auto';
-    view.classList.remove('block-idle');
-    view.classList.add('block-active');
-    view.dataset.blockState = 'active';
+    //view.classList.remove('block-idle');
+    //view.classList.add('block-active');
+    //view.dataset.blockState = 'active';
   } else {
-    view.style.visibility = 'hidden';
+    //view.style.visibility = 'hidden';
     view.style.pointerEvents = 'none';
-    view.classList.remove('block-active');
-    view.classList.add('block-idle');
-    view.dataset.blockState = 'idle';
+    //view.classList.remove('block-active');
+    //view.classList.add('block-idle');
+    //view.dataset.blockState = 'idle';
   }
+  view.style.visibility = 'visible';
+  view.classList.remove('block-idle');
+  view.classList.add('block-active');
+  view.dataset.blockState = 'active';
+
 }
 
 @requiredProperties({
