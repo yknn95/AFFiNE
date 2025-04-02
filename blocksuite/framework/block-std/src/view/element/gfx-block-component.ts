@@ -31,6 +31,29 @@ function updateTransform(element: GfxBlockComponent) {
   element.style.transform = element.getCSSTransform();
 }
 
+function updateBlockVisibility(view: GfxBlockComponent) {
+  if (view.transformState$.value === 'active') {
+    view.style.pointerEvents = 'auto';
+  } else {
+    view.style.pointerEvents = 'none';
+  }
+  view.style.visibility = 'visible';
+  view.classList.remove('block-idle');
+  view.classList.add('block-active');
+
+  //if (view.transformState$.value === 'active') {
+  //  view.style.visibility = 'visible';
+  //  view.style.pointerEvents = 'auto';
+  //  view.classList.remove('block-idle');
+  //  view.classList.add('block-active');
+  //} else {
+  //  view.style.visibility = 'hidden';
+  //  view.style.pointerEvents = 'none';
+  //  view.classList.remove('block-active');
+  //  view.classList.add('block-idle');
+  //}
+}
+
 function handleGfxConnection(instance: GfxBlockComponent) {
   instance.style.position = 'absolute';
 
@@ -48,7 +71,12 @@ function handleGfxConnection(instance: GfxBlockComponent) {
     })
   );
 
-  updateTransform(instance);
+  instance.disposables.add(
+    effect(() => {
+      updateBlockVisibility(instance);
+      updateTransform(instance);
+    })
+  );
 }
 
 export abstract class GfxBlockComponent<
