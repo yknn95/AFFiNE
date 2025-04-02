@@ -124,40 +124,7 @@ async function getImageBlob(model: ImageBlockModel) {
     return null;
   }
 
-  // 转换为webp格式
-  const img = new Image();
-  const canvas = document.createElement('canvas');
-  const ctx = canvas.getContext('2d');
-  
-  // 等待图片加载
-  await new Promise((resolve, reject) => {
-    img.onload = resolve;
-    img.onerror = reject;
-    img.src = URL.createObjectURL(blob);
-  });
-  
-  // 设置canvas尺寸
-  canvas.width = img.width;
-  canvas.height = img.height;
-  
-  // 绘制图片
-  ctx?.drawImage(img, 0, 0);
-  
-  // 转换为webp格式
-  const webpBlob = await new Promise<Blob>((resolve) => {
-    canvas.toBlob(
-      (blob) => {
-        if (blob) resolve(blob);
-      },
-      'image/webp',
-      0.8 // 质量参数
-    );
-  });
-  
-  // 清理资源
-  URL.revokeObjectURL(img.src);
-  
-  return webpBlob;
+  return blob;
 }
 
 export async function fetchImageBlob(
@@ -194,9 +161,42 @@ export async function fetchImageBlob(
       return;
     }
 
+    // 转换为webp格式
+    const img = new Image();
+    const canvas = document.createElement('canvas');
+    const ctx = canvas.getContext('2d');
+    
+    // 等待图片加载
+    await new Promise((resolve, reject) => {
+      img.onload = resolve;
+      img.onerror = reject;
+      img.src = URL.createObjectURL(blob);
+    });
+    
+    // 设置canvas尺寸
+    canvas.width = img.width;
+    canvas.height = img.height;
+    
+    // 绘制图片
+    ctx?.drawImage(img, 0, 0);
+    
+    // 转换为webp格式
+    const webpBlob = await new Promise<Blob>((resolve) => {
+      canvas.toBlob(
+        (blob) => {
+          if (blob) resolve(blob);
+        },
+        'image/webp',
+        0.8 // 质量参数
+      );
+    });
+    
+    // 清理资源
+    URL.revokeObjectURL(img.src);
+
     block.loading = false;
-    block.blob = blob;
-    block.blobUrl = URL.createObjectURL(blob);
+    block.blob = webpBlob;
+    block.blobUrl = URL.createObjectURL(webpBlob);
     block.lastSourceId = sourceId;
   } catch (error) {
     block.retryCount++;
