@@ -88,30 +88,77 @@ interface ErrorProps {
   ext: string;
 }
 
+export async function getAttachmentBlob(model: AttachmentBlockModel) {
+  const sourceId = model.props.sourceId;
+  if (!sourceId) {
+    return null;
+  }
+
+  const doc = model.doc;
+  let blob = await doc.blobSync.get(sourceId);
+
+  if (blob) {
+    blob = new Blob([blob], { type: model.props.type });
+  }
+
+  return blob;
+}
+
 export const AttachmentFallback = ({ model, ext }: ErrorProps) => {
   const t = useI18n();
   const Icon = FILE_ICONS[model.props.type] ?? FileIcon;
   const title = t['com.affine.attachment.preview.error.title']();
   const subtitle = `.${ext} ${t['com.affine.attachment.preview.error.subtitle']()}`;
 
+  // 状态变量
+  const [videoUrl, setVideoUrl] = useState<string | null>(null);
+  const [isError, setIsError] = useState(false);
+  // 判断是否为视频文件
+  const isVideo = ['mp4', 'webm', 'avi', 'mkv', 'mov'].includes(ext.toLowerCase());
+  // 尝试获取附件的 URL
+  useEffect(() => {
+    if (isVideo) {
+      const fetchVideoUrl = async () => {
+        try {
+          const blob = await getAttachmentBlob(model);
+          const url = URL.createObjectURL(blob);
+          setVideoUrl(url);
+        } catch (error) {
+          console.error("Error fetching video URL:", error);
+          setIsError(true);
+        }
+      };
+      fetchVideoUrl();
+    }
+  }, [model, isVideo]);
+
   return (
-    <ErrorBase
-      icon={<Icon />}
-      title={title}
-      subtitle={subtitle}
-      buttons={[
-        <Button
-          key="download"
-          variant="primary"
-          prefix={<ArrowDownBigIcon />}
-          onClick={() => {
-            download(model).catch(console.error);
-          }}
-        >
-          Download
-        </Button>,
-      ]}
-    />
+    <div className={clsx([styles.viewer, styles.error])}>
+      {isVideo && videoUrl ? (
+        <video width="95%;" height="95%;" controls>
+          <source src={videoUrl} type={`video/${ext}`} />
+          Your browser does not support the video tag.
+        </video>
+      ) : (
+        <ErrorBase
+          icon={<Icon />}
+          title={title}
+          subtitle={subtitle}
+          buttons={[
+            <Button
+              key="download"
+              variant="primary"
+              prefix={<ArrowDownBigIcon />}
+              onClick={() => {
+                download(model).catch(console.error);
+              }}
+            >
+              Download
+            </Button>,
+          ]}
+        />
+      )}
+    </div>
   );
 };
 
