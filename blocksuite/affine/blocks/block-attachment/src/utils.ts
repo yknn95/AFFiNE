@@ -107,43 +107,7 @@ export async function getAttachmentBlob(model: AttachmentBlockModel) {
   let blob = await doc.blobSync.get(sourceId);
 
   if (blob) {
-    // 检查是否为图片类型
-    if (model.props.type.startsWith('image/')) {
-      // 创建canvas进行图片转换
-      const img = new Image();
-      const canvas = document.createElement('canvas');
-      const ctx = canvas.getContext('2d');
-      
-      // 等待图片加载
-      await new Promise((resolve, reject) => {
-        img.onload = resolve;
-        img.onerror = reject;
-        img.src = URL.createObjectURL(blob);
-      });
-      
-      // 设置canvas尺寸
-      canvas.width = img.width;
-      canvas.height = img.height;
-      
-      // 绘制图片
-      ctx?.drawImage(img, 0, 0);
-      
-      // 转换为webp格式
-      blob = await new Promise<Blob>((resolve) => {
-        canvas.toBlob(
-          (blob) => {
-            if (blob) resolve(blob);
-          },
-          'image/webp',
-          0.8 // 质量参数，可以根据需要调整
-        );
-      });
-      
-      // 清理资源
-      URL.revokeObjectURL(img.src);
-    } else {
-      blob = new Blob([blob], { type: model.props.type });
-    }
+    blob = new Blob([blob], { type: model.props.type });
   }
 
   return blob;
