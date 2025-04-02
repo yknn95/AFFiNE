@@ -42,6 +42,90 @@ export function isImageUploading(blockId: string) {
   return imageUploads.has(blockId);
 }
 
+/**
+ * 将图片转换为webp格式，如果是gif、svg或webp格式则保持原格式
+ */
+async function convertImageToWebp(blob: Blob): Promise<Blob> {
+  // 检查图片格式
+  const originalType = blob.type.toLowerCase();
+  if (originalType === 'image/gif' || originalType === 'image/svg+xml' || originalType === 'image/webp') {
+    return blob;
+  }
+
+  // 如果是JFIF格式，先转换为JPEG
+  if (originalType === 'image/jfif') {
+    const img = new Image();
+    const canvas = document.createElement('canvas');
+    const ctx = canvas.getContext('2d');
+    
+    // 等待图片加载
+    await new Promise((resolve, reject) => {
+      img.onload = resolve;
+      img.onerror = reject;
+      img.src = URL.createObjectURL(blob);
+    });
+    
+    // 设置canvas尺寸
+    canvas.width = img.width;
+    canvas.height = img.height;
+    
+    // 绘制图片
+    ctx?.drawImage(img, 0, 0);
+    
+    // 转换为JPEG格式
+    const jpegBlob = await new Promise<Blob>((resolve) => {
+      canvas.toBlob(
+        (blob) => {
+          if (blob) resolve(blob);
+        },
+        'image/jpeg',
+        0.9 // 质量参数
+      );
+    });
+    
+    // 清理资源
+    URL.revokeObjectURL(img.src);
+    
+    // 继续转换为WebP
+    blob = jpegBlob;
+  }
+
+  // 转换为webp格式
+  const img = new Image();
+  const canvas = document.createElement('canvas');
+  const ctx = canvas.getContext('2d');
+  
+  // 等待图片加载
+  await new Promise((resolve, reject) => {
+    img.onload = resolve;
+    img.onerror = reject;
+    img.src = URL.createObjectURL(blob);
+  });
+  
+  // 设置canvas尺寸
+  canvas.width = img.width;
+  canvas.height = img.height;
+  
+  // 绘制图片
+  ctx?.drawImage(img, 0, 0);
+  
+  // 转换为webp格式
+  const webpBlob = await new Promise<Blob>((resolve) => {
+    canvas.toBlob(
+      (blob) => {
+        if (blob) resolve(blob);
+      },
+      'image/webp',
+      0.8 // 质量参数
+    );
+  });
+  
+  // 清理资源
+  URL.revokeObjectURL(img.src);
+
+  return webpBlob;
+}
+
 export async function uploadBlobForImage(
   editorHost: EditorHost,
   blockId: string,
@@ -56,7 +140,9 @@ export async function uploadBlobForImage(
   let sourceId: string | undefined;
 
   try {
-    sourceId = await doc.blobSync.set(blob);
+    // 转换图片格式
+    const convertedBlob = await convertImageToWebp(blob);
+    sourceId = await doc.blobSync.set(convertedBlob);
   } catch (error) {
     console.error(error);
     if (error instanceof Error) {
@@ -127,13 +213,6 @@ async function getImageBlob(model: ImageBlockModel) {
   return blob;
 }
 
-// 添加缓存Map
-const webpCache = new Map<string, Blob>();
-
-// 添加内存使用限制
-const MAX_CONCURRENT_CONVERSIONS = 6;
-let activeConversions = 0;
-
 export async function fetchImageBlob(
   block: ImageBlockComponent | ImageEdgelessBlockComponent
 ) {
@@ -168,50 +247,12 @@ export async function fetchImageBlob(
       return;
     }
 
-    let finalBlob = blob;
-    
-    // 检查缓存
-    if (!webpCache.has(sourceId)) {
-      // 等待其他转换完成
-      while (activeConversions >= MAX_CONCURRENT_CONVERSIONS) {
-        await new Promise(resolve => setTimeout(resolve, 100));
-      }
-      
-      activeConversions++;
-      
-      try {
-        // 创建ImageBitmap
-        const imageBitmap = await createImageBitmap(blob);
-        
-        // 创建离屏canvas
-        const canvas = new OffscreenCanvas(imageBitmap.width, imageBitmap.height);
-        const ctx = canvas.getContext('2d');
-        
-        // 使用transferFromImageBitmap优化内存
-        ctx?.transferFromImageBitmap(imageBitmap);
-        
-        // 转换为webp
-        const webpBlob = await canvas.convertToBlob({
-          type: 'image/webp',
-          quality: 0.8
-        });
-        
-        // 清理资源
-        canvas.width = 1;
-        canvas.height = 1;
-        
-        finalBlob = webpBlob;
-        webpCache.set(sourceId, webpBlob);
-      } finally {
-        activeConversions--;
-      }
-    } else {
-      finalBlob = webpCache.get(sourceId)!;
-    }
+    // 转换图片格式
+    const convertedBlob = await convertImageToWebp(blob);
 
     block.loading = false;
-    block.blob = finalBlob;
-    block.blobUrl = URL.createObjectURL(finalBlob);
+    block.blob = convertedBlob;
+    block.blobUrl = URL.createObjectURL(convertedBlob);
     block.lastSourceId = sourceId;
   } catch (error) {
     block.retryCount++;
@@ -600,4 +641,3 @@ export function calcBoundByOrigin(
     ? new Bound(point[0], point[1], width, height)
     : Bound.fromCenter(point, width, height);
 }
-
