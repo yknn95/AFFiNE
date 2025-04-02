@@ -565,16 +565,21 @@ export async function addImages(
     const { point, blockId } = dropInfos[index];
     const block = std.store.getBlock(blockId);
     const imageSize = await readImageSize(file);
-
+  
     if (!imageSize.width || !imageSize.height) {
       std.store.deleteBlock(block!.model);
-
+  
       toast(std.host, 'Failed to read image size, please try another image');
       throw new Error('Failed to read image size');
     }
-
-    const sourceId = await std.store.blobSync.set(file);
-
+  
+    // Convert image to WebP before uploading (except SVGs and GIFs)
+    const optimizedFile = !file.type.includes('gif') && !file.type.includes('svg')
+      ? await convertToWebP(file)
+      : file;
+    
+    const sourceId = await std.store.blobSync.set(optimizedFile);
+  
     const center = Vec.toVec(point);
     // If maxWidth is provided, limit the width of the image to maxWidth
     // Otherwise, use the original width
@@ -585,7 +590,7 @@ export async function addImages(
       ? (imageSize.height / imageSize.width) * width
       : imageSize.height;
     const bound = calcBoundByOrigin(center, inTopLeft, width, height);
-
+  
     std.store.withoutTransact(() => {
       gfx.updateElement(blockId, {
         sourceId,
