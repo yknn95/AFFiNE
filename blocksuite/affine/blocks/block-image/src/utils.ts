@@ -138,16 +138,26 @@ const imageWorker = new Worker(
         `
         self.onmessage = async function(e) {
           const { blob, width, height } = e.data;
+          
+          // 使用createImageBitmap直接处理blob
+          const imageBitmap = await createImageBitmap(blob);
+          
+          // 创建离屏canvas
           const canvas = new OffscreenCanvas(width, height);
           const ctx = canvas.getContext('2d');
           
-          const imageBitmap = await createImageBitmap(blob);
-          ctx.drawImage(imageBitmap, 0, 0);
+          // 使用transferFromImageBitmap优化内存
+          ctx.transferFromImageBitmap(imageBitmap);
           
+          // 转换为webp
           const webpBlob = await canvas.convertToBlob({
             type: 'image/webp',
             quality: 0.8
           });
+          
+          // 清理资源
+          canvas.width = 1;
+          canvas.height = 1;
           
           self.postMessage({ webpBlob }, [webpBlob]);
         };
@@ -157,6 +167,10 @@ const imageWorker = new Worker(
     )
   )
 );
+
+// 添加内存使用限制
+const MAX_CONCURRENT_CONVERSIONS = 6;
+let activeConversions = 0;
 
 export async function fetchImageBlob(
   block: ImageBlockComponent | ImageEdgelessBlockComponent
@@ -196,31 +210,37 @@ export async function fetchImageBlob(
     
     // 检查缓存
     if (!webpCache.has(sourceId)) {
-      // 获取图片尺寸
-      const img = new Image();
-      await new Promise((resolve, reject) => {
-        img.onload = resolve;
-        img.onerror = reject;
-        img.src = URL.createObjectURL(blob);
-      });
+      // 等待其他转换完成
+      while (activeConversions >= MAX_CONCURRENT_CONVERSIONS) {
+        await new Promise(resolve => setTimeout(resolve, 100));
+      }
       
-      // 使用Web Worker进行转换
-      const webpBlob = await new Promise<Blob>((resolve) => {
-        imageWorker.onmessage = (e) => {
-          resolve(e.data.webpBlob);
-        };
-        imageWorker.postMessage({
-          blob,
-          width: img.width,
-          height: img.height
-        }, [blob]);
-      });
+      activeConversions++;
       
-      // 清理资源
-      URL.revokeObjectURL(img.src);
-      
-      finalBlob = webpBlob;
-      webpCache.set(sourceId, webpBlob);
+      try {
+        // 直接使用blob创建ImageBitmap
+        const imageBitmap = await createImageBitmap(blob);
+        
+        // 使用Web Worker进行转换
+        const webpBlob = await new Promise<Blob>((resolve) => {
+          imageWorker.onmessage = (e) => {
+            resolve(e.data.webpBlob);
+          };
+          imageWorker.postMessage({
+            blob,
+            width: imageBitmap.width,
+            height: imageBitmap.height
+          }, [blob]);
+        });
+        
+        // 清理资源
+        imageBitmap.close();
+        
+        finalBlob = webpBlob;
+        webpCache.set(sourceId, webpBlob);
+      } finally {
+        activeConversions--;
+      }
     } else {
       finalBlob = webpCache.get(sourceId)!;
     }
