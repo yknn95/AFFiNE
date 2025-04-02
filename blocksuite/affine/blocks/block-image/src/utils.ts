@@ -130,44 +130,6 @@ async function getImageBlob(model: ImageBlockModel) {
 // 添加缓存Map
 const webpCache = new Map<string, Blob>();
 
-// 创建Web Worker
-const imageWorker = new Worker(
-  URL.createObjectURL(
-    new Blob(
-      [
-        `
-        self.onmessage = async function(e) {
-          const { blob, width, height } = e.data;
-          
-          // 使用createImageBitmap直接处理blob
-          const imageBitmap = await createImageBitmap(blob);
-          
-          // 创建离屏canvas
-          const canvas = new OffscreenCanvas(width, height);
-          const ctx = canvas.getContext('2d');
-          
-          // 使用transferFromImageBitmap优化内存
-          ctx.transferFromImageBitmap(imageBitmap);
-          
-          // 转换为webp
-          const webpBlob = await canvas.convertToBlob({
-            type: 'image/webp',
-            quality: 0.8
-          });
-          
-          // 清理资源
-          canvas.width = 1;
-          canvas.height = 1;
-          
-          self.postMessage({ webpBlob }, [webpBlob]);
-        };
-        `,
-      ],
-      { type: 'text/javascript' }
-    )
-  )
-);
-
 // 添加内存使用限制
 const MAX_CONCURRENT_CONVERSIONS = 6;
 let activeConversions = 0;
@@ -218,23 +180,25 @@ export async function fetchImageBlob(
       activeConversions++;
       
       try {
-        // 直接使用blob创建ImageBitmap
+        // 创建ImageBitmap
         const imageBitmap = await createImageBitmap(blob);
         
-        // 使用Web Worker进行转换
-        const webpBlob = await new Promise<Blob>((resolve) => {
-          imageWorker.onmessage = (e) => {
-            resolve(e.data.webpBlob);
-          };
-          imageWorker.postMessage({
-            blob,
-            width: imageBitmap.width,
-            height: imageBitmap.height
-          }, [blob]);
+        // 创建离屏canvas
+        const canvas = new OffscreenCanvas(imageBitmap.width, imageBitmap.height);
+        const ctx = canvas.getContext('2d');
+        
+        // 使用transferFromImageBitmap优化内存
+        ctx?.transferFromImageBitmap(imageBitmap);
+        
+        // 转换为webp
+        const webpBlob = await canvas.convertToBlob({
+          type: 'image/webp',
+          quality: 0.8
         });
         
         // 清理资源
-        imageBitmap.close();
+        canvas.width = 1;
+        canvas.height = 1;
         
         finalBlob = webpBlob;
         webpCache.set(sourceId, webpBlob);
