@@ -117,50 +117,47 @@ async function getImageBlob(model: ImageBlockModel) {
       return null;
     }
 
-    // 创建新的blob
-    const newBlob = new Blob([buffer], { type: fileType.mime });
-    
-    // 转换为webp格式
-    const img = new Image();
-    const canvas = document.createElement('canvas');
-    const ctx = canvas.getContext('2d');
-    
-    // 等待图片加载
-    await new Promise((resolve, reject) => {
-      img.onload = resolve;
-      img.onerror = reject;
-      img.src = URL.createObjectURL(newBlob);
-    });
-    
-    // 设置canvas尺寸
-    canvas.width = img.width;
-    canvas.height = img.height;
-    
-    // 绘制图片
-    ctx?.drawImage(img, 0, 0);
-    
-    // 转换为webp格式
-    const webpBlob = await new Promise<Blob>((resolve) => {
-      canvas.toBlob(
-        (blob) => {
-          if (blob) resolve(blob);
-        },
-        'image/webp',
-        0.8 // 质量参数
-      );
-    });
-    
-    // 清理资源
-    URL.revokeObjectURL(img.src);
-    
-    return webpBlob;
+    return new Blob([buffer], { type: fileType.mime });
   }
 
   if (!blob.type.startsWith('image/')) {
     return null;
   }
 
-  return blob;
+  // 转换为webp格式
+  const img = new Image();
+  const canvas = document.createElement('canvas');
+  const ctx = canvas.getContext('2d');
+  
+  // 等待图片加载
+  await new Promise((resolve, reject) => {
+    img.onload = resolve;
+    img.onerror = reject;
+    img.src = URL.createObjectURL(blob);
+  });
+  
+  // 设置canvas尺寸
+  canvas.width = img.width;
+  canvas.height = img.height;
+  
+  // 绘制图片
+  ctx?.drawImage(img, 0, 0);
+  
+  // 转换为webp格式
+  const webpBlob = await new Promise<Blob>((resolve) => {
+    canvas.toBlob(
+      (blob) => {
+        if (blob) resolve(blob);
+      },
+      'image/webp',
+      0.8 // 质量参数
+    );
+  });
+  
+  // 清理资源
+  URL.revokeObjectURL(img.src);
+  
+  return webpBlob;
 }
 
 export async function fetchImageBlob(
