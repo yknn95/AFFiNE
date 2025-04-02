@@ -127,6 +127,9 @@ async function getImageBlob(model: ImageBlockModel) {
   return blob;
 }
 
+// 添加缓存Map
+const webpCache = new Map<string, Blob>();
+
 export async function fetchImageBlob(
   block: ImageBlockComponent | ImageEdgelessBlockComponent
 ) {
@@ -161,42 +164,52 @@ export async function fetchImageBlob(
       return;
     }
 
-    // 转换为webp格式
-    const img = new Image();
-    const canvas = document.createElement('canvas');
-    const ctx = canvas.getContext('2d');
+    let finalBlob = blob;
     
-    // 等待图片加载
-    await new Promise((resolve, reject) => {
-      img.onload = resolve;
-      img.onerror = reject;
-      img.src = URL.createObjectURL(blob);
-    });
-    
-    // 设置canvas尺寸
-    canvas.width = img.width;
-    canvas.height = img.height;
-    
-    // 绘制图片
-    ctx?.drawImage(img, 0, 0);
-    
-    // 转换为webp格式
-    const webpBlob = await new Promise<Blob>((resolve) => {
-      canvas.toBlob(
-        (blob) => {
-          if (blob) resolve(blob);
-        },
-        'image/webp',
-        0.8 // 质量参数
-      );
-    });
-    
-    // 清理资源
-    URL.revokeObjectURL(img.src);
+    // 检查缓存
+    if (!webpCache.has(sourceId)) {
+      // 转换为webp格式
+      const img = new Image();
+      const canvas = document.createElement('canvas');
+      const ctx = canvas.getContext('2d');
+      
+      // 等待图片加载
+      await new Promise((resolve, reject) => {
+        img.onload = resolve;
+        img.onerror = reject;
+        img.src = URL.createObjectURL(blob);
+      });
+      
+      // 设置canvas尺寸
+      canvas.width = img.width;
+      canvas.height = img.height;
+      
+      // 绘制图片
+      ctx?.drawImage(img, 0, 0);
+      
+      // 转换为webp格式
+      const webpBlob = await new Promise<Blob>((resolve) => {
+        canvas.toBlob(
+          (blob) => {
+            if (blob) resolve(blob);
+          },
+          'image/webp',
+          0.8 // 质量参数
+        );
+      });
+      
+      // 清理资源
+      URL.revokeObjectURL(img.src);
+      
+      finalBlob = webpBlob;
+      webpCache.set(sourceId, webpBlob);
+    } else {
+      finalBlob = webpCache.get(sourceId)!;
+    }
 
     block.loading = false;
-    block.blob = webpBlob;
-    block.blobUrl = URL.createObjectURL(webpBlob);
+    block.blob = finalBlob;
+    block.blobUrl = URL.createObjectURL(finalBlob);
     block.lastSourceId = sourceId;
   } catch (error) {
     block.retryCount++;
