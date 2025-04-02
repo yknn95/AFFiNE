@@ -35,24 +35,14 @@ function updateBlockVisibility(view: GfxBlockComponent) {
   if (view.transformState$.value === 'active') {
     view.style.visibility = 'visible';
     view.style.pointerEvents = 'auto';
+    view.classList.remove('block-idle');
+    view.classList.add('block-active');
   } else {
     view.style.visibility = 'hidden';
     view.style.pointerEvents = 'none';
+    view.classList.remove('block-active');
+    view.classList.add('block-idle');
   }
-  view.classList.remove('block-idle');
-  view.classList.add('block-active');
-
-  //if (view.transformState$.value === 'active') {
-  //  view.style.visibility = 'visible';
-  //  view.style.pointerEvents = 'auto';
-  //  view.classList.remove('block-idle');
-  //  view.classList.add('block-active');
-  //} else {
-  //  view.style.visibility = 'hidden';
-  //  view.style.pointerEvents = 'none';
-  //  view.classList.remove('block-active');
-  //  view.classList.add('block-idle');
-  //}
 }
 
 function handleGfxConnection(instance: GfxBlockComponent) {
