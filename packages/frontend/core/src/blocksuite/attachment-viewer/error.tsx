@@ -5,7 +5,7 @@ import { ArrowDownBigIcon } from '@blocksuite/icons/rc';
 import clsx from 'clsx';
 import type { PropsWithChildren, ReactElement } from 'react';
 import { Suspense } from 'react';
-import { ErrorBoundary, type FallbackProps } from 'react-error-boundary';
+import React, { useEffect, useState } from 'react';
 import { ErrorBoundary, type FallbackProps } from 'react-error-boundary';
 
 import * as styles from './error.css';
