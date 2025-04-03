@@ -38,34 +38,26 @@ type RendererOptions = {
 
 export class CanvasRenderer {
   private _container!: HTMLElement;
-
   private readonly _disposables = new DisposableGroup();
-
   private readonly _overlays = new Set<Overlay>();
-
   private _refreshRafId: number | null = null;
-
   private _stackingCanvas: HTMLCanvasElement[] = [];
-
   canvas: HTMLCanvasElement;
-
   ctx: CanvasRenderingContext2D;
-
   elementRenderers: Record<string, ElementRenderer>;
-
   grid: GridManager;
-
   layerManager: LayerManager;
-
   provider: Partial<EnvProvider>;
-
   stackingCanvasUpdated = new Subject<{
     canvases: HTMLCanvasElement[];
     added: HTMLCanvasElement[];
     removed: HTMLCanvasElement[];
   }>();
-
   viewport: Viewport;
+  private readonly _imageDecodeQueue: Map<string, Promise<ImageBitmap>> = new Map();
+  private readonly _imageCache: Map<string, ImageBitmap> = new Map();
+  private readonly _maxConcurrentDecodes = 2;
+  private _currentDecodes = 0;
 
   get stackingCanvas() {
     return this._stackingCanvas;
@@ -258,7 +250,46 @@ export class CanvasRenderer {
     );
   }
 
-  private _renderByBound(
+  private async _decodeImage(blob: Blob): Promise<ImageBitmap> {
+    const key = URL.createObjectURL(blob);
+    if (this._imageCache.has(key)) {
+      return this._imageCache.get(key)!;
+    }
+
+    if (this._imageDecodeQueue.has(key)) {
+      return this._imageDecodeQueue.get(key)!;
+    }
+
+    const decodePromise = new Promise<ImageBitmap>((resolve) => {
+      const decode = async () => {
+        try {
+          const bitmap = await createImageBitmap(blob);
+          this._imageCache.set(key, bitmap);
+          resolve(bitmap);
+        } finally {
+          this._currentDecodes--;
+          this._imageDecodeQueue.delete(key);
+          URL.revokeObjectURL(key);
+        }
+      };
+
+      if (this._currentDecodes < this._maxConcurrentDecodes) {
+        this._currentDecodes++;
+        decode();
+      } else {
+        // 等待其他解码完成
+        setTimeout(() => {
+          this._currentDecodes++;
+          decode();
+        }, 100);
+      }
+    });
+
+    this._imageDecodeQueue.set(key, decodePromise);
+    return decodePromise;
+  }
+
+  private async _renderByBound(
     ctx: CanvasRenderingContext2D | null,
     matrix: DOMMatrix,
     rc: RoughCanvas,
@@ -293,7 +324,23 @@ export class CanvasRenderer {
         const dx = element.x - bound.x;
         const dy = element.y - bound.y;
 
-        renderFn(element, ctx, matrix.translate(dx, dy), this, rc, bound);
+        // 如果是图片元素,使用解码后的 ImageBitmap
+        if (element.type === 'image' && element.props.sourceId) {
+          const blob = await element.doc.blobSync.get(element.props.sourceId);
+          if (blob) {
+            const bitmap = await this._decodeImage(blob);
+            ctx.drawImage(
+              bitmap,
+              dx,
+              dy,
+              element.w,
+              element.h
+            );
+          }
+        } else {
+          renderFn(element, ctx, matrix.translate(dx, dy), this, rc, bound);
+        }
+
         ctx.restore();
       }
     }
@@ -438,3 +485,4 @@ export class CanvasRenderer {
     this.refresh();
   }
 }
+
