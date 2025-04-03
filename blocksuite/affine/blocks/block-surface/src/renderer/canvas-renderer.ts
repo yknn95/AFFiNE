@@ -57,7 +57,10 @@ export class CanvasRenderer {
   private readonly _imageDecodeQueue: Map<string, Promise<ImageBitmap>> = new Map();
   private readonly _imageCache: Map<string, ImageBitmap> = new Map();
   private readonly _maxConcurrentDecodes = 2;
+  private readonly _maxCacheSize = 500; // 最大缓存数量调整为 500
   private _currentDecodes = 0;
+  private _totalMemoryUsage = 0;
+  private readonly _maxMemoryUsage = 5 * 1024 * 1024 * 1024; // 5GB
 
   get stackingCanvas() {
     return this._stackingCanvas;
@@ -252,12 +255,39 @@ export class CanvasRenderer {
 
   private async _decodeImage(blob: Blob): Promise<ImageBitmap> {
     const key = URL.createObjectURL(blob);
+    
+    // 检查缓存
     if (this._imageCache.has(key)) {
       return this._imageCache.get(key)!;
     }
 
+    // 检查解码队列
     if (this._imageDecodeQueue.has(key)) {
       return this._imageDecodeQueue.get(key)!;
+    }
+
+    // 清理过期缓存
+    if (this._imageCache.size >= this._maxCacheSize) {
+      const oldestKey = this._imageCache.keys().next().value;
+      const oldestBitmap = this._imageCache.get(oldestKey);
+      if (oldestBitmap) {
+        oldestBitmap.close();
+        this._totalMemoryUsage -= this._estimateBitmapSize(oldestBitmap);
+      }
+      this._imageCache.delete(oldestKey);
+      URL.revokeObjectURL(oldestKey);
+    }
+
+    // 检查内存使用
+    while (this._totalMemoryUsage > this._maxMemoryUsage) {
+      const oldestKey = this._imageCache.keys().next().value;
+      const oldestBitmap = this._imageCache.get(oldestKey);
+      if (oldestBitmap) {
+        oldestBitmap.close();
+        this._totalMemoryUsage -= this._estimateBitmapSize(oldestBitmap);
+      }
+      this._imageCache.delete(oldestKey);
+      URL.revokeObjectURL(oldestKey);
     }
 
     const decodePromise = new Promise<ImageBitmap>((resolve) => {
@@ -265,11 +295,11 @@ export class CanvasRenderer {
         try {
           const bitmap = await createImageBitmap(blob);
           this._imageCache.set(key, bitmap);
+          this._totalMemoryUsage += this._estimateBitmapSize(bitmap);
           resolve(bitmap);
         } finally {
           this._currentDecodes--;
           this._imageDecodeQueue.delete(key);
-          URL.revokeObjectURL(key);
         }
       };
 
@@ -277,16 +307,21 @@ export class CanvasRenderer {
         this._currentDecodes++;
         decode();
       } else {
-        // 等待其他解码完成
-        setTimeout(() => {
+        // 使用 requestIdleCallback 在空闲时解码
+        requestIdleCallback(() => {
           this._currentDecodes++;
           decode();
-        }, 100);
+        }, { timeout: 100 });
       }
     });
 
     this._imageDecodeQueue.set(key, decodePromise);
     return decodePromise;
+  }
+
+  private _estimateBitmapSize(bitmap: ImageBitmap): number {
+    // 估算 ImageBitmap 的内存使用
+    return bitmap.width * bitmap.height * 4; // RGBA 每个像素 4 字节
   }
 
   private async _renderByBound(
@@ -328,14 +363,32 @@ export class CanvasRenderer {
         if (element.type === 'image' && element.props.sourceId) {
           const blob = await element.doc.blobSync.get(element.props.sourceId);
           if (blob) {
-            const bitmap = await this._decodeImage(blob);
-            ctx.drawImage(
-              bitmap,
-              dx,
-              dy,
-              element.w,
-              element.h
-            );
+            try {
+              const bitmap = await this._decodeImage(blob);
+              ctx.drawImage(
+                bitmap,
+                dx,
+                dy,
+                element.w,
+                element.h
+              );
+            } catch (error) {
+              console.error('Failed to decode image:', error);
+              // 降级使用原始图片
+              const img = new Image();
+              img.src = URL.createObjectURL(blob);
+              await new Promise((resolve) => {
+                img.onload = resolve;
+              });
+              ctx.drawImage(
+                img,
+                dx,
+                dy,
+                element.w,
+                element.h
+              );
+              URL.revokeObjectURL(img.src);
+            }
           }
         } else {
           renderFn(element, ctx, matrix.translate(dx, dy), this, rc, bound);
@@ -411,6 +464,14 @@ export class CanvasRenderer {
   }
 
   dispose(): void {
+    // 清理所有缓存的图片
+    for (const [key, bitmap] of this._imageCache.entries()) {
+      bitmap.close();
+      URL.revokeObjectURL(key);
+    }
+    this._imageCache.clear();
+    this._imageDecodeQueue.clear();
+    this._totalMemoryUsage = 0;
     this._overlays.forEach(overlay => overlay.dispose());
     this._overlays.clear();
     this._disposables.dispose();
