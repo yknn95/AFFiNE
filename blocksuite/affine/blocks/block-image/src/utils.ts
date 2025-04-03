@@ -229,7 +229,11 @@ export async function fetchImageBlob(
       return;
     }
 
-    // Convert image to WebP before displaying (except SVGs, GIFs and WEBPs)
+    // 创建低质量预览图
+    const previewBlob = await createPreviewImage(blob);
+    block.previewUrl = URL.createObjectURL(previewBlob);
+    
+    // 加载高质量原图
     const optimizedBlob = !blob.type.includes('gif') && !blob.type.includes('svg') && !blob.type.includes('webp')
       ? await convertToWebP(blob)
       : blob;
@@ -245,13 +249,60 @@ export async function fetchImageBlob(
     if (block.retryCount < MAX_RETRY_COUNT) {
       setTimeout(() => {
         fetchImageBlob(block).catch(console.error);
-        // 1s, 2s, 3s
       }, 1000 * block.retryCount);
     } else {
       block.loading = false;
       block.error = true;
     }
   }
+}
+
+// 创建低质量预览图
+async function createPreviewImage(blob: Blob): Promise<Blob> {
+  return new Promise((resolve) => {
+    const img = new Image();
+    const url = URL.createObjectURL(blob);
+    
+    img.onload = () => {
+      URL.revokeObjectURL(url);
+      
+      const canvas = document.createElement('canvas');
+      // 使用较小的尺寸
+      canvas.width = Math.min(img.width, 20);
+      canvas.height = Math.min(img.height, 20);
+      
+      const ctx = canvas.getContext('2d');
+      if (!ctx) {
+        resolve(blob);
+        return;
+      }
+      
+      // 使用双线性插值进行缩放
+      ctx.imageSmoothingEnabled = true;
+      ctx.imageSmoothingQuality = 'low';
+      ctx.drawImage(img, 0, 0, canvas.width, canvas.height);
+      
+      // 转换为低质量 JPEG
+      canvas.toBlob(
+        (previewBlob) => {
+          if (previewBlob) {
+            resolve(previewBlob);
+          } else {
+            resolve(blob);
+          }
+        },
+        'image/jpeg',
+        0.1 // 使用较低的质量
+      );
+    };
+    
+    img.onerror = () => {
+      URL.revokeObjectURL(url);
+      resolve(blob);
+    };
+    
+    img.src = url;
+  });
 }
 
 export async function downloadImageBlob(

@@ -98,12 +98,25 @@ export class ImageEdgelessBlockComponent extends GfxBlockComponent<ImageBlockMod
             ></affine-image-fallback-card>`,
           () =>
             html`<div class="resizable-img">
+              ${when(
+                this.previewUrl,
+                () => html`
+                  <img
+                    class="drag-target preview"
+                    src=${this.previewUrl}
+                    draggable="false"
+                    @error=${this._handleError}
+                    loading="lazy"
+                  />
+                `
+              )}
               <img
-                class="drag-target"
+                class="drag-target ${this.previewUrl ? 'main' : ''}"
                 src=${this.blobUrl ?? ''}
                 draggable="false"
                 @error=${this._handleError}
-                loading="eager"
+                loading="lazy"
+                @load=${this._handleLoad}
               />
             </div>`
         )}
@@ -148,6 +161,16 @@ export class ImageEdgelessBlockComponent extends GfxBlockComponent<ImageBlockMod
 
   @property({ attribute: false })
   accessor retryCount = 0;
+
+  @property({ attribute: false })
+  accessor previewUrl: string | undefined = undefined;
+
+  private _handleLoad() {
+    if (this.previewUrl) {
+      URL.revokeObjectURL(this.previewUrl);
+      this.previewUrl = undefined;
+    }
+  }
 }
 
 declare global {
@@ -155,3 +178,4 @@ declare global {
     'affine-edgeless-image': ImageEdgelessBlockComponent;
   }
 }
+
