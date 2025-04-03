@@ -19,7 +19,6 @@ import type { BaseSelection } from '@blocksuite/store';
 import { css, html, type PropertyValues } from 'lit';
 import { property, query, state } from 'lit/decorators.js';
 import { styleMap } from 'lit/directives/style-map.js';
-import { when } from 'lit/directives/when.js';
 
 import type { ImageBlockComponent } from '../image-block.js';
 import { ImageResizeManager } from '../image-resize-manager.js';
@@ -45,44 +44,6 @@ export class ImageBlockPageComponent extends WithDisposable(ShadowlessElement) {
     affine-page-image .resizable-img img {
       width: 100%;
       height: 100%;
-    }
-
-    .resizable-img {
-      position: relative;
-      width: 100%;
-      height: 100%;
-      display: flex;
-      justify-content: center;
-      align-items: center;
-    }
-
-    .drag-target {
-      max-width: 100%;
-      max-height: 100%;
-      width: auto;
-      height: auto;
-      object-fit: contain;
-    }
-
-    .drag-target.preview {
-      position: absolute;
-      top: 0;
-      left: 0;
-      width: 100%;
-      height: 100%;
-      filter: blur(10px);
-      transform: scale(1.1);
-    }
-
-    .drag-target.main {
-      position: relative;
-      z-index: 1;
-      opacity: 0;
-      transition: opacity 0.3s ease-in-out;
-    }
-
-    .drag-target.main.loaded {
-      opacity: 1;
     }
   `;
 
@@ -378,36 +339,17 @@ export class ImageBlockPageComponent extends WithDisposable(ShadowlessElement) {
 
     return html`
       <div class="resizable-img" style=${styleMap(imageSize)}>
-        ${when(
-          this.block.previewUrl,
-          () => html`
-            <img
-              class="drag-target preview"
-              src=${this.block.previewUrl}
-              draggable="false"
-              @error=${this._handleError}
-              loading="lazy"
-            />
-          `
-        )}
         <img
-          class="drag-target ${this.block.previewUrl ? 'main' : ''}"
+          class="drag-target"
           src=${this.block.blobUrl ?? ''}
           draggable="false"
           @error=${this._handleError}
           loading="lazy"
-          @load=${this._handleLoad}
         />
+
         ${imageSelectedRect}
       </div>
     `;
-  }
-
-  private _handleLoad() {
-    if (this.block.previewUrl) {
-      URL.revokeObjectURL(this.block.previewUrl);
-      this.block.previewUrl = undefined;
-    }
   }
 
   @state()
@@ -425,4 +367,3 @@ declare global {
     'affine-page-image': ImageBlockPageComponent;
   }
 }
-

@@ -240,6 +240,7 @@ export async function fetchImageBlob(
     if (block.retryCount < MAX_RETRY_COUNT) {
       setTimeout(() => {
         fetchImageBlob(block).catch(console.error);
+        // 1s, 2s, 3s
       }, 1000 * block.retryCount);
     } else {
       block.loading = false;
