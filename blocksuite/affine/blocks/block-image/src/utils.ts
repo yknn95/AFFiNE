@@ -233,14 +233,10 @@ export async function fetchImageBlob(
     const previewBlob = await createPreviewImage(blob);
     block.previewUrl = URL.createObjectURL(previewBlob);
     
-    // 加载高质量原图
-    const optimizedBlob = !blob.type.includes('gif') && !blob.type.includes('svg') && !blob.type.includes('webp')
-      ? await convertToWebP(blob)
-      : blob;
-
+    // 直接使用原始图片,不进行 WebP 转换
     block.loading = false;
-    block.blob = optimizedBlob;
-    block.blobUrl = URL.createObjectURL(optimizedBlob);
+    block.blob = blob;
+    block.blobUrl = URL.createObjectURL(blob);
     block.lastSourceId = sourceId;
   } catch (error) {
     block.retryCount++;
