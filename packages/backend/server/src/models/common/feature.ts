@@ -114,11 +114,11 @@ export const FeatureConfigs: {
     deprecatedVersion: 2,
     configs: {
       name: 'Pro',
-      blobLimit: 100 * OneMB,
-      storageQuota: 100 * OneGB,
+      blobLimit: 10 * OneGB,
+      storageQuota: 300 * OneGB,
       historyPeriod: 30 * OneDay,
-      memberLimit: 10,
-      copilotActionLimit: 10,
+      memberLimit: 100,
+      copilotActionLimit: 10000,
     },
   },
   lifetime_pro_plan_v1: {
