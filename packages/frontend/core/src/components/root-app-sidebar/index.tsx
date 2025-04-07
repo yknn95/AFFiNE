@@ -91,6 +91,7 @@ const AllDocsButton = () => {
  *
  */
 export const RootAppSidebar = memo((): ReactElement => {
+  return null;
   const { workbenchService, cMDKQuickSearchService, authService } = useServices(
     {
       WorkbenchService,
