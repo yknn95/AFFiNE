@@ -117,7 +117,7 @@ export const FeatureConfigs: {
       blobLimit: 10 * OneGB,
       storageQuota: 300 * OneGB,
       historyPeriod: 30 * OneDay,
-      memberLimit: 100,
+      memberLimit: 1000,
       copilotActionLimit: 10000,
     },
   },
