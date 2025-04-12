@@ -33,21 +33,62 @@ function updateTransform(element: GfxBlockComponent) {
 
 function updateBlockVisibility(view: GfxBlockComponent) {
   if (view.transformState$.value === 'active') {
-  //  view.style.visibility = 'visible';
+    view.style.visibility = 'visible';
     view.style.pointerEvents = 'auto';
-  //  view.classList.remove('block-idle');
-  //  view.classList.add('block-active');
+
+    // gameknife mod, keep rendering to avoid re-decoding cost
+    if(view.tagName == 'AFFINE-EDGELESS-IMAGE')
+    {
+      const { x, y, w, h, zIndex } = view.getRenderingRect();
+      view.style.opacity = '1.0';
+      view.style.left = `${x}px`;
+      view.style.top = `${y}px`;
+    }
+    else
+    {
+      view.classList.remove('block-idle');
+      view.classList.add('block-active');
+    }
   } else {
-  //  view.style.visibility = 'hidden';
+    view.style.visibility = 'hidden';
     view.style.pointerEvents = 'none';
-  //  view.classList.remove('block-active');
-  //  view.classList.add('block-idle');
+
+    // gameknife mod, keep rendering to avoid re-decoding cost
+    if(view.tagName == 'AFFINE-EDGELESS-IMAGE')
+    {
+      const viewport = view.gfx.viewport;
+      const { translateX, translateY, zoom } = viewport;
+
+      view.style.visibility = 'visible';
+      view.style.opacity = '0.0005';
+      view.style.transform = `translate(0, 0) scale(${zoom})`;
+      view.style.left = '0';
+      view.style.top = '0';
+    }
+    else
+    {
+      view.classList.remove('block-active');
+      view.classList.add('block-idle');
+    }
   }
-  view.style.visibility = 'visible';
-  view.classList.remove('block-idle');
-  view.classList.add('block-active');
-  view.dataset.blockState = 'active';
 }
+//function updateBlockVisibility(view: GfxBlockComponent) {
+//  if (view.transformState$.value === 'active') {
+//  //  view.style.visibility = 'visible';
+//    view.style.pointerEvents = 'auto';
+//  //  view.classList.remove('block-idle');
+//  //  view.classList.add('block-active');
+//  } else {
+//  //  view.style.visibility = 'hidden';
+//    view.style.pointerEvents = 'none';
+//  //  view.classList.remove('block-active');
+//  //  view.classList.add('block-idle');
+//  }
+//  view.style.visibility = 'visible';
+//  view.classList.remove('block-idle');
+//  view.classList.add('block-active');
+//  view.dataset.blockState = 'active';
+//}
 
 function handleGfxConnection(instance: GfxBlockComponent) {
   instance.style.position = 'absolute';
