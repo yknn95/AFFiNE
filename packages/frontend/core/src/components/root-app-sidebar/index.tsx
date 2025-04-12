@@ -199,6 +199,8 @@ export const RootAppSidebar = memo((): ReactElement => {
             <span data-testid="import-modal-trigger">{t['Import']()}</span>
           </MenuItem>
           <TemplateDocEntrance />
+        </CollapsibleSection>
+      </SidebarScrollableContainer>
     </AppSidebar>
   );
 });
