@@ -104,6 +104,7 @@ export class ImageEdgelessBlockComponent extends GfxBlockComponent<ImageBlockMod
                 draggable="false"
                 @error=${this._handleError}
                 loading="lazy"
+                decoding="async"
               />
             </div>`
         )}
