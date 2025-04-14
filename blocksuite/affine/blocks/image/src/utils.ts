@@ -70,6 +70,21 @@ export async function convertToWebP(blob: Blob, quality = 0.8): Promise<Blob> {
       // Clean up the object URL
       URL.revokeObjectURL(url);
 
+      // Determine if resizing is needed (limit to 5000 pixels on longest side)
+      const MAX_DIMENSION = 5000;
+      let width = img.width;
+      let height = img.height;
+      
+      if (width > MAX_DIMENSION || height > MAX_DIMENSION) {
+        if (width > height) {
+          height = Math.round((height * MAX_DIMENSION) / width);
+          width = MAX_DIMENSION;
+        } else {
+          width = Math.round((width * MAX_DIMENSION) / height);
+          height = MAX_DIMENSION;
+        }
+      }
+
       // Create a canvas to draw the image
       const canvas = document.createElement('canvas');
       canvas.width = img.width;
