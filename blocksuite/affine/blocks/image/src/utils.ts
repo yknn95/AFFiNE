@@ -121,6 +121,11 @@ export async function convertToWebP(blob: Blob, quality = 0.8): Promise<Blob> {
         'image/webp',
         quality
       );
+    } catch (error) {
+        console.error('Error during WebP conversion:', error);
+        resolve(blob);
+      }
+    };
 
     img.onerror = () => {
       // Clean up and resolve with original blob on error
