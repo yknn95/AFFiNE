@@ -67,77 +67,77 @@ export async function convertToWebP(blob: Blob, quality = 0.8): Promise<Blob> {
     const url = URL.createObjectURL(blob);
 
     img.onload = () => {
-      // Clean up the object URL
-      URL.revokeObjectURL(url);
-
-      // Determine if resizing is needed (limit to 5000 pixels on longest side)
-      const MAX_DIMENSION = 5000;
-      let width = img.naturalWidth;
-      let height = img.naturalHeight;
-      
-      // Check if image needs resizing
-      if (width > MAX_DIMENSION || height > MAX_DIMENSION) {
-        if (width > height) {
-          height = Math.round((height * MAX_DIMENSION) / width);
-          width = MAX_DIMENSION;
-        } else {
-          width = Math.round((width * MAX_DIMENSION) / height);
-          height = MAX_DIMENSION;
-        }
-      }
-
-      // Create a canvas to draw the image
-      const canvas = document.createElement('canvas');
-      canvas.width = img.width;
-      canvas.height = img.height;
-
-      const ctx = canvas.getContext('2d');
-      if (!ctx) {
-        // If canvas context fails, return original blob
-        resolve(blob);
-        return;
-      }
-
-      // Draw the image to the canvas
-      // This properly resizes the image during drawing
-      ctx.drawImage(img, 0, 0, img.naturalWidth, img.naturalHeight, 0, 0, width, height);
-
-      // Convert to WebP
-      canvas.toBlob(
-        (webpBlob) => {
-          if (webpBlob) {
-            // If the WebP is somehow larger than original (rare case), use original
-            if (webpBlob.size > blob.size) {
-              console.info('WebP conversion resulted in larger file, using original');
-              resolve(blob);
-            } else {
-              resolve(webpBlob);
-            }
+      try {
+        // Clean up the object URL
+        URL.revokeObjectURL(url);
+        
+        // Determine if resizing is needed (limit to 5000 pixels on longest side)
+        const MAX_DIMENSION = 5000;
+        let width = img.naturalWidth;
+        let height = img.naturalHeight;
+        
+        // Check if image needs resizing
+        if (width > MAX_DIMENSION || height > MAX_DIMENSION) {
+          if (width > height) {
+            height = Math.round((height * MAX_DIMENSION) / width);
+            width = MAX_DIMENSION;
           } else {
-            // Fallback to original if WebP conversion fails
-            resolve(blob);
+            width = Math.round((width * MAX_DIMENSION) / height);
+            height = MAX_DIMENSION;
           }
-        },
-        'image/webp',
-        quality
-      );
-    } catch (error) {
+        }
+        
+        // Create a canvas with the desired dimensions
+        const canvas = document.createElement('canvas');
+        canvas.width = width;
+        canvas.height = height;
+        
+        const ctx = canvas.getContext('2d');
+        if (!ctx) {
+          // If canvas context fails, return original blob
+          resolve(blob);
+          return;
+        }
+        
+        // Draw the image to the canvas with specified dimensions
+        // This properly resizes the image during drawing
+        ctx.drawImage(img, 0, 0, img.naturalWidth, img.naturalHeight, 0, 0, width, height);
+        
+        // Convert to WebP
+        canvas.toBlob(
+          (webpBlob) => {
+            if (webpBlob) {
+              // If the WebP is somehow larger than original (rare case), use original
+              if (webpBlob.size > blob.size) {
+                console.info('WebP conversion resulted in larger file, using original');
+                resolve(blob);
+              } else {
+                resolve(webpBlob);
+              }
+            } else {
+              // Fallback to original if WebP conversion fails
+              resolve(blob);
+            }
+          },
+          'image/webp',
+          quality
+        );
+      } catch (error) {
         console.error('Error during WebP conversion:', error);
         resolve(blob);
       }
     };
-
+    
     img.onerror = () => {
       // Clean up and resolve with original blob on error
       URL.revokeObjectURL(url);
       console.warn('Failed to load image for WebP conversion');
       resolve(blob);
     };
-
+    
     img.src = url;
   });
 }
-
 // Modify the uploadBlobForImage function to use WebP conversion
 export async function uploadBlobForImage(
   editorHost: EditorHost,
