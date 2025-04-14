@@ -72,9 +72,10 @@ export async function convertToWebP(blob: Blob, quality = 0.8): Promise<Blob> {
 
       // Determine if resizing is needed (limit to 5000 pixels on longest side)
       const MAX_DIMENSION = 5000;
-      let width = img.width;
-      let height = img.height;
+      let width = img.naturalWidth;
+      let height = img.naturalHeight;
       
+      // Check if image needs resizing
       if (width > MAX_DIMENSION || height > MAX_DIMENSION) {
         if (width > height) {
           height = Math.round((height * MAX_DIMENSION) / width);
@@ -98,13 +99,20 @@ export async function convertToWebP(blob: Blob, quality = 0.8): Promise<Blob> {
       }
 
       // Draw the image to the canvas
-      ctx.drawImage(img, 0, 0);
+      // This properly resizes the image during drawing
+      ctx.drawImage(img, 0, 0, img.naturalWidth, img.naturalHeight, 0, 0, width, height);
 
       // Convert to WebP
       canvas.toBlob(
         (webpBlob) => {
           if (webpBlob) {
-            resolve(webpBlob);
+            // If the WebP is somehow larger than original (rare case), use original
+            if (webpBlob.size > blob.size) {
+              console.info('WebP conversion resulted in larger file, using original');
+              resolve(blob);
+            } else {
+              resolve(webpBlob);
+            }
           } else {
             // Fallback to original if WebP conversion fails
             resolve(blob);
@@ -113,11 +121,11 @@ export async function convertToWebP(blob: Blob, quality = 0.8): Promise<Blob> {
         'image/webp',
         quality
       );
-    };
 
     img.onerror = () => {
       // Clean up and resolve with original blob on error
       URL.revokeObjectURL(url);
+      console.warn('Failed to load image for WebP conversion');
       resolve(blob);
     };
 
