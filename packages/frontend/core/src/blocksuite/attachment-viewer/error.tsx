@@ -110,7 +110,7 @@ export const AttachmentFallback = ({ model, ext }: ErrorProps) => {
   const title = t['com.affine.attachment.preview.error.title']();
   const subtitle = `.${ext} ${t['com.affine.attachment.preview.error.subtitle']()}`;
   // 状态变量
-  const [videoUrl, setVideoUrl] = useState<string | null>(null);
+  const [mediaUrl, setMediaUrl] = useState<string | null>(null);
   const [isError, setIsError] = useState(false);
   // 判断是否为视频或音频文件
   const isVideo = ['mp4', 'webm', 'avi', 'mkv', 'mov'].includes(ext.toLowerCase());
@@ -136,7 +136,7 @@ export const AttachmentFallback = ({ model, ext }: ErrorProps) => {
     <div className={clsx([styles.viewer, styles.error])}>
       {isVideo && MediaUrl ? (
         <video width="95%;" height="95%;" controls>
-          <source src={videoUrl} type={`video/${ext}`} />
+          <source src={mediaUrl} type={`video/${ext}`} />
           Your browser does not support the video tag.
         </video>
       ) : isAudio && mediaUrl ? (
