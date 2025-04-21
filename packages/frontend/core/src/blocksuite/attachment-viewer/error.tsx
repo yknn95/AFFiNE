@@ -112,32 +112,38 @@ export const AttachmentFallback = ({ model, ext }: ErrorProps) => {
   // 状态变量
   const [videoUrl, setVideoUrl] = useState<string | null>(null);
   const [isError, setIsError] = useState(false);
-  // 判断是否为视频文件
+  // 判断是否为视频或音频文件
   const isVideo = ['mp4', 'webm', 'avi', 'mkv', 'mov'].includes(ext.toLowerCase());
+  const isAudio = ['mp3', 'wav'].includes(ext.toLowerCase());
   // 尝试获取附件的 URL
   useEffect(() => {
-    if (isVideo) {
-      const fetchVideoUrl = async () => {
+    if (isVideo || isAudio) {
+      const fetchMediaUrl = async () => {
         try {
           const blob = await getAttachmentBlob(model);
           const url = URL.createObjectURL(blob);
-          setVideoUrl(url);
+          setMediaUrl(url);
         } catch (error) {
           console.error("Error fetching video URL:", error);
           setIsError(true);
         }
       };
-      fetchVideoUrl();
+      fetchMediaUrl();
     }
-  }, [model, isVideo]);
+  }, [model, isVideo, isAudio]);
 
   return (
     <div className={clsx([styles.viewer, styles.error])}>
-      {isVideo && videoUrl ? (
+      {isVideo && MediaUrl ? (
         <video width="95%;" height="95%;" controls>
           <source src={videoUrl} type={`video/${ext}`} />
           Your browser does not support the video tag.
         </video>
+      ) : isAudio && mediaUrl ? (
+        <audio controls>
+          <source src={mediaUrl} type={`audio/${ext}`} />
+          Your browser does not support the audio element.
+        </audio>
       ) : (
         <ErrorBase
           icon={<Icon />}
