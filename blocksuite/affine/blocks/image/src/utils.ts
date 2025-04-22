@@ -258,14 +258,31 @@ export async function fetchImageBlob(
       return;
     }
 
-    const blob = await doc.blobSync.get(sourceId);
-    if (!blob) {
+    const originalBlob = await doc.blobSync.get(sourceId);
+    if (!originalBlob) {
       return;
     }
 
+    // 对非GIF、SVG和WebP格式的图片进行WebP转换
+    let finalBlob = originalBlob;
+    if (!(originalBlob.type === 'image/gif' || originalBlob.type === 'image/svg+xml' || originalBlob.type === 'image/webp')) {
+      try {
+        finalBlob = await convertToWebP(originalBlob);
+        // 如果转换成功且不是同一个blob对象，清理原图缓存
+        if (finalBlob !== originalBlob) {
+          // 这里不需要显式清理originalBlob，因为JavaScript的垃圾回收会自动处理
+          // 但我们可以确保不再引用它
+          originalBlob = null as any;
+        }
+      } catch (error) {
+        console.error('Failed to convert image to WebP:', error);
+        // 转换失败时使用原图
+      }
+    }
+
     block.loading = false;
-    block.blob = blob;
-    block.blobUrl = URL.createObjectURL(blob);
+    block.blob = finalBlob;
+    block.blobUrl = URL.createObjectURL(finalBlob);
     block.lastSourceId = sourceId;
   } catch (error) {
     block.retryCount++;
@@ -705,3 +722,4 @@ export function duplicate(block: ImageBlockComponent) {
     })
     .catch(console.error);
 }
+
