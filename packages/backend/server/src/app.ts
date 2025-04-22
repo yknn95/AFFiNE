@@ -39,8 +39,8 @@ export async function createApp() {
 
   app.use(
     graphqlUploadExpress({
-      maxFileSize: 100 * OneMB,
-      maxFiles: 32,
+      maxFileSize: 1000 * OneMB,
+      maxFiles: 320,
     })
   );
 
