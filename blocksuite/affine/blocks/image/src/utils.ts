@@ -48,6 +48,97 @@ export function isImageUploading(blockId: string) {
   return imageUploads.has(blockId);
 }
 
+/**
+ * Converts an image blob to WebP format with configurable quality
+ * @param blob Original image blob
+ * @param quality WebP quality (0-1), defaults to 0.8 for good balance of quality and size
+ * @returns Promise resolving to a WebP blob or the original blob if conversion fails
+ */
+export async function convertToWebP(blob: Blob, quality = 0.8): Promise<Blob> {
+  return new Promise((resolve) => {
+    // For SVGs and other vector formats, maintain original format
+    if (blob.type === 'image/gif' || blob.type === 'image/svg+xml' || blob.type === 'image/webp') {
+      resolve(blob);
+      return;
+    }
+
+    // Create an image from the blob
+    const img = new Image();
+    const url = URL.createObjectURL(blob);
+
+    img.onload = () => {
+      try {
+        // Clean up the object URL
+        URL.revokeObjectURL(url);
+
+        // Determine if resizing is needed (limit to 5000 pixels on longest side)
+        const MAX_DIMENSION = 5000;
+        let width = img.naturalWidth;
+        let height = img.naturalHeight;
+
+        // Check if image needs resizing
+        if (width > MAX_DIMENSION || height > MAX_DIMENSION) {
+          if (width > height) {
+            height = Math.round((height * MAX_DIMENSION) / width);
+            width = MAX_DIMENSION;
+          } else {
+            width = Math.round((width * MAX_DIMENSION) / height);
+            height = MAX_DIMENSION;
+          }
+        }
+
+        // Create a canvas with the desired dimensions
+        const canvas = document.createElement('canvas');
+        canvas.width = width;
+        canvas.height = height;
+
+        const ctx = canvas.getContext('2d');
+        if (!ctx) {
+          // If canvas context fails, return original blob
+          resolve(blob);
+          return;
+        }
+
+        // Draw the image to the canvas with specified dimensions
+        // This properly resizes the image during drawing
+        ctx.drawImage(img, 0, 0, img.naturalWidth, img.naturalHeight, 0, 0, width, height);
+
+        // Convert to WebP
+        canvas.toBlob(
+          (webpBlob) => {
+            if (webpBlob) {
+              // If the WebP is somehow larger than original (rare case), use original
+              if (webpBlob.size > blob.size) {
+                console.info('WebP conversion resulted in larger file, using original');
+                resolve(blob);
+              } else {
+                resolve(webpBlob);
+              }
+            } else {
+              // Fallback to original if WebP conversion fails
+              resolve(blob);
+            }
+          },
+          'image/webp',
+          quality
+        );
+      } catch (error) {
+        console.error('Error during WebP conversion:', error);
+        resolve(blob);
+      }
+    };
+
+    img.onerror = () => {
+      // Clean up and resolve with original blob on error
+      URL.revokeObjectURL(url);
+      console.warn('Failed to load image for WebP conversion');
+      resolve(blob);
+    };
+
+    img.src = url;
+  });
+}
+// Modify the uploadBlobForImage function to use WebP conversion
 export async function uploadBlobForImage(
   editorHost: EditorHost,
   blockId: string,
@@ -62,7 +153,12 @@ export async function uploadBlobForImage(
   let sourceId: string | undefined;
 
   try {
-    sourceId = await doc.blobSync.set(blob);
+    // Convert image to WebP before uploading (except SVGs and GIFs and WEBPs)
+    const optimizedBlob = !blob.type.includes('gif') && !blob.type.includes('svg') && !blob.type.includes('webp') 
+      ? await convertToWebP(blob) 
+      : blob;
+
+    sourceId = await doc.blobSync.set(optimizedBlob);
   } catch (error) {
     console.error(error);
     if (error instanceof Error) {
@@ -162,14 +258,31 @@ export async function fetchImageBlob(
       return;
     }
 
-    const blob = await doc.blobSync.get(sourceId);
-    if (!blob) {
+    const originalBlob = await doc.blobSync.get(sourceId);
+    if (!originalBlob) {
       return;
     }
 
+    // 对非GIF、SVG和WebP格式的图片进行WebP转换
+    let finalBlob = originalBlob;
+    if (!(originalBlob.type === 'image/gif' || originalBlob.type === 'image/svg+xml' || originalBlob.type === 'image/webp')) {
+      try {
+        finalBlob = await convertToWebP(originalBlob);
+        // 如果转换成功且不是同一个blob对象，清理原图缓存
+        if (finalBlob !== originalBlob) {
+          // 这里不需要显式清理originalBlob，因为JavaScript的垃圾回收会自动处理
+          // 但我们可以确保不再引用它
+          originalBlob = null as any;
+        }
+      } catch (error) {
+        console.error('Failed to convert image to WebP:', error);
+        // 转换失败时使用原图
+      }
+    }
+
     block.loading = false;
-    block.blob = blob;
-    block.blobUrl = URL.createObjectURL(blob);
+    block.blob = finalBlob;
+    block.blobUrl = URL.createObjectURL(finalBlob);
     block.lastSourceId = sourceId;
   } catch (error) {
     block.retryCount++;
@@ -512,7 +625,12 @@ export async function addImages(
       throw new Error('Failed to read image size');
     }
 
-    const sourceId = await std.store.blobSync.set(file);
+    // Convert image to WebP before uploading (except SVGs and GIFs and WEBPs)
+    const optimizedFile = !file.type.includes('gif') && !file.type.includes('svg') && !file.type.includes('webp')
+      ? await convertToWebP(file)
+      : file;
+
+    const sourceId = await std.store.blobSync.set(optimizedFile);
 
     const center = Vec.toVec(point);
     // If maxWidth is provided, limit the width of the image to maxWidth
