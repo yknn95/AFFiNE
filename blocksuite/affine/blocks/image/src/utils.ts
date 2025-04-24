@@ -54,7 +54,7 @@ export function isImageUploading(blockId: string) {
  * @param quality WebP quality (0-1), defaults to 0.8 for good balance of quality and size
  * @returns Promise resolving to a WebP blob or the original blob if conversion fails
  */
-export async function convertToWebP(blob: Blob, quality = 0.8): Promise<Blob> {
+export async function convertToWebP(blob: Blob, quality = 1): Promise<Blob> {
   return new Promise((resolve) => {
     // For SVGs and other vector formats, maintain original format
     if (blob.type === 'image/gif' || blob.type === 'image/svg+xml' || blob.type === 'image/webp') {
