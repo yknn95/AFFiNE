@@ -135,7 +135,7 @@ export const AttachmentFallback = ({ model, ext }: ErrorProps) => {
 
   return (
     <div className={clsx([styles.viewer, styles.error])}>
-      {isVideo && MediaUrl ? (
+      {isVideo && mediaUrl ? (
         <video width="95%;" height="95%;" controls>
           <source src={mediaUrl} type={`video/${ext}`} />
           Your browser does not support the video tag.
