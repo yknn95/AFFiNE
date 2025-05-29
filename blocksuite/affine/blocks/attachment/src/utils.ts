@@ -1,86 +1,66 @@
-import { autoResizeElementsCommand } from '@blocksuite/affine-block-surface';
 import { toast } from '@blocksuite/affine-components/toast';
 import {
+  type AttachmentBlockModel,
   type AttachmentBlockProps,
-  type ImageBlockModel,
-  type ImageBlockProps,
-  ImageBlockSchema,
+  AttachmentBlockSchema,
 } from '@blocksuite/affine-model';
 import {
-  FileSizeLimitProvider,
-  NativeClipboardProvider,
-} from '@blocksuite/affine-shared/services';
+  EMBED_CARD_HEIGHT,
+  EMBED_CARD_WIDTH,
+} from '@blocksuite/affine-shared/consts';
 import {
-  formatSize,
-  getBlockProps,
-  isInsidePageEditor,
-  readImageSize,
-  transformModel,
-  withTempBlobData,
-} from '@blocksuite/affine-shared/utils';
+  type AttachmentUploadedEvent,
+  FileSizeLimitProvider,
+  TelemetryProvider,
+} from '@blocksuite/affine-shared/services';
+import { formatSize } from '@blocksuite/affine-shared/utils';
 import { Bound, type IVec, Vec } from '@blocksuite/global/gfx';
-import { BlockSelection, type BlockStdScope } from '@blocksuite/std';
+import type { BlockStdScope } from '@blocksuite/std';
 import { GfxControllerIdentifier } from '@blocksuite/std/gfx';
 import type { BlockModel } from '@blocksuite/store';
 
-import {
-  SURFACE_IMAGE_CARD_HEIGHT,
-  SURFACE_IMAGE_CARD_WIDTH,
-} from './components/image-block-fallback';
-import type { ImageBlockComponent } from './image-block';
-import type { ImageEdgelessBlockComponent } from './image-edgeless-block';
+import type { AttachmentBlockComponent } from './attachment-block';
 
-const DEFAULT_ATTACHMENT_NAME = 'affine-attachment';
-
-async function getImageBlob(model: ImageBlockModel) {
-  const sourceId = model.props.sourceId$.peek();
+export async function getAttachmentBlob(model: AttachmentBlockModel) {
+  const { sourceId$, type$ } = model.props;
+  const sourceId = sourceId$.peek();
+  const type = type$.peek();
   if (!sourceId) return null;
 
   const doc = model.store;
-  let blob = await doc.blobSync.get(sourceId);
+  const blob = await doc.blobSync.get(sourceId);
   if (!blob) return null;
 
-  if (!blob.type) {
-    const buffer = await blob.arrayBuffer();
-    const FileType = await import('file-type');
-    const fileType = await FileType.fileTypeFromBuffer(buffer);
-
-    blob = new Blob([buffer], { type: fileType?.mime });
-  }
-
-  if (!blob.type.startsWith('image/')) return null;
-
-  return blob;
+  return new Blob([blob], { type });
 }
 
-export async function refreshData(
-  block: ImageBlockComponent | ImageEdgelessBlockComponent
-) {
-  await block.resourceController.refreshUrlWith();
-}
-
-export async function downloadImageBlob(
-  block: ImageBlockComponent | ImageEdgelessBlockComponent
-) {
-  const { host, blobUrl, resourceController } = block;
-
-  if (!blobUrl) {
-    toast(host, 'Failed to download image!');
-    return;
-  }
+/**
+ * Since the size of the attachment may be very large,
+ * the download process may take a long time!
+ */
+export function downloadAttachmentBlob(block: AttachmentBlockComponent) {
+  const { host, model, blobUrl, resourceController } = block;
 
   if (resourceController.state$.peek().downloading) {
     toast(host, 'Download in progress...');
     return;
   }
 
+  const name = model.props.name;
+  const shortName = name.length < 20 ? name : name.slice(0, 20) + '...';
+
+  if (!blobUrl) {
+    toast(host, `Failed to download ${shortName}!`);
+    return;
+  }
+
   resourceController.updateState({ downloading: true });
 
-  toast(host, 'Downloading image...');
+  toast(host, `Downloading ${shortName}`);
 
   const tmpLink = document.createElement('a');
   const event = new MouseEvent('click');
-  tmpLink.download = 'image';
+  tmpLink.download = name;
   tmpLink.href = blobUrl;
   tmpLink.dispatchEvent(event);
   tmpLink.remove();
@@ -88,231 +68,21 @@ export async function downloadImageBlob(
   resourceController.updateState({ downloading: false });
 }
 
-export async function resetImageSize(
-  block: ImageBlockComponent | ImageEdgelessBlockComponent
-) {
-  const { model } = block;
-
-  const blob = await getImageBlob(model);
-  if (!blob) {
-    console.error('Failed to get image blob');
-    return;
-  }
-
-  const imageSize = await readImageSize(blob);
-
-  const bound = model.elementBound;
-  bound.w = imageSize.width;
-  bound.h = imageSize.height;
-
-  const xywh = bound.serialize();
-  const props: Partial<ImageBlockProps> = { ...imageSize, xywh };
-
-  block.store.updateBlock(model, props);
-}
-
-function convertToPng(blob: Blob): Promise<Blob | null> {
-  return new Promise(resolve => {
-    const reader = new FileReader();
-    reader.addEventListener('load', _ => {
-      const img = new Image();
-      img.onload = () => {
-        const c = document.createElement('canvas');
-        c.width = img.width;
-        c.height = img.height;
-        const ctx = c.getContext('2d');
-        if (!ctx) return;
-        ctx.drawImage(img, 0, 0);
-        c.toBlob(resolve, 'image/png');
-      };
-      img.onerror = () => resolve(null);
-      img.src = reader.result as string;
-    });
-    reader.addEventListener('error', () => resolve(null));
-    reader.readAsDataURL(blob);
-  });
-}
-
-export async function convertToWebP(blob: Blob, quality = 1): Promise<Blob> {
-  return new Promise((resolve) => {
-    // For SVGs and other vector formats, maintain original format
-    if (blob.type === 'image/gif' || blob.type === 'image/svg+xml' || blob.type === 'image/webp') {
-      resolve(blob);
-      return;
-    }
-
-    const reader = new FileReader();
-    reader.addEventListener('load', _ => {
-      const img = new Image();
-      img.onload = () => {
-        try {
-          // Determine if resizing is needed (limit to 5000 pixels on longest side)
-          const MAX_DIMENSION = 5000;
-          let width = img.naturalWidth;
-          let height = img.naturalHeight;
-
-          // Check if image needs resizing
-          if (width > MAX_DIMENSION || height > MAX_DIMENSION) {
-            if (width > height) {
-              height = Math.round((height * MAX_DIMENSION) / width);
-              width = MAX_DIMENSION;
-            } else {
-              width = Math.round((width * MAX_DIMENSION) / height);
-              height = MAX_DIMENSION;
-            }
-          }
-
-          // Create a canvas with the desired dimensions
-          const canvas = document.createElement('canvas');
-          canvas.width = width;
-          canvas.height = height;
-
-          const ctx = canvas.getContext('2d');
-          if (!ctx) {
-            // If canvas context fails, return original blob
-            resolve(blob);
-            return;
-          }
-
-          // Draw the image to the canvas with specified dimensions
-          ctx.drawImage(img, 0, 0, img.naturalWidth, img.naturalHeight, 0, 0, width, height);
-
-          // Convert to WebP
-          canvas.toBlob(
-            (webpBlob) => {
-              if (webpBlob) {
-                // If the WebP is somehow larger than original (rare case), use original
-                if (webpBlob.size > blob.size) {
-                  console.info('WebP conversion resulted in larger file, using original');
-                  resolve(blob);
-                } else {
-                  resolve(webpBlob);
-                }
-              } else {
-                // Fallback to original if WebP conversion fails
-                resolve(blob);
-              }
-            },
-            'image/webp',
-            quality
-          );
-        } catch (error) {
-          console.error('Error during WebP conversion:', error);
-          resolve(blob);
-        }
-      };
-      img.onerror = () => {
-        console.warn('Failed to load image for WebP conversion');
-        resolve(blob);
-      };
-      img.src = reader.result as string;
-    });
-    reader.addEventListener('error', () => {
-      console.warn('Failed to read file for WebP conversion');
-      resolve(blob);
-    });
-    reader.readAsDataURL(blob);
-  });
-}
-
-export async function copyImageBlob(
-  block: ImageBlockComponent | ImageEdgelessBlockComponent
-) {
-  const { host, model, std } = block;
-  let blob = await getImageBlob(model);
-  if (!blob) {
-    console.error('Failed to get image blob');
-    return;
-  }
-
-  let copied = false;
-
-  try {
-    // Copies the image as PNG in Electron.
-    const copyAsPNG = std.getOptional(NativeClipboardProvider)?.copyAsPNG;
-    if (copyAsPNG) {
-      copied = await copyAsPNG(await blob.arrayBuffer());
-    }
-
-    // The current clipboard only supports the `image/png` image format.
-    // The `ClipboardItem.supports('image/svg+xml')` is not currently used,
-    // because when pasting, the content is not read correctly.
-    //
-    // https://developer.mozilla.org/en-US/docs/Web/API/ClipboardItem
-    // https://alexharri.com/blog/clipboard
-    if (!copied) {
-      if (blob.type !== 'image/png') {
-        blob = await convertToPng(blob);
-        if (!blob) {
-          console.error('Failed to convert blob to PNG');
-          return;
-        }
-      }
-
-      if (!globalThis.isSecureContext) {
-        console.error(
-          'Clipboard API is not available in insecure context',
-          blob.type,
-          blob
-        );
-        return;
-      }
-
-      await navigator.clipboard.write([
-        new ClipboardItem({ [blob.type]: blob }),
-      ]);
-    }
-
-    toast(host, 'Copied image to clipboard');
-  } catch (error) {
-    console.error(error);
-  }
-}
-
-/**
- * Turn the image block into a attachment block.
- */
-export async function turnImageIntoCardView(
-  block: ImageBlockComponent | ImageEdgelessBlockComponent
-) {
-  const doc = block.store;
-  if (!doc.schema.flavourSchemaMap.has('affine:attachment')) {
-    console.error('The attachment flavour is not supported!');
-    return;
-  }
-
+export async function refreshData(block: AttachmentBlockComponent) {
   const model = block.model;
-  const sourceId = model.props.sourceId$.peek();
-  const blob = await getImageBlob(model);
-  if (!sourceId || !blob) {
-    console.error('Image data not available');
-    return;
-  }
+  const type = model.props.type$.peek();
 
-  const { saveImageData, getAttachmentData } = withTempBlobData();
-  saveImageData(sourceId, {
-    width: model.props.width,
-    height: model.props.height,
-  });
-  const attachmentConvertData = getAttachmentData(sourceId);
-  const attachmentProp: Partial<AttachmentBlockProps> = {
-    sourceId,
-    name: DEFAULT_ATTACHMENT_NAME,
-    size: blob.size,
-    type: blob.type,
-    caption: model.props.caption,
-    ...attachmentConvertData,
-  };
-  transformModel(model, 'affine:attachment', attachmentProp);
+  await block.resourceController.refreshUrlWith(type);
 }
 
-export function shouldResizeImage(node: Node, target: EventTarget | null) {
-  return !!(
-    target &&
-    target instanceof HTMLElement &&
-    node.contains(target) &&
-    target.classList.contains('resize')
-  );
+export async function getFileType(file: File) {
+  if (file.type) return file.type;
+
+  // If the file type is not available, try to get it from the buffer.
+  const buffer = await file.arrayBuffer();
+  const FileType = await import('file-type');
+  const fileType = await FileType.fileTypeFromBuffer(buffer);
+  return fileType?.mime ?? '';
 }
 
 function hasExceeded(
@@ -330,36 +100,62 @@ function hasExceeded(
   return exceeded;
 }
 
-async function buildPropsWith(std: BlockStdScope, file: File) {
-  const { size } = file;
-  const [imageSize, sourceId] = await Promise.all([
-    readImageSize(file),
-    std.store.blobSync.set(await convertToWebP(file)),
-  ]);
+async function buildPropsWith(
+  std: BlockStdScope,
+  file: File,
+  embed?: boolean,
+  mode: 'doc' | 'whiteboard' = 'doc'
+) {
+  let type = file.type;
+  let category: AttachmentUploadedEvent['category'] = 'success';
 
-  if (!(imageSize.width * imageSize.height)) {
-    toast(std.host, 'Failed to read image size, please try another image');
-    throw new Error('Failed to read image size');
+  try {
+    const { name, size } = file;
+    // TODO(@fundon): should re-upload when upload timeout
+    const sourceId = await std.store.blobSync.set(file);
+    type = await getFileType(file);
+
+    return {
+      name,
+      size,
+      type,
+      sourceId,
+      embed,
+    } satisfies Partial<AttachmentBlockProps>;
+  } catch (err) {
+    category = 'failure';
+    throw err;
+  } finally {
+    // TODO(@fundon): should change event name because this is just a local operation.
+    std.getOptional(TelemetryProvider)?.track('AttachmentUploadedEvent', {
+      page: `${mode} editor`,
+      module: 'attachment',
+      segment: mode,
+      control: 'uploader',
+      type,
+      category,
+    });
   }
-
-  return { size, sourceId, ...imageSize } satisfies Partial<ImageBlockProps>;
 }
 
-export async function addSiblingImageBlocks(
+/**
+ * Add a new attachment block before / after the specified block.
+ */
+export async function addSiblingAttachmentBlocks(
   std: BlockStdScope,
   files: File[],
   targetModel: BlockModel,
-  placement: 'after' | 'before' = 'after'
+  placement: 'before' | 'after' = 'after',
+  embed?: boolean
 ) {
-  files = files.filter(file => file.type.startsWith('image/'));
   if (!files.length) return [];
 
   if (hasExceeded(std, files)) return [];
 
-  const flavour = ImageBlockSchema.model.flavour;
+  const flavour = AttachmentBlockSchema.model.flavour;
 
   const propsArray = await Promise.all(
-    files.map(file => buildPropsWith(std, file))
+    files.map(file => buildPropsWith(std, file, embed))
   );
 
   const blockIds = std.store.addSiblingBlocks(
@@ -371,58 +167,24 @@ export async function addSiblingImageBlocks(
   return blockIds;
 }
 
-export async function addImageBlocks(
+export async function addAttachments(
   std: BlockStdScope,
   files: File[],
-  parent?: BlockModel | string | null,
-  parentIndex?: number
-) {
-  files = files.filter(file => file.type.startsWith('image/'));
-  if (!files.length) return [];
-
-  if (hasExceeded(std, files)) return [];
-
-  const flavour = ImageBlockSchema.model.flavour;
-
-  const propsArray = await Promise.all(
-    files.map(file => buildPropsWith(std, file))
-  );
-
-  const blocks = propsArray.map(blockProps => ({ flavour, blockProps }));
-
-  const blockIds = std.store.addBlocks(blocks, parent, parentIndex);
-
-  return blockIds;
-}
-
-export async function addImages(
-  std: BlockStdScope,
-  files: File[],
-  options: {
-    point?: IVec;
-    maxWidth?: number;
-    shouldTransformPoint?: boolean; // determines whether we should use `toModelCoord` to convert the point
-  }
+  point?: IVec,
+  shouldTransformPoint?: boolean // determines whether we should use `toModelCoord` to convert the point
 ): Promise<string[]> {
-  files = files.filter(file => file.type.startsWith('image/'));
   if (!files.length) return [];
 
   if (hasExceeded(std, files)) return [];
 
-  const flavour = ImageBlockSchema.model.flavour;
-
   const propsArray = await Promise.all(
-    files.map(file => buildPropsWith(std, file))
+    files.map(file => buildPropsWith(std, file, undefined, 'whiteboard'))
   );
 
   const gfx = std.get(GfxControllerIdentifier);
-  const isMultiple = propsArray.length > 1;
-  const inTopLeft = isMultiple;
-  const gap = 32;
-  const { point, maxWidth, shouldTransformPoint = true } = options;
-
   let { x, y } = gfx.viewport.center;
   if (point) {
+    shouldTransformPoint = shouldTransformPoint ?? true;
     if (shouldTransformPoint) {
       [x, y] = gfx.viewport.toModelCoord(...point);
     } else {
@@ -431,37 +193,16 @@ export async function addImages(
   }
 
   const xy = [x, y];
+  const style = 'cubeThick';
+  const gap = 32;
+  const width = EMBED_CARD_WIDTH.cubeThick;
+  const height = EMBED_CARD_HEIGHT.cubeThick;
+  const flavour = AttachmentBlockSchema.model.flavour;
 
-  const blocks = propsArray.map((props, i) => {
-    // If maxWidth is provided, limit the width of the image to maxWidth
-    // Otherwise, use the original width
-    if (maxWidth) {
-      const p = props.height / props.width;
-      props.width = Math.min(props.width, maxWidth);
-      props.height = props.width * p;
-    }
-
-    const center = Vec.addScalar(xy, i * gap);
-    const index = gfx.layer.generateIndex();
-
-    const { width, height } = props;
-    const xywh = calcBoundByOrigin(
-      center,
-      inTopLeft,
-      width,
-      height
-    ).serialize();
-
-    return {
-      flavour,
-      blockProps: {
-        ...props,
-        width,
-        height,
-        xywh,
-        index,
-      },
-    };
+  const blocks = propsArray.map((props, index) => {
+    const center = Vec.addScalar(xy, index * gap);
+    const xywh = Bound.fromCenter(center, width, height).serialize();
+    return { flavour, blockProps: { ...props, style, xywh } };
   });
 
   const blockIds = std.store.addBlocks(blocks, gfx.surface);
@@ -471,67 +212,5 @@ export async function addImages(
     editing: false,
   });
 
-  if (isMultiple) {
-    std.command.exec(autoResizeElementsCommand);
-  }
-
   return blockIds;
 }
-
-export function calcBoundByOrigin(
-  point: IVec,
-  inTopLeft = false,
-  width = SURFACE_IMAGE_CARD_WIDTH,
-  height = SURFACE_IMAGE_CARD_HEIGHT
-) {
-  return inTopLeft
-    ? new Bound(point[0], point[1], width, height)
-    : Bound.fromCenter(point, width, height);
-}
-
-export function duplicate(block: ImageBlockComponent) {
-  const model = block.model;
-  const blockProps = getBlockProps(model);
-  const {
-    width: _width,
-    height: _height,
-    xywh: _xywh,
-    rotate: _rotate,
-    zIndex: _zIndex,
-    ...duplicateProps
-  } = blockProps;
-
-  const { store } = model;
-  const parent = store.getParent(model);
-  if (!parent) {
-    console.error(`Parent not found for block(${model.flavour}) ${model.id}`);
-    return;
-  }
-
-  const index = parent?.children.indexOf(model);
-  const duplicateId = store.addBlock(
-    model.flavour,
-    duplicateProps,
-    parent,
-    index + 1
-  );
-
-  const editorHost = block.host;
-  editorHost.updateComplete
-    .then(() => {
-      const { selection } = editorHost;
-      selection.setGroup('note', [
-        selection.create(BlockSelection, {
-          blockId: duplicateId,
-        }),
-      ]);
-      if (isInsidePageEditor(editorHost)) {
-        const duplicateElement = editorHost.view.getBlock(duplicateId);
-        if (duplicateElement) {
-          duplicateElement.scrollIntoView(true);
-        }
-      }
-    })
-    .catch(console.error);
-}
-
