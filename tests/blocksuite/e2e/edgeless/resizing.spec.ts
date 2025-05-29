@@ -1,13 +1,16 @@
 import {
+  selectElementInEdgeless,
   switchEditorMode,
   zoomResetByKeyboard,
 } from '../utils/actions/edgeless.js';
 import {
   addBasicBrushElement,
   addBasicRectShapeElement,
+  clickView,
   dragBetweenCoords,
   enterPlaygroundRoom,
   initEmptyEdgelessState,
+  pressBackspace,
   resizeElementByHandle,
 } from '../utils/actions/index.js';
 import {
@@ -19,9 +22,14 @@ import { test } from '../utils/playwright.js';
 test.describe('resizing shapes and aspect ratio will be maintained', () => {
   test('positive adjustment', async ({ page }) => {
     await enterPlaygroundRoom(page);
-    await initEmptyEdgelessState(page);
+    const { noteId } = await initEmptyEdgelessState(page);
     await switchEditorMode(page);
     await zoomResetByKeyboard(page);
+
+    // delete note to avoid snapping to it
+    await clickView(page, [0, 0]);
+    await selectElementInEdgeless(page, [noteId]);
+    await pressBackspace(page);
 
     await addBasicBrushElement(page, { x: 100, y: 100 }, { x: 200, y: 200 });
     await page.mouse.click(110, 110);
@@ -50,9 +58,14 @@ test.describe('resizing shapes and aspect ratio will be maintained', () => {
 
   test('negative adjustment', async ({ page }) => {
     await enterPlaygroundRoom(page);
-    await initEmptyEdgelessState(page);
+    const { noteId } = await initEmptyEdgelessState(page);
     await switchEditorMode(page);
     await zoomResetByKeyboard(page);
+
+    // delete note to avoid snapping to it
+    await clickView(page, [0, 0]);
+    await selectElementInEdgeless(page, [noteId]);
+    await pressBackspace(page);
 
     await addBasicBrushElement(page, { x: 100, y: 100 }, { x: 200, y: 200 });
     await page.mouse.click(110, 110);

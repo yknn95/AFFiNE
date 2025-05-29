@@ -57,7 +57,7 @@ export async function forkCopilotSession(
   workspaceId: string,
   docId: string,
   sessionId: string,
-  latestMessageId: string
+  latestMessageId?: string
 ): Promise<string> {
   const res = await app.gql(
     `

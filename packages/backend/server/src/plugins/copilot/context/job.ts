@@ -261,7 +261,7 @@ export class CopilotContextDocJob {
   ): Promise<DocFragment | null> {
     const docContent = await this.doc.getFullDocContent(workspaceId, docId);
     const authors = await this.models.doc.getAuthors(workspaceId, docId);
-    if (docContent?.summary && authors) {
+    if (docContent && authors) {
       const { title = 'Untitled', summary } = docContent;
       const { createdAt, updatedAt, createdByUser, updatedByUser } = authors;
       return {

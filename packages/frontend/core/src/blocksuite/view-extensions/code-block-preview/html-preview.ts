@@ -1,3 +1,4 @@
+import track from '@affine/track';
 import { CodeBlockPreviewExtension } from '@blocksuite/affine/blocks/code';
 import { SignalWatcher, WithDisposable } from '@blocksuite/affine/global/lit';
 import type { CodeBlockModel } from '@blocksuite/affine/model';
@@ -87,7 +88,13 @@ export class HTMLPreview extends SignalWatcher(WithDisposable(LitElement)) {
         this.state = 'finish';
       })
       .catch(error => {
-        console.error('Failed to link WebContainer:', error);
+        const errorMessage = `Failed to link WebContainer: ${error}`;
+
+        console.error(errorMessage);
+        track.doc.editor.codeBlock.htmlBlockPreviewFailed({
+          type: errorMessage,
+        });
+
         this.state = 'error';
       });
   }

@@ -74,6 +74,14 @@ export class DataViewHeaderViews extends WidgetBase {
     }
   `;
 
+  private addView(type: string) {
+    const id = this.viewManager.viewAdd(type);
+    this.viewManager.setCurrentView(id);
+    this.dataViewLogic.root.config.eventTrace('AddDatabaseView', {
+      type: type,
+    });
+  }
+
   _addViewMenu = (event: MouseEvent) => {
     popFilterableSimpleMenu(
       popupTargetFromElement(event.currentTarget as HTMLElement),
@@ -82,8 +90,7 @@ export class DataViewHeaderViews extends WidgetBase {
           name: v.model.defaultName,
           prefix: html`<uni-lit .uni=${v.renderer.icon}></uni-lit>`,
           select: () => {
-            const id = this.viewManager.viewAdd(v.type);
-            this.viewManager.setCurrentView(id);
+            this.addView(v.type);
           },
         });
       })
@@ -135,8 +142,7 @@ export class DataViewHeaderViews extends WidgetBase {
               hide: () => this.readonly,
               prefix: PlusIcon(),
               select: () => {
-                const id = this.viewManager.viewAdd(v.type);
-                this.viewManager.setCurrentView(id);
+                this.addView(v.type);
               },
             });
           }),

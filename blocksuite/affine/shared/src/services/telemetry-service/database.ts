@@ -45,6 +45,9 @@ export type DatabaseGroupEvents = {
 
 export type DatabaseEvents = {
   AddDatabase: {};
+  AddDatabaseView: {
+    type: string;
+  };
 };
 
 export interface DatabaseAllSortEvents {

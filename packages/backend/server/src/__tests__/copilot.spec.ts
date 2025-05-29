@@ -410,6 +410,27 @@ test('should be able to fork chat session', async t => {
     'should fork new session with same params'
   );
 
+  // fork session without latestMessageId
+  const forkedSessionId3 = await session.fork({
+    userId,
+    sessionId,
+    ...commonParams,
+  });
+
+  // fork session with wrong latestMessageId
+  await t.throwsAsync(
+    session.fork({
+      userId,
+      sessionId,
+      latestMessageId: 'wrong-message-id',
+      ...commonParams,
+    }),
+    {
+      instanceOf: Error,
+    },
+    'should not able to fork new session with wrong latestMessageId'
+  );
+
   const cleanObject = (obj: any[]) =>
     JSON.parse(
       JSON.stringify(obj, (k, v) =>
@@ -436,11 +457,17 @@ test('should be able to fork chat session', async t => {
     t.snapshot(cleanObject(finalMessages), 'should generate the final message');
   }
 
+  // check third times forked session
+  {
+    const s3 = (await session.get(forkedSessionId3))!;
+    const finalMessages = s3.finish(params);
+    t.snapshot(cleanObject(finalMessages), 'should generate the final message');
+  }
+
   // check original session messages
   {
-    const s3 = (await session.get(sessionId))!;
-
-    const finalMessages = s3.finish(params);
+    const s4 = (await session.get(sessionId))!;
+    const finalMessages = s4.finish(params);
     t.snapshot(cleanObject(finalMessages), 'should generate the final message');
   }
 

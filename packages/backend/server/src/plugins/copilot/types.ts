@@ -119,7 +119,7 @@ export interface ChatSessionPromptUpdateOptions
 export interface ChatSessionForkOptions
   extends Omit<ChatSessionOptions, 'promptName'> {
   sessionId: string;
-  latestMessageId: string;
+  latestMessageId?: string;
 }
 
 export interface ChatSessionState

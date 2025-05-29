@@ -9,7 +9,7 @@ import {
   type DataViewCellLifeCycle,
   EditorHostKey,
 } from '@blocksuite/affine/blocks/database';
-import { openFileOrFiles } from '@blocksuite/affine/shared/utils';
+import { openFilesWith } from '@blocksuite/affine/shared/utils';
 import type { BlobEngine } from '@blocksuite/affine/sync';
 import {
   DeleteIcon,
@@ -402,7 +402,7 @@ const FileCellComponent: ForwardRefRenderFunction<
         >
           <Button
             onClick={() => {
-              openFileOrFiles({ multiple: true })
+              openFilesWith()
                 .then(files => {
                   files?.forEach(file => {
                     manager.uploadFile(file);
@@ -447,7 +447,7 @@ const FileCellComponent: ForwardRefRenderFunction<
         <div className={styles.uploadContainer}>
           <div
             onClick={() => {
-              openFileOrFiles({ multiple: true })
+              openFilesWith()
                 .then(files => {
                   files?.forEach(file => {
                     manager.uploadFile(file);

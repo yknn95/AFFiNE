@@ -85,15 +85,15 @@ declare global {
       // internal context
       host: EditorHost;
       models?: (BlockModel | GfxModel)[];
-      control: TrackerControl;
-      where: TrackerWhere;
+      control?: TrackerControl;
+      where?: TrackerWhere;
     }
 
     interface AIForkChatSessionOptions {
       docId: string;
       workspaceId: string;
       sessionId: string;
-      latestMessageId: string;
+      latestMessageId?: string;
     }
 
     interface AIImageActionOptions extends AITextActionOptions {

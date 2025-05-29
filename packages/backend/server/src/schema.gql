@@ -703,7 +703,7 @@ input ForkChatSessionInput {
   """
   Identify a message in the array and keep it with all previous messages into a forked session.
   """
-  latestMessageId: String!
+  latestMessageId: String
   sessionId: String!
   workspaceId: String!
 }
@@ -1606,6 +1606,7 @@ enum ServerDeploymentType {
 enum ServerFeature {
   Captcha
   Copilot
+  CopilotEmbedding
   Indexer
   OAuth
   Payment

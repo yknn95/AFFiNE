@@ -28,7 +28,9 @@ test.describe('AIBasic/Chat', () => {
     await check.hover();
     const tooltip = await page.getByTestId('ai-chat-embedding-status-tooltip');
     await expect(tooltip).toBeVisible();
-    await expect(tooltip).toHaveText(/Results will improve after embedding/i);
+    await expect(tooltip).toHaveText(
+      /Results will improve after embedding|Embedding finished/
+    );
   });
 
   test(`should send message and receive AI response:

@@ -48,11 +48,11 @@ export const MigrationAllDocsDataNotification = () => {
   return (
     <div className={styles.migrationDataNotificationContainer}>
       <div className={styles.migrationDataNotificationTitle}>
-        {t['com.affine.migration-all-docs-notification.title']()}
+        {t['com.affine.migration-all-docs-notification.header']()}
       </div>
       <div className={styles.migrationDataNotificationContent}>
         <MigrationBackgroundCover />
-        {t['com.affine.migration-all-docs-notification.content']()}
+        {t['com.affine.migration-all-docs-notification.desc']()}
       </div>
 
       {error && (

@@ -14,6 +14,7 @@ import { GfxPrimitiveElementModel } from '../model/surface/element-model.js';
 import type { GfxElementModelView } from '../view/view.js';
 import { createInteractionContext, type SupportedEvents } from './event.js';
 import {
+  type ActionContextMap,
   type InteractivityActionAPI,
   type InteractivityEventAPI,
   InteractivityExtensionIdentifier,
@@ -882,7 +883,11 @@ export class InteractivityManager extends GfxExtension {
   handleElementResize(
     options: Omit<
       OptionResize,
-      'lockRatio' | 'onResizeStart' | 'onResizeEnd' | 'onResizeUpdate'
+      | 'lockRatio'
+      | 'onResizeStart'
+      | 'onResizeEnd'
+      | 'onResizeUpdate'
+      | 'onResizeMove'
     > & {
       onResizeStart?: () => void;
       onResizeEnd?: () => void;
@@ -910,6 +915,23 @@ export class InteractivityManager extends GfxExtension {
     const elements = Array.from(viewConfigMap.values()).map(
       config => config.view.model
     ) as GfxModel[];
+    const extensionHandlers = this.interactExtensions.values().reduce(
+      (handlers, ext) => {
+        const extHandlers = (ext.action as InteractivityActionAPI).emit(
+          'elementResize',
+          {
+            elements,
+          }
+        );
+
+        if (extHandlers) {
+          handlers.push(extHandlers);
+        }
+
+        return handlers;
+      },
+      [] as ActionContextMap['elementResize']['returnType'][]
+    );
     let lockRatio = false;
 
     viewConfigMap.forEach(config => {
@@ -925,11 +947,46 @@ export class InteractivityManager extends GfxExtension {
       ...options,
       lockRatio,
       elements,
+      onResizeMove: ({ dx, dy, handleSign, lockRatio }) => {
+        const suggested: {
+          dx: number;
+          dy: number;
+          priority?: number;
+        }[] = [];
+        const suggest = (distance: { dx: number; dy: number }) => {
+          suggested.push(distance);
+        };
+
+        extensionHandlers.forEach(ext => {
+          ext.onResizeMove?.({
+            dx,
+            dy,
+            elements,
+            handleSign,
+            handle,
+            lockRatio,
+            suggest,
+          });
+        });
+
+        suggested.sort((a, b) => {
+          return (a.priority ?? 0) - (b.priority ?? 0);
+        });
+
+        return last(suggested) ?? { dx, dy };
+      },
       onResizeStart: ({ data }) => {
         this.activeInteraction$.value = {
           type: 'resize',
           elements,
         };
+        extensionHandlers.forEach(ext => {
+          ext.onResizeStart?.({
+            elements,
+            handle,
+          });
+        });
+
         options.onResizeStart?.();
         data.forEach(({ model }) => {
           if (!viewConfigMap.has(model.id)) {
@@ -990,6 +1047,13 @@ export class InteractivityManager extends GfxExtension {
       },
       onResizeEnd: ({ data }) => {
         this.activeInteraction$.value = null;
+
+        extensionHandlers.forEach(ext => {
+          ext.onResizeEnd?.({
+            elements,
+            handle,
+          });
+        });
         options.onResizeEnd?.();
         this.std.store.transact(() => {
           data.forEach(({ model }) => {

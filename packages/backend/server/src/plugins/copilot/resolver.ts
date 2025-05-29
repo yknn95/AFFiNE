@@ -91,8 +91,9 @@ class ForkChatSessionInput {
   @Field(() => String, {
     description:
       'Identify a message in the array and keep it with all previous messages into a forked session.',
+    nullable: true,
   })
-  latestMessageId!: string;
+  latestMessageId?: string;
 }
 
 @InputType()

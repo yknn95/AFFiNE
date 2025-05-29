@@ -164,12 +164,13 @@ export class CollectionStore extends Store {
       if (collection.id === id) {
         this.rootYDoc.transact(() => {
           yArray.delete(collectionIndex, 1);
+          const migratedCollectionInfo = this.migrateCollectionInfo(collection);
           yArray.insert(collectionIndex, [
             {
               id: collection.id,
-              name: info.name ?? collection.name,
-              rules: info.rules ?? collection.rules,
-              allowList: info.allowList ?? collection.allowList,
+              name: info.name ?? migratedCollectionInfo.name,
+              rules: info.rules ?? migratedCollectionInfo.rules,
+              allowList: info.allowList ?? migratedCollectionInfo.allowList,
             },
           ]);
         });
@@ -183,7 +184,7 @@ export class CollectionStore extends Store {
   migrateCollectionInfo(
     legacyCollectionInfo: LegacyCollectionInfo
   ): CollectionInfo {
-    if ('rules' in legacyCollectionInfo) {
+    if ('rules' in legacyCollectionInfo && legacyCollectionInfo.rules) {
       return legacyCollectionInfo as CollectionInfo;
     }
     return {

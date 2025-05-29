@@ -673,16 +673,19 @@ export class ChatSessionService {
     if (!state) {
       throw new CopilotSessionNotFound();
     }
-    const lastMessageIdx = state.messages.findLastIndex(
-      ({ id, role }) =>
-        role === AiPromptRole.assistant && id === options.latestMessageId
-    );
-    if (lastMessageIdx < 0) {
-      throw new CopilotMessageNotFound({ messageId: options.latestMessageId });
+    let messages = state.messages.map(m => ({ ...m, id: undefined }));
+    if (options.latestMessageId) {
+      const lastMessageIdx = state.messages.findLastIndex(
+        ({ id, role }) =>
+          role === AiPromptRole.assistant && id === options.latestMessageId
+      );
+      if (lastMessageIdx < 0) {
+        throw new CopilotMessageNotFound({
+          messageId: options.latestMessageId,
+        });
+      }
+      messages = messages.slice(0, lastMessageIdx + 1);
     }
-    const messages = state.messages
-      .slice(0, lastMessageIdx + 1)
-      .map(m => ({ ...m, id: undefined }));
 
     const forkedState = {
       ...state,

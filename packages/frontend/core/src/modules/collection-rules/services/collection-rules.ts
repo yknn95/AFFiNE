@@ -162,7 +162,13 @@ export class CollectionRulesService extends Service {
           })
         );
         return combineLatest([
-          orderByProvider.orderBy$(items$, orderBy),
+          orderByProvider.orderBy$(items$, orderBy).pipe(
+            catchError(error => {
+              // Return an empty array when orderBy fails, typically when the orderBy property has been deleted
+              console.error(error);
+              return of([]);
+            })
+          ),
           shared$,
         ]).pipe(
           map(([ordered, last]) => {
@@ -201,7 +207,13 @@ export class CollectionRulesService extends Service {
           })
         );
         return combineLatest([
-          groupByProvider.groupBy$(items$, groupBy),
+          groupByProvider.groupBy$(items$, groupBy).pipe(
+            catchError(error => {
+              // Return an empty array when groupBy fails, typically when the groupBy property has been deleted
+              console.error(error);
+              return of(new Map<string, Set<string>>());
+            })
+          ),
           shared$,
         ]).pipe(
           map(([grouped, last]) => {

@@ -5,7 +5,7 @@ import track from '@affine/track';
 import { SignalWatcher, WithDisposable } from '@blocksuite/affine/global/lit';
 import { scrollbarStyle } from '@blocksuite/affine/shared/styles';
 import { unsafeCSSVar, unsafeCSSVarV2 } from '@blocksuite/affine/shared/theme';
-import { openFileOrFiles } from '@blocksuite/affine/shared/utils';
+import { openFilesWith } from '@blocksuite/affine/shared/utils';
 import { ShadowlessElement } from '@blocksuite/affine/std';
 import type { DocMeta } from '@blocksuite/affine/store';
 import {
@@ -159,9 +159,7 @@ export class ChatPanelAddPopover extends SignalWatcher(
   };
 
   private readonly _addFileChip = async () => {
-    const files = await openFileOrFiles({
-      multiple: true,
-    });
+    const files = await openFilesWith();
     if (!files || files.length === 0) return;
 
     const images = files.filter(file => file.type.startsWith('image/'));

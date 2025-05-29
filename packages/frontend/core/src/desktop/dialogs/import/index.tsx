@@ -13,7 +13,7 @@ import {
 import { DebugLogger } from '@affine/debug';
 import { useI18n } from '@affine/i18n';
 import track from '@affine/track';
-import { openFileOrFiles } from '@blocksuite/affine/shared/utils';
+import { openFilesWith } from '@blocksuite/affine/shared/utils';
 import type { Workspace } from '@blocksuite/affine/store';
 import {
   HtmlTransformer,
@@ -56,7 +56,7 @@ type ImportConfig = {
   fileOptions: { acceptType: AcceptType; multiple: boolean };
   importFunction: (
     docCollection: Workspace,
-    file: File | File[]
+    files: File[]
   ) => Promise<ImportResult>;
 };
 
@@ -134,9 +134,6 @@ const importConfigs: Record<ImportType, ImportConfig> = {
   markdown: {
     fileOptions: { acceptType: 'Markdown', multiple: true },
     importFunction: async (docCollection, files) => {
-      if (!Array.isArray(files)) {
-        throw new Error('Expected an array of files for markdown files import');
-      }
       const docIds: string[] = [];
       for (const file of files) {
         const text = await file.text();
@@ -157,8 +154,9 @@ const importConfigs: Record<ImportType, ImportConfig> = {
   },
   markdownZip: {
     fileOptions: { acceptType: 'Zip', multiple: false },
-    importFunction: async (docCollection, file) => {
-      if (Array.isArray(file)) {
+    importFunction: async (docCollection, files) => {
+      const file = files.length === 1 ? files[0] : null;
+      if (!file) {
         throw new Error('Expected a single zip file for markdownZip import');
       }
       const docIds = await MarkdownTransformer.importMarkdownZip({
@@ -175,9 +173,6 @@ const importConfigs: Record<ImportType, ImportConfig> = {
   html: {
     fileOptions: { acceptType: 'Html', multiple: true },
     importFunction: async (docCollection, files) => {
-      if (!Array.isArray(files)) {
-        throw new Error('Expected an array of files for html files import');
-      }
       const docIds: string[] = [];
       for (const file of files) {
         const text = await file.text();
@@ -198,8 +193,9 @@ const importConfigs: Record<ImportType, ImportConfig> = {
   },
   notion: {
     fileOptions: { acceptType: 'Zip', multiple: false },
-    importFunction: async (docCollection, file) => {
-      if (Array.isArray(file)) {
+    importFunction: async (docCollection, files) => {
+      const file = files.length === 1 ? files[0] : null;
+      if (!file) {
         throw new Error('Expected a single zip file for notion import');
       }
       const { entryId, pageIds, isWorkspaceFile } =
@@ -218,8 +214,9 @@ const importConfigs: Record<ImportType, ImportConfig> = {
   },
   snapshot: {
     fileOptions: { acceptType: 'Zip', multiple: false },
-    importFunction: async (docCollection, file) => {
-      if (Array.isArray(file)) {
+    importFunction: async (docCollection, files) => {
+      const file = files.length === 1 ? files[0] : null;
+      if (!file) {
         throw new Error('Expected a single zip file for snapshot import');
       }
       const docIds = (
@@ -412,9 +409,10 @@ export const ImportDialog = ({
       setImportError(null);
       try {
         const importConfig = importConfigs[type];
-        const file = await openFileOrFiles(importConfig.fileOptions);
+        const { acceptType, multiple } = importConfig.fileOptions;
+        const files = await openFilesWith(acceptType, multiple);
 
-        if (!file || (Array.isArray(file) && file.length === 0)) {
+        if (!files || files.length === 0) {
           throw new Error(
             t['com.affine.import.status.failed.message.no-file-selected']()
           );
@@ -427,7 +425,7 @@ export const ImportDialog = ({
         });
 
         const { docIds, entryId, isWorkspaceFile } =
-          await importConfig.importFunction(docCollection, file);
+          await importConfig.importFunction(docCollection, files);
 
         setImportResult({ docIds, entryId, isWorkspaceFile });
         setStatus('success');

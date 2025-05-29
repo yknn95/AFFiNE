@@ -1,4 +1,5 @@
 import { FeatureFlagService } from '@affine/core/modules/feature-flag';
+import track from '@affine/track';
 import {
   type ViewExtensionContext,
   ViewExtensionProvider,
@@ -39,7 +40,13 @@ export class CodeBlockPreviewViewExtension extends ViewExtensionProvider {
         .value;
     if (!flag) return;
 
-    if (!window.crossOriginIsolated) return;
+    if (!window.crossOriginIsolated) {
+      track.doc.editor.codeBlock.htmlBlockPreviewFailed({
+        type: 'cross-origin-isolated not supported',
+      });
+
+      return;
+    }
 
     context.register(CodeBlockHtmlPreview);
   }

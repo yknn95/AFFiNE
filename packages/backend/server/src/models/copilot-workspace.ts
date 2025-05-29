@@ -232,8 +232,8 @@ export class CopilotWorkspaceConfigModel extends BaseModel {
   async checkEmbeddingAvailable(): Promise<boolean> {
     const [{ count }] = await this.db.$queryRaw<
       { count: number }[]
-    >`SELECT count(1) FROM pg_tables WHERE tablename in ('ai_workspace_file_embeddings')`;
-    return Number(count) === 1;
+    >`SELECT count(1) FROM pg_tables WHERE tablename in ('ai_workspace_embeddings', 'ai_workspace_file_embeddings')`;
+    return Number(count) === 2;
   }
 
   private processEmbeddings(

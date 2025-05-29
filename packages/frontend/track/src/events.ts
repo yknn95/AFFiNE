@@ -57,7 +57,8 @@ type DocEvents =
   | 'addProperty'
   | 'editDisplayMenu'
   | 'navigateAllDocsRouter'
-  | 'navigatePinedCollectionRouter';
+  | 'navigatePinedCollectionRouter'
+  | 'htmlBlockPreviewFailed';
 type EditorEvents =
   | 'bold'
   | 'italic'
@@ -463,6 +464,7 @@ interface PageEvents extends PageDivision {
       aiActions: ['requestSignIn'];
       starterBar: ['quickStart', 'openTemplateListMenu'];
       audioBlock: ['transcribeRecording', 'openTranscribeNotes'];
+      codeBlock: ['htmlBlockPreviewFailed'];
     };
     inlineDocInfo: {
       $: ['toggle'];
@@ -542,6 +544,11 @@ interface PageEvents extends PageDivision {
         'dismissRecording',
         'finishRecording',
       ];
+    };
+  };
+  clipper: {
+    $: {
+      $: ['createDoc'];
     };
   };
 }
@@ -759,6 +766,9 @@ export type EventArgs = {
   };
   mentionMember: {
     type: 'member' | 'invite' | 'more';
+  };
+  htmlBlockPreviewFailed: {
+    type: string;
   };
   noAccessPrompted: {};
   loadDoc: {

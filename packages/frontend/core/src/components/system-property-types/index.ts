@@ -2,6 +2,7 @@ import type { FilterParams } from '@affine/core/modules/collection-rules';
 import type { DocRecord } from '@affine/core/modules/doc';
 import type { I18nString } from '@affine/i18n';
 import {
+  CloudWorkspaceIcon,
   DateTimeIcon,
   EdgelessIcon,
   FavoriteIcon,
@@ -9,7 +10,6 @@ import {
   IntegrationsIcon,
   LongerIcon,
   MemberIcon,
-  ShareIcon,
   TagIcon,
   TemplateIcon,
 } from '@blocksuite/icons/rc';
@@ -139,7 +139,7 @@ export const SystemPropertyTypes = {
     filterValue: FavoriteFilterValue,
   },
   shared: {
-    icon: ShareIcon,
+    icon: CloudWorkspaceIcon,
     name: 'Shared',
     filterMethod: {
       is: 'com.affine.filter.is',

@@ -879,7 +879,7 @@ export enum FeatureType {
 export interface ForkChatSessionInput {
   docId: Scalars['String']['input'];
   /** Identify a message in the array and keep it with all previous messages into a forked session. */
-  latestMessageId: Scalars['String']['input'];
+  latestMessageId?: InputMaybe<Scalars['String']['input']>;
   sessionId: Scalars['String']['input'];
   workspaceId: Scalars['String']['input'];
 }
@@ -2169,6 +2169,7 @@ export enum ServerDeploymentType {
 export enum ServerFeature {
   Captcha = 'Captcha',
   Copilot = 'Copilot',
+  CopilotEmbedding = 'CopilotEmbedding',
   Indexer = 'Indexer',
   OAuth = 'OAuth',
   Payment = 'Payment',

@@ -1,3 +1,6 @@
+// eslint-disable-next-line @typescript-eslint/no-restricted-imports
+import 'katex/dist/katex.min.css';
+
 import { useConfirmModal, useLitPortalFactory } from '@affine/component';
 import {
   type EdgelessEditor,

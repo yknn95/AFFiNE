@@ -274,15 +274,17 @@ export class ElasticsearchProvider extends SearchProvider {
         `request failed, url: ${url}, body: ${body}, response status: ${response.status}, response body: ${JSON.stringify(data, null, 2)}`
       );
       const errorData = data as {
-        error: { type: string; reason: string } | string;
+        error?: { type: string; reason: string } | string;
       };
       let reason = '';
       let type = '';
       if (typeof errorData.error === 'string') {
         reason = errorData.error;
-      } else {
+      } else if (errorData.error) {
         reason = errorData.error.reason;
         type = errorData.error.type;
+      } else {
+        reason = `unknown error, status ${response.status}, please check the response body`;
       }
       throw new InvalidSearchProviderRequest({
         reason,

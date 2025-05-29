@@ -3623,36 +3623,6 @@ export function useAFFiNEI18N(): {
       */
     ["com.affine.payment.billing-type-form.title"](): string;
     /**
-      * `The maximum file upload size for local workspaces is {{quota}}.`
-      */
-    ["com.affine.payment.blob-limit.description.local"](options: {
-        readonly quota: string;
-    }): string;
-    /**
-      * `The maximum file upload size for this joined workspace is {{quota}}. You can contact the owner of this workspace.`
-      */
-    ["com.affine.payment.blob-limit.description.member"](options: {
-        readonly quota: string;
-    }): string;
-    /**
-      * `The maximum file upload size for this workspace is {{quota}}. To proceed, you can:`
-      */
-    ["com.affine.payment.blob-limit.description.owner"](options: {
-        readonly quota: string;
-    }): string;
-    /**
-      * `Upgrade your account for larger file upload limits`
-      */
-    ["com.affine.payment.blob-limit.description.owner.tips-1"](): string;
-    /**
-      * `Upgrade the workspace plan to increase storage for all member`
-      */
-    ["com.affine.payment.blob-limit.description.owner.tips-2"](): string;
-    /**
-      * `Compress your file and upload again`
-      */
-    ["com.affine.payment.blob-limit.description.owner.tips-3"](): string;
-    /**
       * `You have reached the limit`
       */
     ["com.affine.payment.blob-limit.title"](): string;
@@ -6316,6 +6286,10 @@ export function useAFFiNEI18N(): {
       */
     ["com.affine.settings.workspace.indexer-embedding.embedding.description"](): string;
     /**
+      * `Only the workspace owner can enable Workspace Embedding.`
+      */
+    ["com.affine.settings.workspace.indexer-embedding.embedding.disabled-tooltip"](): string;
+    /**
       * `Select doc`
       */
     ["com.affine.settings.workspace.indexer-embedding.embedding.select-doc"](): string;
@@ -8193,13 +8167,13 @@ export function useAFFiNEI18N(): {
       */
     ["com.affine.recording.stop"](): string;
     /**
-      * `All docs data needs to be migrated in order to fully utilize its features.`
+      * `Migrate Data to Enhance User Experience`
       */
-    ["com.affine.migration-all-docs-notification.title"](): string;
+    ["com.affine.migration-all-docs-notification.header"](): string;
     /**
-      * `We upgraded the data format, requiring local data migration to utilize features. Created by and Updated by info is now stored locally. Without the update, you will see the actual status. Perform the upgrade under better network conditions.`
+      * `We are updating the local data to facilitate the recording and filtering of created by and Last edited by information. Please click the “Migrate Data” button and ensure a stable network connection during the process.`
       */
-    ["com.affine.migration-all-docs-notification.content"](): string;
+    ["com.affine.migration-all-docs-notification.desc"](): string;
     /**
       * `Migration failed: {{errorMessage}}`
       */

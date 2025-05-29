@@ -58,7 +58,8 @@ export class JobExecutor implements OnModuleDestroy {
 
   async run<T extends JobName>(
     name: T,
-    payload: Jobs[T]
+    payload: Jobs[T],
+    jobId?: string
   ): Promise<JOB_SIGNAL | undefined> {
     const ns = namespace(name);
     const handler = this.scanner.getHandler(name);
@@ -70,11 +71,11 @@ export class JobExecutor implements OnModuleDestroy {
 
     const fn = wrapCallMetric(
       async () => {
-        const signature = `[${name}] (${handler.name})`;
+        const signature = `[${name}] (${handler.name}, id=${jobId})`;
         try {
-          this.logger.debug(`Job started: ${signature}`);
+          this.logger.log(`Job started: ${signature}`);
           const ret = await handler.fn(payload);
-          this.logger.debug(`Job finished: ${signature}, signal=${ret}`);
+          this.logger.log(`Job finished: ${signature}, signal=${ret}`);
           return ret;
         } catch (e) {
           this.logger.error(`Job failed: ${signature}`, e);
@@ -129,7 +130,7 @@ export class JobExecutor implements OnModuleDestroy {
 
           return await cls.run(async () => {
             cls.set(CLS_ID, requestId);
-            return await this.run(job.name as JobName, payload);
+            return await this.run(job.name as JobName, payload, job.id);
           });
         },
         merge({}, this.config.job.queue, this.config.job.worker, queueOptions, {

@@ -281,7 +281,7 @@ test('should fork session correctly', async t => {
   const assertForkSession = async (
     workspaceId: string,
     sessionId: string,
-    lastMessageId: string,
+    lastMessageId: string | undefined,
     error: string,
     asserter = async (x: any) => {
       const forkedSessionId = await x;
@@ -328,6 +328,27 @@ test('should fork session correctly', async t => {
       latestMessageId!,
       'should be able to fork session with cloud workspace that user can access'
     );
+  }
+
+  // should be able to fork session without latestMessageId (copy all messages)
+  {
+    forkedSessionId = await assertForkSession(
+      id,
+      sessionId,
+      undefined,
+      'should be able to fork session without latestMessageId'
+    );
+  }
+
+  // should not be able to fork session with wrong latestMessageId
+  {
+    await assertForkSession(id, sessionId, 'wrong-message-id', '', async x => {
+      await t.throwsAsync(
+        x,
+        { instanceOf: Error },
+        'should not able to fork session with wrong latestMessageId'
+      );
+    });
   }
 
   {

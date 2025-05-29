@@ -58,7 +58,6 @@ export class LatexBlockComponent extends CaptionedBlockComponent<LatexBlockModel
           try {
             katex.render(latex, katexContainer, {
               displayMode: true,
-              output: 'mathml',
             });
           } catch {
             katexContainer.replaceChildren();

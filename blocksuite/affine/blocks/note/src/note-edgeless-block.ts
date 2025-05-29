@@ -400,7 +400,7 @@ export const EdgelessNoteInteraction =
 
           onResizeMove(context): void {
             const { originalBound, newBound, lockRatio, constraint } = context;
-            const { minWidth, minHeight } = constraint;
+            const { minWidth, minHeight, maxHeight, maxWidth } = constraint;
 
             let scale = initialScale;
             let edgelessProp = { ...model.props.edgeless };
@@ -411,8 +411,8 @@ export const EdgelessNoteInteraction =
               edgelessProp.scale = scale;
             }
 
-            newBound.w = clamp(newBound.w, minWidth, Number.MAX_SAFE_INTEGER);
-            newBound.h = clamp(newBound.h, minHeight, Number.MAX_SAFE_INTEGER);
+            newBound.w = clamp(newBound.w, minWidth * scale, maxWidth);
+            newBound.h = clamp(newBound.h, minHeight * scale, maxHeight);
 
             if (newBound.h > minHeight * scale) {
               edgelessProp.collapse = true;
