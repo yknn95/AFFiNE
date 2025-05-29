@@ -90,19 +90,16 @@ interface ErrorProps {
 }
 
 export async function getAttachmentBlob(model: AttachmentBlockModel) {
-  const sourceId = model.props.sourceId;
-  if (!sourceId) {
-    return null;
-  }
+  const { sourceId$, type$ } = model.props;
+  const sourceId = sourceId$.peek();
+  const type = type$.peek();
+  if (!sourceId) return null;
 
-  const doc = model.doc;
-  let blob = await doc.blobSync.get(sourceId);
+  const doc = model.store;
+  const blob = await doc.blobSync.get(sourceId);
+  if (!blob) return null;
 
-  if (blob) {
-    blob = new Blob([blob], { type: model.props.type });
-  }
-
-  return blob;
+  return new Blob([blob], { type });
 }
 
 export const AttachmentFallback = ({ model, ext }: ErrorProps) => {
