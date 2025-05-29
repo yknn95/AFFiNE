@@ -13,6 +13,31 @@ permissions:
   packages: 'write'
 
 jobs:
+  build-server:
+    name: Build Server
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: Setup Version
+        id: version
+        uses: ./.github/actions/setup-version
+      - name: Setup Node.js
+        uses: ./.github/actions/setup-node
+        with:
+          electron-install: false
+          extra-flags: workspaces focus @affine/server @types/affine__env
+      - name: Build Server
+        run: |
+          find packages/backend/server/src -type d -name "__tests__" -exec rm -rf {} +
+          rm -rf packages/backend/server/src/seed
+          yarn workspace @affine/server build
+      - name: Upload server dist
+        uses: actions/upload-artifact@v4
+        with:
+          name: server-dist
+          path: ./packages/backend/server/dist
+          if-no-files-found: error
+
   build-web:
     name: Build @affine/web
     runs-on: ubuntu-latest
@@ -118,7 +143,7 @@ jobs:
       matrix:
         targets:
           - name: x86_64-unknown-linux-gnu
-            file: server-native.x64.node
+            file: server-native.node
           - name: aarch64-unknown-linux-gnu
             file: server-native.arm64.node
           - name: armv7-unknown-linux-gnueabihf
@@ -136,54 +161,14 @@ jobs:
           extra-flags: workspaces focus @affine/server-native
       - name: Build Rust
         uses: ./.github/actions/build-rust
-        env:
-          AFFINE_PRO_PUBLIC_KEY: ${{ secrets.AFFINE_PRO_PUBLIC_KEY }}
-          AFFINE_PRO_LICENSE_AES_KEY: ${{ secrets.AFFINE_PRO_LICENSE_AES_KEY }}
         with:
           target: ${{ matrix.targets.name }}
           package: '@affine/server-native'
-      - name: Rename ${{ matrix.targets.file }}
-        run: |
-          mv ./packages/backend/native/server-native.node ./packages/backend/native/${{ matrix.targets.file }}
       - name: Upload ${{ matrix.targets.file }}
         uses: actions/upload-artifact@v4
         with:
-          name: server-native-${{ matrix.targets.file }}
-          path: ./packages/backend/native/${{ matrix.targets.file }}
-          if-no-files-found: error
-
-  build-server:
-    name: Build Server
-    runs-on: ubuntu-latest
-    needs:
-      - build-server-native
-    steps:
-      - uses: actions/checkout@v4
-      - name: Setup Version
-        id: version
-        uses: ./.github/actions/setup-version
-      - name: Setup Node.js
-        uses: ./.github/actions/setup-node
-        with:
-          electron-install: false
-          extra-flags: workspaces focus @affine/server @types/affine__env
-      - name: Download server-native
-        uses: actions/download-artifact@v4
-        with:
-          pattern: server-native-*
-          merge-multiple: true
-          path: ./packages/backend/native
-      - name: List server-native files
-        run: ls -alh ./packages/backend/native
-      - name: Build @affine/reader
-        run: yarn workspace @affine/reader build
-      - name: Build Server
-        run: yarn workspace @affine/server build
-      - name: Upload server dist
-        uses: actions/upload-artifact@v4
-        with:
-          name: server-dist
-          path: ./packages/backend/server/dist
+          name: ${{ matrix.targets.file }}
+          path: ./packages/backend/native/server-native.node
           if-no-files-found: error
 
   build-images:
@@ -194,6 +179,7 @@ jobs:
       - build-web
       - build-mobile
       - build-admin
+      - build-server-native
     steps:
       - uses: actions/checkout@v4
       - name: Download server dist
@@ -201,6 +187,25 @@ jobs:
         with:
           name: server-dist
           path: ./packages/backend/server/dist
+      - name: Download server-native.node
+        uses: actions/download-artifact@v4
+        with:
+          name: server-native.node
+          path: ./packages/backend/server
+      - name: Download server-native.node arm64
+        uses: actions/download-artifact@v4
+        with:
+          name: server-native.arm64.node
+          path: ./packages/backend/native
+      - name: Download server-native.node arm64
+        uses: actions/download-artifact@v4
+        with:
+          name: server-native.armv7.node
+          path: .
+      - name: move server-native files
+        run: |
+          mv ./packages/backend/native/server-native.node ./packages/backend/server/server-native.arm64.node
+          mv server-native.node ./packages/backend/server/server-native.armv7.node
       - name: Setup env
         run: |
           echo "GIT_SHORT_HASH=$(git rev-parse --short HEAD)" >> "$GITHUB_ENV"
@@ -258,9 +263,6 @@ jobs:
       - name: Generate Prisma client
         run: yarn workspace @affine/server prisma generate
 
-      - name: Mv node_modules
-        run: mv ./node_modules ./packages/backend/server
-
       - name: Setup Version
         id: version
         uses: ./.github/actions/setup-version
@@ -274,7 +276,7 @@ jobs:
           platforms: linux/amd64,linux/arm64
           provenance: true
           file: .github/deployment/front/Dockerfile
-          tags: ghcr.io/toeverything/affine-front:${{env.RELEASE_FLAVOR}}-${{ env.GIT_SHORT_HASH }},ghcr.io/toeverything/affine-front:${{env.RELEASE_FLAVOR}}
+          tags: ghcr.io/yknn95/affine-front:${{env.RELEASE_FLAVOR}}-${{ env.GIT_SHORT_HASH }},ghcr.io/yknn95/affine-front:${{env.RELEASE_FLAVOR}}
 
       - name: Build graphql Dockerfile
         uses: docker/build-push-action@v6
@@ -285,4 +287,4 @@ jobs:
           platforms: linux/amd64,linux/arm64,linux/arm/v7
           provenance: true
           file: .github/deployment/node/Dockerfile
-          tags: ghcr.io/toeverything/affine-graphql:${{env.RELEASE_FLAVOR}}-${{ env.GIT_SHORT_HASH }},ghcr.io/toeverything/affine-graphql:${{env.RELEASE_FLAVOR}}
+          tags: ghcr.io/yknn95/affine-graphql:${{env.RELEASE_FLAVOR}}-${{ env.GIT_SHORT_HASH }},ghcr.io/yknn95/affine-graphql:${{env.RELEASE_FLAVOR}}

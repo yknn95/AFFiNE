@@ -143,6 +143,7 @@ export class ImageEdgelessBlockComponent extends GfxBlockComponent<ImageBlockMod
                 class="drag-target"
                 draggable="false"
                 loading="lazy"
+		decoding="async"
                 src=${blobUrl}
                 alt=${caption}
                 @error=${this._handleError}
