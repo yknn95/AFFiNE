@@ -7,7 +7,7 @@ import {
   signal,
 } from '@preact/signals-core';
 import type { TemplateResult } from 'lit-html';
-import { convertToWebP } from '../../../blocks/image/src/utils';
+import { convertToWebP } from '@blocksuite/affine-blocks/image/src/utils';
 
 export type ResourceKind = 'Blob' | 'File' | 'Image';
 
@@ -189,8 +189,8 @@ export class ResourceController implements Disposable {
     // Convert to WebP if it's an image and not already GIF/SVG
     if (this.kind === 'Image' && blob.type.startsWith('image/')) {
       if (blob.type !== 'image/gif' && blob.type !== 'image/svg+xml') {
-        // Only convert images larger than 4MB
-        const MIN_MB = 4 * 1024 * 1024;
+        // Only convert images larger than 3MB
+        const MIN_MB = 3 * 1024 * 1024;
         if (blob.size > MIN_MB) {
           try {
             const webpBlob = await convertToWebP(blob);
