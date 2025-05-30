@@ -194,7 +194,7 @@ export class ResourceController implements Disposable {
         if (blob.size > MIN_MB) {
           try {
             const webpBlob = await convertToWebP(blob);
-            console.log(`Converting large image (${(blob.size / 1024 / 1024).toFixed(2)}MB) to WebP...`);
+            console.log(`Converting large image to WebP...`);
             blob = webpBlob;
           } catch (error) {
             console.error('Failed to convert image to WebP:', error);
