@@ -186,54 +186,6 @@ export class ResourceController implements Disposable {
 
     if (type) blob = new Blob([blob], { type });
 
-    // Convert to WebP if it's an image and not already WebP/GIF/SVG
-    if (this.kind === 'Image' && blob.type.startsWith('image/')) {
-      if (blob.type !== 'image/gif' && blob.type !== 'image/svg+xml') {
-        // Only convert images larger than 4MB
-        const MIN_MB = 4 * 1024 * 1024;
-        if (blob.size > MIN_MB) {
-          try {
-            const originalSize = blob.size;
-            const webpBlob = await convertToWebP(blob);
-            console.log('Converting large image to WebP...');
-            
-            // 如果转换后的文件更小，则触发重新上传
-            if (webpBlob.size < originalSize) {
-              console.log(`WebP conversion reduced size from ${originalSize} to ${webpBlob.size}`);
-              
-              if (!this.engine) {
-                console.error('Blob engine is not initialized');
-                return URL.createObjectURL(webpBlob);
-              }
-
-              // 设置需要重新上传的状态
-              this.updateState({ needUpload: true });
-              
-              // 上传新的WebP文件并等待上传完成
-              const newBlobId = await this.engine.set(webpBlob);
-              await this.engine.upload(newBlobId);
-              
-              // 更新文档中的sourceId
-              const currentBlobId = this.blobId$.peek();
-              if (currentBlobId) {
-                // 使用model.store获取store实例
-                const store = this.engine.model.store;
-                const block = store.getBlock(currentBlobId);
-                if (block) {
-                  // 使用store.updateBlock更新sourceId
-                  store.updateBlock(block.model, { sourceId: newBlobId });
-                }
-              }
-            }
-            
-            blob = webpBlob;
-          } catch (error) {
-            console.error('Failed to convert image to WebP:', error);
-          }
-        }
-      }
-    }
-
     return URL.createObjectURL(blob);
   }
 
