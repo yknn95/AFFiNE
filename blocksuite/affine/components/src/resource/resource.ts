@@ -209,17 +209,11 @@ export class ResourceController implements Disposable {
               // 设置需要重新上传的状态
               this.updateState({ needUpload: true });
               
-              // 上传新的WebP文件
-              const newBlobId = await this.engine.set(webpBlob);
-              if (newBlobId) {
-                // 更新blobId
-                this.blobId$.value = newBlobId;
-                // 重新获取blob
-                blob = webpBlob;
-              }
-            } else {
-              blob = webpBlob;
+              // 上传新的WebP文件并等待上传完成
+              await this.engine.upload(await this.engine.set(webpBlob));
             }
+            
+            blob = webpBlob;
           } catch (error) {
             console.error('Failed to convert image to WebP:', error);
           }
