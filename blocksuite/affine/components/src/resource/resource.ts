@@ -189,7 +189,7 @@ export class ResourceController implements Disposable {
     // Convert to WebP if it's an image and not already WebP/GIF/SVG
     if (this.kind === 'Image' && blob.type.startsWith('image/')) {
       if (blob.type !== 'image/gif' && blob.type !== 'image/svg+xml') {
-        // Only convert images larger than xMB
+        // Only convert images larger than 4MB
         const MIN_MB = 4 * 1024 * 1024;
         if (blob.size > MIN_MB) {
           try {
@@ -201,14 +201,25 @@ export class ResourceController implements Disposable {
             if (webpBlob.size < originalSize) {
               console.log(`WebP conversion reduced size from ${originalSize} to ${webpBlob.size}`);
               
+              if (!this.engine) {
+                console.error('Blob engine is not initialized');
+                return URL.createObjectURL(webpBlob);
+              }
+
               // 设置需要重新上传的状态
               this.updateState({ needUpload: true });
               
-              // 触发重新上传
-              await this.upload();
+              // 上传新的WebP文件
+              const newBlobId = await this.engine.set(webpBlob);
+              if (newBlobId) {
+                // 更新blobId
+                this.blobId$.value = newBlobId;
+                // 重新获取blob
+                blob = webpBlob;
+              }
+            } else {
+              blob = webpBlob;
             }
-            
-            blob = webpBlob;
           } catch (error) {
             console.error('Failed to convert image to WebP:', error);
           }
