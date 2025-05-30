@@ -53,6 +53,7 @@ async function getImageBlob(model: ImageBlockModel) {
   if (blob.type !== 'image/gif' && blob.type !== 'image/svg+xml') {
     try {
       const webpBlob = await convertToWebP(blob);
+      console.info('convert image to WebP....');
       return webpBlob;
     } catch (error) {
       console.error('Failed to convert image to WebP:', error);
