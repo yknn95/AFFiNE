@@ -210,7 +210,16 @@ export class ResourceController implements Disposable {
               this.updateState({ needUpload: true });
               
               // 上传新的WebP文件并等待上传完成
-              await this.engine.upload(await this.engine.set(webpBlob));
+              const newBlobId = await this.engine.set(webpBlob);
+              await this.engine.upload(newBlobId);
+              
+              // 更新文档中的sourceId
+              const block = this.engine.store.getBlock(this.blobId$.peek() || '');
+              if (block) {
+                block.store.updateBlock(block.model, {
+                  sourceId: newBlobId
+                });
+              }
             }
             
             blob = webpBlob;
