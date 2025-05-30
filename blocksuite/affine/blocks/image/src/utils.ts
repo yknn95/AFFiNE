@@ -50,8 +50,7 @@ async function getImageBlob(model: ImageBlockModel) {
 
   if (!blob.type.startsWith('image/')) return null;
 
-  // 对非 WebP 格式的图片进行转换
-  if (blob.type !== 'image/webp' && blob.type !== 'image/gif' && blob.type !== 'image/svg+xml') {
+  if (blob.type !== 'image/gif' && blob.type !== 'image/svg+xml') {
     try {
       const webpBlob = await convertToWebP(blob);
       return webpBlob;
@@ -189,24 +188,9 @@ export async function convertToWebP(blob: Blob, quality = 0.9): Promise<Blob> {
 
           // Convert to WebP
           canvas.toBlob(
-            async (webpBlob) => {
+            (webpBlob) => {
               if (webpBlob) {
-                // If the WebP is somehow larger than original (rare case), use original
-                if (webpBlob.size > blob.size) {
-                  console.info('WebP conversion resulted in larger file, using original');
-                  resolve(blob);
-                } else {
-                  // Check if the WebP file is larger than 3MB
-                  const THREE_MB = 3 * 1024 * 1024; // 3MB in bytes
-                  if (webpBlob.size > THREE_MB) {
-                    console.info('WebP file is larger than 3MB, applying additional compression');
-                    // Recursively call convertToWebP with lower quality
-                    const compressedBlob = await convertToWebP(webpBlob, 0.8);
-                    resolve(compressedBlob);
-                  } else {
-                    resolve(webpBlob);
-                  }
-                }
+                resolve(webpBlob);
               } else {
                 // Fallback to original if WebP conversion fails
                 resolve(blob);
