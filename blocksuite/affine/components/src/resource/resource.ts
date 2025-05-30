@@ -7,7 +7,6 @@ import {
   signal,
 } from '@preact/signals-core';
 import type { TemplateResult } from 'lit-html';
-import { convertToWebP } from '../../../blocks/image/src/utils';
 
 export type ResourceKind = 'Blob' | 'File' | 'Image';
 
@@ -229,4 +228,3 @@ export class ResourceController implements Disposable {
     URL.revokeObjectURL(url);
   }
 }
-
