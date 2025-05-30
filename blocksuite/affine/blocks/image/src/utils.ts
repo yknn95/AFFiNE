@@ -61,8 +61,8 @@ export async function refreshData(
   if (blob) {
     // 只处理图片类型，且非GIF和非SVG的图片
     if (blob.type.startsWith('image/') && blob.type !== 'image/gif' && blob.type !== 'image/svg+xml') {
-      // 只转换大于3MB的图片
-      const MIN_MB = 3 * 1024 * 1024;
+      // 只转换大于4MB的图片
+      const MIN_MB = 4 * 1024 * 1024;
       if (blob.size > MIN_MB) {
         try {
           const originalSize = blob.size;
