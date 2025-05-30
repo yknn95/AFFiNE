@@ -214,11 +214,10 @@ export class ResourceController implements Disposable {
               await this.engine.upload(newBlobId);
               
               // 更新文档中的sourceId
-              const block = this.engine.store.getBlock(this.blobId$.peek() || '');
-              if (block) {
-                block.store.updateBlock(block.model, {
-                  sourceId: newBlobId
-                });
+              const currentBlobId = this.blobId$.peek();
+              if (currentBlobId) {
+                // 使用engine的API更新sourceId
+                await this.engine.updateSourceId(currentBlobId, newBlobId);
               }
             }
             
