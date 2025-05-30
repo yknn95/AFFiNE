@@ -186,15 +186,28 @@ export class ResourceController implements Disposable {
 
     if (type) blob = new Blob([blob], { type });
 
-    // Convert to WebP if it's an image and not already GIF/SVG
+    // Convert to WebP if it's an image and not already WebP/GIF/SVG
     if (this.kind === 'Image' && blob.type.startsWith('image/')) {
       if (blob.type !== 'image/gif' && blob.type !== 'image/svg+xml') {
         // Only convert images larger than xMB
         const MIN_MB = 4 * 1024 * 1024;
         if (blob.size > MIN_MB) {
           try {
+            const originalSize = blob.size;
             const webpBlob = await convertToWebP(blob);
-            console.log(`Converting large image to WebP...`);
+            console.log('Converting large image to WebP...');
+            
+            // 如果转换后的文件更小，则触发重新上传
+            if (webpBlob.size < originalSize) {
+              console.log(`WebP conversion reduced size from ${originalSize} to ${webpBlob.size}`);
+              
+              // 设置需要重新上传的状态
+              this.updateState({ needUpload: true });
+              
+              // 触发重新上传
+              await this.upload();
+            }
+            
             blob = webpBlob;
           } catch (error) {
             console.error('Failed to convert image to WebP:', error);
