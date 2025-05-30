@@ -7,7 +7,7 @@ import {
   signal,
 } from '@preact/signals-core';
 import type { TemplateResult } from 'lit-html';
-import { convertToWebP } from '../../../blocks/image/src/utils';
+import { convertToWebP } from '@blocksuite/affine-blocks/image/src/utils';
 
 export type ResourceKind = 'Blob' | 'File' | 'Image';
 
@@ -186,15 +186,19 @@ export class ResourceController implements Disposable {
 
     if (type) blob = new Blob([blob], { type });
 
-    // Convert to WebP if it's an image and not already WebP/GIF/SVG
+    // Convert to WebP if it's an image and not already GIF/SVG
     if (this.kind === 'Image' && blob.type.startsWith('image/')) {
       if (blob.type !== 'image/gif' && blob.type !== 'image/svg+xml') {
-        try {
-          const webpBlob = await convertToWebP(blob);
-          console.log('Converting image to WebP...');
-          blob = webpBlob;
-        } catch (error) {
-          console.error('Failed to convert image to WebP:', error);
+        // Only convert images larger than 4MB
+        const MIN_MB = 4 * 1024 * 1024;
+        if (blob.size > MIN_MB) {
+          try {
+            const webpBlob = await convertToWebP(blob);
+            console.log(`Converting large image (${(blob.size / 1024 / 1024).toFixed(2)}MB) to WebP...`);
+            blob = webpBlob;
+          } catch (error) {
+            console.error('Failed to convert image to WebP:', error);
+          }
         }
       }
     }
