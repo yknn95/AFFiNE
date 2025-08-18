@@ -57,38 +57,38 @@ async function getImageBlob(model: ImageBlockModel) {
 export async function refreshData(
   block: ImageBlockComponent | ImageEdgelessBlockComponent
 ) {
-const { model } = block;
-const blob = await getImageBlob(model);
-if (blob) {
-  // 只处理图片类型，且非GIF和非SVG的图片
-  if (blob.type.startsWith('image/') && blob.type !== 'image/gif' && blob.type !== 'image/svg+xml') {
-    // 只转换大于4MB的图片
-    const MIN_MB = 4 * 1024 * 1024;
-    if (blob.size > MIN_MB || blob.type !== 'image/webp') {
-      try {
-        const originalSize = blob.size;
-        const webpBlob = await convertToWebP(blob);
-        console.log('Converting large image to WebP...');
-
-        // 如果转换后的文件更小，则更新
-        if (webpBlob.size < originalSize) {
-          console.log(`WebP conversion reduced size from ${originalSize} to ${webpBlob.size}`);
-
-          // 上传新的WebP文件
-          const newBlobId = await block.resourceController.engine?.set(webpBlob);
-          if (newBlobId) {
-            await block.resourceController.engine?.upload(newBlobId);
-
-            // 更新block的sourceId
-            block.store.updateBlock(model, { sourceId: newBlobId });
-          }
-        }
-      } catch (error) {
-        console.error('Failed to convert image to WebP:', error);
-      }
-    }
-  }
-}
+//const { model } = block;
+//const blob = await getImageBlob(model);
+//if (blob) {
+//  // 只处理图片类型，且非GIF和非SVG的图片
+//  if (blob.type.startsWith('image/') && blob.type !== 'image/gif' && blob.type !== 'image/svg+xml') {
+//    // 只转换大于4MB的图片
+//    const MIN_MB = 4 * 1024 * 1024;
+//    if (blob.size > MIN_MB || blob.type !== 'image/webp') {
+//      try {
+//        const originalSize = blob.size;
+//        const webpBlob = await convertToWebP(blob);
+//        console.log('Converting large image to WebP...');
+//
+//        // 如果转换后的文件更小，则更新
+//        if (webpBlob.size < originalSize) {
+//          console.log(`WebP conversion reduced size from ${originalSize} to ${webpBlob.size}`);
+//
+//          // 上传新的WebP文件
+//          const newBlobId = await block.resourceController.engine?.set(webpBlob);
+//          if (newBlobId) {
+//            await block.resourceController.engine?.upload(newBlobId);
+//
+//            // 更新block的sourceId
+//            block.store.updateBlock(model, { sourceId: newBlobId });
+//          }
+//        }
+//      } catch (error) {
+//        console.error('Failed to convert image to WebP:', error);
+//      }
+//    }
+//  }
+//}
 
 // 刷新URL
   await block.resourceController.refreshUrlWith();
@@ -159,8 +159,8 @@ export async function convertToWebP(blob: Blob, quality = 0.9): Promise<Blob> {
       const img = new Image();
       img.onload = () => {
         try {
-          // Determine if resizing is needed (limit to 5000 pixels on longest side)
-          const MAX_DIMENSION = 5000;
+          // Determine if resizing is needed (limit to 2000 pixels on longest side)
+          const MAX_DIMENSION = 2000;
           let width = img.naturalWidth;
           let height = img.naturalHeight;
 
