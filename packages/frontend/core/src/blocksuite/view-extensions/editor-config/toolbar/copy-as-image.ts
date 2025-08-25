@@ -178,10 +178,9 @@ export function copyAsImage(std: BlockStdScope) {
         // 统一使用 html2canvas 截取并下载 PNG
         // @ts-expect-error html2canvas module is available at runtime in workspace
         const html2canvas = (await import('html2canvas')).default as any;
-        const HARD_MAX_SIDE = 8192; // 硬上限，避免浏览器内存溢出
-        const dpr = window.devicePixelRatio || 1;
+        const HARD_MAX_SIDE = 16384; // 硬上限，避免浏览器内存溢出 8192 , 12288 , 16384
+        const dpr = (window.devicePixelRatio || 1) * 3; // 或 *3 提升清晰度
         const maxDim = Math.max(area.width, area.height);
-        // 不再使用目标单边像素，仅按设备像素比导出，并受硬上限限制
         let scale = dpr;
         if (maxDim * scale > HARD_MAX_SIDE) {
           scale = Math.max(1, HARD_MAX_SIDE / maxDim);
