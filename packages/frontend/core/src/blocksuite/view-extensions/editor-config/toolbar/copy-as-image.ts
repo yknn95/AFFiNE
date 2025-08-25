@@ -140,7 +140,7 @@ export function copyAsImage(std: BlockStdScope) {
   styleEle.innerHTML = snapshotStyle;
   document.head.append(styleEle);
 
-  // 生成 4x PNG 并下载
+  // 生成 PNG 并下载
   setTimeout(async () => {
     try {
       const SCALE = 1;
@@ -162,6 +162,45 @@ export function copyAsImage(std: BlockStdScope) {
       if (!outCtx) throw new Error('Canvas context not available');
       outCtx.imageSmoothingEnabled = true;
       outCtx.imageSmoothingQuality = 'high';
+
+      // 根据当前背景（黑/白）填充基础画布
+      const getRgb = (color: string): { r: number; g: number; b: number } | null => {
+        if (!color) return null;
+        const c = color.trim();
+        // rgb/rgba
+        const rgbMatch = c.match(/^rgba?\((\d+)\s*,\s*(\d+)\s*,\s*(\d+)(?:\s*,\s*[\d.]+)?\)$/i);
+        if (rgbMatch) {
+          return { r: Number(rgbMatch[1]), g: Number(rgbMatch[2]), b: Number(rgbMatch[3]) };
+        }
+        // hex #rgb or #rrggbb
+        const hexMatch = c.match(/^#([0-9a-f]{3}|[0-9a-f]{6})$/i);
+        if (hexMatch) {
+          let hex = hexMatch[1];
+          if (hex.length === 3) {
+            hex = hex.split('').map(ch => ch + ch).join('');
+          }
+          const num = parseInt(hex, 16);
+          return { r: (num >> 16) & 255, g: (num >> 8) & 255, b: num & 255 };
+        }
+        return null;
+      };
+      const getLuminance = (rgb: { r: number; g: number; b: number }) => {
+        // perceived luminance
+        return (0.299 * rgb.r + 0.587 * rgb.g + 0.114 * rgb.b) / 255;
+      };
+      let bgColor = '';
+      const bgElm = document.querySelector('.edgeless-background') as HTMLElement | null;
+      if (bgElm) {
+        bgColor = getComputedStyle(bgElm).backgroundColor || '';
+      }
+      if (!bgColor) {
+        const rootStyle = getComputedStyle(document.documentElement);
+        bgColor = rootStyle.getPropertyValue('--affine-background-primary-color').trim();
+      }
+      const rgb = getRgb(bgColor);
+      const isDark = rgb ? getLuminance(rgb) < 0.5 : false;
+      outCtx.fillStyle = isDark ? '#000' : '#fff';
+      outCtx.fillRect(0, 0, outCanvas.width, outCanvas.height);
 
       // 绘制画布元素（shape、线条等）
       const surfaceComponent = (gfx as any).surfaceComponent;
