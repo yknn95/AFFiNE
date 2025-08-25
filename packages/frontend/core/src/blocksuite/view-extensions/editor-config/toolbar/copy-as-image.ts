@@ -1,7 +1,6 @@
 import { notify } from '@affine/component';
 import { isMindmapChild, isMindMapRoot } from '@affine/core/blocksuite/ai';
 import { EditorService } from '@affine/core/modules/editor';
-import { apis } from '@affine/electron-api';
 import { I18n } from '@affine/i18n';
 import type { MenuContext } from '@blocksuite/affine/components/toolbar';
 import { Bound, getCommonBound } from '@blocksuite/affine/global/gfx';
@@ -26,15 +25,8 @@ const snapshotStyle = `
   }
 `;
 
-function getSelectedRect() {
-  const selected = document
-    .querySelector('edgeless-selected-rect')
-    ?.shadowRoot?.querySelector('.affine-edgeless-selected-rect');
-  if (!selected) {
-    throw new Error('Missing edgeless selected rect');
-  }
-  return selected.getBoundingClientRect();
-}
+// 已不再依赖 DOM 选区截图
+// 移除 DOM 选区依赖
 
 function expandBound(bound: Bound, margin: number) {
   const x = bound.x - margin;
@@ -96,7 +88,9 @@ function withDescendantElements(elements: GfxModel[]) {
     if (set.has(element)) return;
     set.add(element);
     if (isGfxGroupCompatibleModel(element)) {
-      element.descendantElements.forEach((descendant: GfxModel) => set.add(descendant));
+      element.descendantElements.forEach((descendant: GfxModel) =>
+        set.add(descendant)
+      );
     }
   });
   return [...set];
@@ -105,7 +99,7 @@ function withDescendantElements(elements: GfxModel[]) {
 const MARGIN = 20;
 
 export function copyAsImage(std: BlockStdScope) {
-  const isElectronAvailable = !!apis; // 保留变量，但不再使用 Electron 剪贴板路径
+  // 兼容 Web：不再依赖 Electron apis
 
   const gfx = std.get(GfxControllerIdentifier);
 
@@ -130,16 +124,7 @@ export function copyAsImage(std: BlockStdScope) {
   const { zoom } = gfx.viewport;
   const exBound = expandBound(bound, MARGIN * zoom);
 
-  // fit to screen
-  if (
-    !isInside(gfx.viewport.viewportBounds, exBound) ||
-    gfx.viewport.zoom < 1
-  ) {
-    gfx.viewport.setViewportByBound(bound, [20, 20, 20, 20], false);
-    if (gfx.viewport.zoom > 1) {
-      gfx.viewport.setZoom(1);
-    }
-  }
+  // 不再调整视口，避免影响用户当前视图
 
   // hide unselected overlap elements
   const overlapElements = gfx.gfxElements.filter((ele: GfxModel) => {
@@ -155,160 +140,104 @@ export function copyAsImage(std: BlockStdScope) {
   styleEle.innerHTML = snapshotStyle;
   document.head.append(styleEle);
 
-  // capture image
-  setTimeout(() => {
+  // 生成 4x PNG 并下载
+  setTimeout(async () => {
     try {
-      const domRect = getSelectedRect();
-      const { zoom } = gfx.viewport;
-      const isFrameSelected =
-        selected.length === 1 &&
-        (selected[0] as GfxBlockElementModel).flavour === 'affine:frame';
-      const margin = isFrameSelected ? -2 : MARGIN * zoom;
+      const SCALE = 4;
+      const blocks = elements.filter(
+        e => !(e instanceof GfxPrimitiveElementModel)
+      ) as GfxModel[] as GfxBlockElementModel[];
+      const canvasElements = elements.filter(
+        e => e instanceof GfxPrimitiveElementModel
+      ) as GfxPrimitiveElementModel[];
 
+      // 输出画布
+      const outCanvas = document.createElement('canvas');
+      const dpr = (window.devicePixelRatio || 1) * SCALE;
+      outCanvas.width = Math.max(1, Math.floor(bound.w * dpr));
+      outCanvas.height = Math.max(1, Math.floor(bound.h * dpr));
+      outCanvas.style.width = `${bound.w}px`;
+      outCanvas.style.height = `${bound.h}px`;
+      const outCtx = outCanvas.getContext('2d');
+      if (!outCtx) throw new Error('Canvas context not available');
+      outCtx.imageSmoothingEnabled = true;
+      outCtx.imageSmoothingQuality = 'high';
+
+      // 绘制画布元素（shape、线条等）
+      const surfaceComponent = (gfx as any).surfaceComponent;
+      const renderer = surfaceComponent?.renderer;
+      if (renderer?.getCanvasByBound) {
+        const canvasLayer = renderer.getCanvasByBound(
+          bound,
+          canvasElements,
+          undefined,
+          false,
+          false,
+          SCALE
+        );
+        outCtx.drawImage(canvasLayer, 0, 0);
+      }
+
+      // 绘制块（文本、卡片等 DOM 渲染内容）
+      const html2canvas = (await import('html2canvas')).default;
+      for (const block of blocks) {
+        const blockComponent = std.view.getBlock(block.id) as HTMLElement | null;
+        if (!blockComponent) continue;
+        const blockBound = Bound.deserialize((block as any).xywh);
+        const blockCanvas = await html2canvas(blockComponent, {
+          backgroundColor: 'transparent',
+          scale: SCALE,
+          onclone: async (documentClone: Document, element: HTMLElement) => {
+            // 移除 transform/阴影，避免 html2canvas 错位
+            element.style.setProperty('transform', 'none');
+            const layer = documentClone.querySelector('.affine-edgeless-layer');
+            if (layer && layer instanceof HTMLElement) {
+              layer.style.setProperty('transform', 'none');
+            }
+            const boxShadowEles = documentClone.querySelectorAll("[style*='box-shadow']");
+            boxShadowEles.forEach(ele => {
+              if (ele instanceof HTMLElement) {
+                ele.style.setProperty('box-shadow', 'none');
+              }
+            });
+          },
+          useCORS: true,
+        });
+        const dx = (blockBound.x - bound.x) * dpr;
+        const dy = (blockBound.y - bound.y) * dpr;
+        const dw = blockBound.w * dpr;
+        const dh = blockBound.h * dpr;
+        outCtx.drawImage(blockCanvas, dx, dy, dw, dh);
+      }
+
+      // 清理选择与样式，并导出 PNG
       gfx.selection.clear();
 
-      const area = {
-        x: domRect.left - margin,
-        y: domRect.top - margin,
-        width: domRect.width + margin * 2,
-        height: domRect.height + margin * 2,
-      };
+      const blob: Blob | null = await new Promise(resolve =>
+        outCanvas.toBlob(resolve, 'image/png')
+      );
+      if (!blob) throw new Error('Failed to export PNG');
 
-      (async () => {
-        // 仅导出 GFX（矢量画布）层为超清 PNG；
-        // 若包含块级 DOM，则临时放大视口后进行 DOM 截图并下载。
-        const HARD_MAX_SIDE = 16384;
-        const dpr = window.devicePixelRatio || 1;
-        const maxDim = Math.max(area.width, area.height);
-        let scale = dpr * 3;
-        if (maxDim * scale > HARD_MAX_SIDE) {
-          scale = Math.max(1, HARD_MAX_SIDE / maxDim);
-        }
+      const url = URL.createObjectURL(blob);
+      const a = document.createElement('a');
+      a.href = url;
+      a.download = 'affine-export.png';
+      document.body.appendChild(a);
+      a.click();
+      a.remove();
+      URL.revokeObjectURL(url);
 
-        const allSelected = withDescendantElements(selected);
-        const canvasElements = allSelected.filter(e => e instanceof GfxPrimitiveElementModel) as GfxPrimitiveElementModel[];
-        const blockElements = allSelected.filter(e => !(e instanceof GfxPrimitiveElementModel));
-
-        const surface = (gfx as any).surfaceComponent;
-        const renderer = surface?.renderer;
-        if (!renderer || typeof renderer.getCanvasByBound !== 'function') {
-          throw new Error('CanvasRenderer not available');
-        }
-
-        // 情况1：仅 GFX 层（清晰）
-        if (blockElements.length === 0) {
-          const offscreen = document.createElement('canvas');
-          offscreen.width = Math.max(1, Math.round(area.width * scale));
-          offscreen.height = Math.max(1, Math.round(area.height * scale));
-          const ctx = offscreen.getContext('2d');
-          if (!ctx) throw new Error('Failed to get canvas context');
-          ctx.scale(scale, scale);
-
-          const surfaceCanvas = renderer.getCanvasByBound(
-            new Bound(bound.x, bound.y, bound.w, bound.h),
-            canvasElements,
-            undefined,
-            undefined,
-            false,
-            scale
-          );
-          ctx.drawImage(surfaceCanvas, 0, 0, bound.w, bound.h);
-
-          const blob: Blob | null = await new Promise(resolve => offscreen.toBlob(resolve, 'image/png'));
-          if (!blob) throw new Error('Failed to generate image blob');
-
-          const a = document.createElement('a');
-          a.download = 'affine-snapshot.png';
-          a.href = URL.createObjectURL(blob);
-          a.click();
-          URL.revokeObjectURL(a.href);
-
-          notify.success({
-            title: I18n.t('com.affine.copy.asImage.success'),
-          });
-          return;
-        }
-
-        // 情况2：包含块级 DOM，临时放大视口后进行 DOM 截图
-        const originalZoom = gfx.viewport.zoom;
-        const originalViewportBounds = gfx.viewport.viewportBounds;
-        try {
-          // 定位并放大到目标缩放
-          gfx.viewport.setViewportByBound(bound, [20, 20, 20, 20], false);
-          // 在原基础上再放大一倍（原来 2x → 现在 4x），并设置上限避免卡顿
-          const targetZoom = Math.min(8, Math.max(2, originalZoom * 4));
-          gfx.viewport.setZoom(targetZoom);
-
-          // 等待布局稳定
-          await new Promise(r => requestAnimationFrame(r as FrameRequestCallback));
-          await new Promise(r => setTimeout(r, 50));
-
-          // 重新计算区域（放大后 DOMRect 会变化）
-          const domRectZoomed = getSelectedRect();
-          const zoomedArea = {
-            x: domRectZoomed.left,
-            y: domRectZoomed.top,
-            width: domRectZoomed.width,
-            height: domRectZoomed.height,
-          };
-
-          // @ts-expect-error dynamic import at runtime
-          const html2canvas = (await import('html2canvas')).default as any;
-          const canvas = await html2canvas(document.body as HTMLElement, {
-            backgroundColor: null,
-            x: zoomedArea.x,
-            y: zoomedArea.y,
-            width: zoomedArea.width,
-            height: zoomedArea.height,
-            scale: window.devicePixelRatio || 1,
-            useCORS: true,
-          });
-
-          const blob: Blob | null = await new Promise(resolve => canvas.toBlob(resolve, 'image/png'));
-          if (!blob) throw new Error('Failed to generate image blob');
-
-          const a = document.createElement('a');
-          a.download = 'affine-snapshot.png';
-          a.href = URL.createObjectURL(blob);
-          a.click();
-          URL.revokeObjectURL(a.href);
-
-          notify.success({
-            title: I18n.t('com.affine.copy.asImage.success'),
-          });
-        } finally {
-          // 恢复视口与缩放
-          gfx.viewport.setZoom(originalZoom);
-          // 基于原 bounds 近似恢复
-          gfx.viewport.setViewportByBound(
-            new Bound(
-              originalViewportBounds.x,
-              originalViewportBounds.y,
-              originalViewportBounds.w,
-              originalViewportBounds.h
-            ),
-            [0, 0, 0, 0],
-            false
-          );
-        }
-      })()
-        .catch((e: unknown) => {
-          notify.error({
-            title: I18n.t('com.affine.copy.asImage.failed'),
-            message: String(e),
-          });
-        })
-        .finally(() => {
-          styleEle.remove();
-          showEdgelessElements(overlapElements, std);
-        });
-    } catch (e: unknown) {
-      styleEle.remove();
-      showEdgelessElements(overlapElements, std);
+      notify.success({
+        title: I18n.t('com.affine.copy.asImage.success'),
+      });
+    } catch (e) {
       notify.error({
         title: I18n.t('com.affine.copy.asImage.failed'),
         message: String(e),
       });
+    } finally {
+      styleEle.remove();
+      showEdgelessElements(overlapElements, std);
     }
   }, 100);
 }
