@@ -175,42 +175,69 @@ export function copyAsImage(std: BlockStdScope) {
       };
 
       (async () => {
-        // 统一使用 html2canvas 截取并下载 PNG
-        // @ts-expect-error html2canvas module is available at runtime in workspace
+        // 优先使用矢量画布（CanvasRenderer）+ 按块 html2canvas 叠加，避免整体截图导致的模糊
+        // @ts-expect-error dynamic import available
         const html2canvas = (await import('html2canvas')).default as any;
-        const HARD_MAX_SIDE = 16384; // 硬上限，避免浏览器内存溢出 8192 , 12288 , 16384
-        const dpr = (window.devicePixelRatio || 1) * 3; // 或 *3 提升清晰度
+
+        const HARD_MAX_SIDE = 16384;
+        const dpr = window.devicePixelRatio || 1;
         const maxDim = Math.max(area.width, area.height);
-        let scale = dpr;
+        let scale = dpr * 3;
         if (maxDim * scale > HARD_MAX_SIDE) {
           scale = Math.max(1, HARD_MAX_SIDE / maxDim);
         }
-        const canvas = await html2canvas(document.body as HTMLElement, {
-          backgroundColor: null,
-          x: area.x,
-          y: area.y,
-          width: area.width,
-          height: area.height,
-          scale,
-          useCORS: true,
-          onclone: (documentClone: Document, element: HTMLElement) => {
-            // 去除 transform 避免失真
-            element.style.setProperty('transform', 'none');
-            const layer = documentClone.querySelector('.affine-edgeless-layer');
-            if (layer && layer instanceof HTMLElement) {
-              layer.style.setProperty('transform', 'none');
-            }
-            // 去除 box-shadow 避免锯齿/阴影 artifacts
-            const boxShadowEles = documentClone.querySelectorAll("[style*='box-shadow']");
-            boxShadowEles.forEach(el => {
-              if (el instanceof HTMLElement) {
-                el.style.setProperty('box-shadow', 'none');
-              }
-            });
-          },
-        });
 
-        const blob: Blob | null = await new Promise(resolve => canvas.toBlob(resolve, 'image/png'));
+        const allSelected = withDescendantElements(selected);
+        const blockElements = allSelected.filter(e => e instanceof GfxBlockElementModel) as GfxBlockElementModel[];
+        const canvasElements = allSelected.filter(e => e instanceof GfxPrimitiveElementModel) as GfxPrimitiveElementModel[];
+
+        const offscreen = document.createElement('canvas');
+        offscreen.width = Math.max(1, Math.round(area.width * scale));
+        offscreen.height = Math.max(1, Math.round(area.height * scale));
+        const ctx = offscreen.getContext('2d');
+        if (!ctx) throw new Error('Failed to get canvas context');
+        ctx.scale(scale, scale);
+
+        // 1) 矢量画布层
+        const surface = (gfx as any).surfaceComponent;
+        const renderer = surface?.renderer;
+        if (renderer && typeof renderer.getCanvasByBound === 'function') {
+          const surfaceCanvas = renderer.getCanvasByBound(
+            new Bound(bound.x, bound.y, bound.w, bound.h),
+            canvasElements
+          );
+          ctx.drawImage(surfaceCanvas, 0, 0, bound.w, bound.h);
+        }
+
+        // 2) 块级内容（按块渲染，避免整页截图）
+        for (const block of blockElements) {
+          const blockComponent = std.view.getBlock(block.id) as HTMLElement | null;
+          if (!blockComponent) continue;
+          const blockBound = Bound.deserialize(block.xywh);
+          const blockCanvas = await html2canvas(blockComponent, {
+            backgroundColor: null,
+            scale,
+            useCORS: true,
+            onclone: (documentClone: Document, element: HTMLElement) => {
+              element.style.setProperty('transform', 'none');
+              const boxShadowEles = documentClone.querySelectorAll("[style*='box-shadow']");
+              boxShadowEles.forEach(el => {
+                if (el instanceof HTMLElement) {
+                  el.style.setProperty('box-shadow', 'none');
+                }
+              });
+            },
+          });
+          ctx.drawImage(
+            blockCanvas,
+            blockBound.x - bound.x,
+            blockBound.y - bound.y,
+            blockBound.w,
+            blockBound.h
+          );
+        }
+
+        const blob: Blob | null = await new Promise(resolve => offscreen.toBlob(resolve, 'image/png'));
         if (!blob) throw new Error('Failed to generate image blob');
 
         const a = document.createElement('a');
