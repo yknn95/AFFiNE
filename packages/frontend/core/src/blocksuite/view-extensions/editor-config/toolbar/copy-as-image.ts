@@ -46,7 +46,15 @@ function isOverlap(target: Bound, source: Bound) {
   return x < right && y < bottom && x + w > left && y + h > top;
 }
 
-//
+function isInside(target: Bound, source: Bound) {
+  const { x, y, w, h } = source;
+  const left = target.x;
+  const top = target.y;
+  const right = target.x + target.w;
+  const bottom = target.y + target.h;
+
+  return x >= left && y >= top && x + w <= right && y + h <= bottom;
+}
 
 function hideEdgelessElements(elements: GfxModel[], std: BlockStdScope) {
   elements.forEach(ele => {
@@ -135,9 +143,7 @@ export function copyAsImage(std: BlockStdScope) {
   // 生成 4x PNG 并下载
   setTimeout(async () => {
     try {
-      const DEVICE_SCALE = window.devicePixelRatio || 1;
-      const SCALE = 4;
-      const EXPORT_SCALE = DEVICE_SCALE * SCALE;
+      const SCALE = 1;
       const blocks = elements.filter(
         e => !(e instanceof GfxPrimitiveElementModel)
       ) as GfxModel[] as GfxBlockElementModel[];
@@ -147,7 +153,7 @@ export function copyAsImage(std: BlockStdScope) {
 
       // 输出画布
       const outCanvas = document.createElement('canvas');
-      const dpr = EXPORT_SCALE;
+      const dpr = (window.devicePixelRatio || 1) * SCALE;
       outCanvas.width = Math.max(1, Math.floor(bound.w * dpr));
       outCanvas.height = Math.max(1, Math.floor(bound.h * dpr));
       outCanvas.style.width = `${bound.w}px`;
@@ -180,7 +186,7 @@ export function copyAsImage(std: BlockStdScope) {
         const blockBound = Bound.deserialize((block as any).xywh);
         const blockCanvas = await html2canvas(blockComponent, {
           backgroundColor: 'transparent',
-          scale: EXPORT_SCALE,
+          scale: SCALE,
           onclone: async (documentClone: Document, element: HTMLElement) => {
             // 移除 transform/阴影，避免 html2canvas 错位
             element.style.setProperty('transform', 'none');
@@ -197,20 +203,11 @@ export function copyAsImage(std: BlockStdScope) {
           },
           useCORS: true,
         });
-        const dx = Math.round((blockBound.x - bound.x) * dpr);
-        const dy = Math.round((blockBound.y - bound.y) * dpr);
-        // 直接使用源 canvas 尺寸，避免双重缩放误差
-        outCtx.drawImage(
-          blockCanvas,
-          0,
-          0,
-          blockCanvas.width,
-          blockCanvas.height,
-          dx,
-          dy,
-          blockCanvas.width,
-          blockCanvas.height
-        );
+        const dx = (blockBound.x - bound.x) * dpr;
+        const dy = (blockBound.y - bound.y) * dpr;
+        const dw = blockBound.w * dpr;
+        const dh = blockBound.h * dpr;
+        outCtx.drawImage(blockCanvas, dx, dy, dw, dh);
       }
 
       // 清理选择与样式，并导出 PNG
