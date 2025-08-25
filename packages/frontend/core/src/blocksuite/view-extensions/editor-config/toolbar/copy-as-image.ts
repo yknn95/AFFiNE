@@ -178,13 +178,37 @@ export function copyAsImage(std: BlockStdScope) {
         // 统一使用 html2canvas 截取并下载 PNG
         // @ts-expect-error html2canvas module is available at runtime in workspace
         const html2canvas = (await import('html2canvas')).default as any;
+        const HARD_MAX_SIDE = 8192; // 硬上限，避免浏览器内存溢出
+        const dpr = window.devicePixelRatio || 1;
+        const maxDim = Math.max(area.width, area.height);
+        // 不再使用目标单边像素，仅按设备像素比导出，并受硬上限限制
+        let scale = dpr;
+        if (maxDim * scale > HARD_MAX_SIDE) {
+          scale = Math.max(1, HARD_MAX_SIDE / maxDim);
+        }
         const canvas = await html2canvas(document.body as HTMLElement, {
           backgroundColor: null,
           x: area.x,
           y: area.y,
           width: area.width,
           height: area.height,
+          scale,
           useCORS: true,
+          onclone: (documentClone: Document, element: HTMLElement) => {
+            // 去除 transform 避免失真
+            element.style.setProperty('transform', 'none');
+            const layer = documentClone.querySelector('.affine-edgeless-layer');
+            if (layer && layer instanceof HTMLElement) {
+              layer.style.setProperty('transform', 'none');
+            }
+            // 去除 box-shadow 避免锯齿/阴影 artifacts
+            const boxShadowEles = documentClone.querySelectorAll("[style*='box-shadow']");
+            boxShadowEles.forEach(el => {
+              if (el instanceof HTMLElement) {
+                el.style.setProperty('box-shadow', 'none');
+              }
+            });
+          },
         });
 
         const blob: Blob | null = await new Promise(resolve => canvas.toBlob(resolve, 'image/png'));
