@@ -175,10 +175,7 @@ export function copyAsImage(std: BlockStdScope) {
       };
 
       (async () => {
-        // 优先使用矢量画布（CanvasRenderer）+ 按块 html2canvas 叠加，避免整体截图导致的模糊
-        // @ts-expect-error dynamic import available
-        const html2canvas = (await import('html2canvas')).default as any;
-
+        // 使用 SVG foreignObject 包裹 DOM，再按高倍率栅格化为 PNG，减少模糊
         const HARD_MAX_SIDE = 16384;
         const dpr = window.devicePixelRatio || 1;
         const maxDim = Math.max(area.width, area.height);
@@ -187,57 +184,74 @@ export function copyAsImage(std: BlockStdScope) {
           scale = Math.max(1, HARD_MAX_SIDE / maxDim);
         }
 
-        const allSelected = withDescendantElements(selected);
-        const blockElements = allSelected.filter(e => e instanceof GfxBlockElementModel) as GfxBlockElementModel[];
-        const canvasElements = allSelected.filter(e => e instanceof GfxPrimitiveElementModel) as GfxPrimitiveElementModel[];
+        const collectCssText = () => {
+          let cssText = '';
+          for (const sheet of Array.from(document.styleSheets)) {
+            try {
+              const rules = (sheet as CSSStyleSheet).cssRules;
+              if (!rules) continue;
+              for (const rule of Array.from(rules)) {
+                cssText += (rule as CSSRule).cssText + '\n';
+              }
+            } catch (_e) {
+              // ignore cross-origin stylesheets
+            }
+          }
+          return cssText;
+        };
 
-        const offscreen = document.createElement('canvas');
-        offscreen.width = Math.max(1, Math.round(area.width * scale));
-        offscreen.height = Math.max(1, Math.round(area.height * scale));
-        const ctx = offscreen.getContext('2d');
-        if (!ctx) throw new Error('Failed to get canvas context');
-        ctx.scale(scale, scale);
+        // 仅克隆编辑视口，减少体积；通过 translate 将选区对齐到 (0,0)
+        const rootEl = document.querySelector('affine-edgeless-root')?.parentElement || document.body;
+        const cloned = rootEl.cloneNode(true) as HTMLElement;
+        const wrapper = document.createElement('div');
+        wrapper.setAttribute('xmlns', 'http://www.w3.org/1999/xhtml');
+        wrapper.style.width = `${rootEl.clientWidth}px`;
+        wrapper.style.height = `${rootEl.clientHeight}px`;
+        wrapper.style.overflow = 'hidden';
+        wrapper.style.transform = `translate(${-area.x}px, ${-area.y}px)`;
+        wrapper.appendChild(cloned);
 
-        // 1) 矢量画布层
-        const surface = (gfx as any).surfaceComponent;
-        const renderer = surface?.renderer;
-        if (renderer && typeof renderer.getCanvasByBound === 'function') {
-          const surfaceCanvas = renderer.getCanvasByBound(
-            new Bound(bound.x, bound.y, bound.w, bound.h),
-            canvasElements
-          );
-          ctx.drawImage(surfaceCanvas, 0, 0, bound.w, bound.h);
-        }
+        const cssText = collectCssText();
+        const svg = document.createElementNS('http://www.w3.org/2000/svg', 'svg');
+        svg.setAttribute('xmlns', 'http://www.w3.org/2000/svg');
+        svg.setAttribute('width', String(area.width));
+        svg.setAttribute('height', String(area.height));
+        svg.setAttribute('viewBox', `0 0 ${area.width} ${area.height}`);
 
-        // 2) 块级内容（按块渲染，避免整页截图）
-        for (const block of blockElements) {
-          const blockComponent = std.view.getBlock(block.id) as HTMLElement | null;
-          if (!blockComponent) continue;
-          const blockBound = Bound.deserialize(block.xywh);
-          const blockCanvas = await html2canvas(blockComponent, {
-            backgroundColor: null,
-            scale,
-            useCORS: true,
-            onclone: (documentClone: Document, element: HTMLElement) => {
-              element.style.setProperty('transform', 'none');
-              const boxShadowEles = documentClone.querySelectorAll("[style*='box-shadow']");
-              boxShadowEles.forEach(el => {
-                if (el instanceof HTMLElement) {
-                  el.style.setProperty('box-shadow', 'none');
-                }
-              });
-            },
-          });
-          ctx.drawImage(
-            blockCanvas,
-            blockBound.x - bound.x,
-            blockBound.y - bound.y,
-            blockBound.w,
-            blockBound.h
-          );
-        }
+        const style = document.createElement('style');
+        style.textContent = cssText;
+        svg.appendChild(style);
 
-        const blob: Blob | null = await new Promise(resolve => offscreen.toBlob(resolve, 'image/png'));
+        const foreign = document.createElementNS('http://www.w3.org/2000/svg', 'foreignObject');
+        foreign.setAttribute('x', '0');
+        foreign.setAttribute('y', '0');
+        foreign.setAttribute('width', String(area.width));
+        foreign.setAttribute('height', String(area.height));
+        foreign.appendChild(wrapper);
+        svg.appendChild(foreign);
+
+        const serializer = new XMLSerializer();
+        const svgStr = serializer.serializeToString(svg);
+        const svgBlob = new Blob([svgStr], { type: 'image/svg+xml;charset=utf-8' });
+        const svgUrl = URL.createObjectURL(svgBlob);
+
+        const img = new Image();
+        await new Promise<void>((resolve, reject) => {
+          img.onload = () => resolve();
+          img.onerror = e => reject(e);
+          img.src = svgUrl;
+        });
+
+        const out = document.createElement('canvas');
+        out.width = Math.max(1, Math.round(area.width * scale));
+        out.height = Math.max(1, Math.round(area.height * scale));
+        const octx = out.getContext('2d');
+        if (!octx) throw new Error('Failed to get canvas context');
+        octx.scale(scale, scale);
+        octx.drawImage(img, 0, 0);
+        URL.revokeObjectURL(svgUrl);
+
+        const blob: Blob | null = await new Promise(resolve => out.toBlob(resolve, 'image/png'));
         if (!blob) throw new Error('Failed to generate image blob');
 
         const a = document.createElement('a');
