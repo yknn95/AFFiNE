@@ -175,7 +175,8 @@ export function copyAsImage(std: BlockStdScope) {
       };
 
       (async () => {
-        // 使用 SVG foreignObject 包裹 DOM，再按高倍率栅格化为 PNG，减少模糊
+        // 仅导出 GFX（矢量画布）层为超清 PNG；
+        // 若包含块级 DOM，则临时放大视口后进行 DOM 截图并下载。
         const HARD_MAX_SIDE = 16384;
         const dpr = window.devicePixelRatio || 1;
         const maxDim = Math.max(area.width, area.height);
@@ -184,85 +185,107 @@ export function copyAsImage(std: BlockStdScope) {
           scale = Math.max(1, HARD_MAX_SIDE / maxDim);
         }
 
-        const collectCssText = () => {
-          let cssText = '';
-          for (const sheet of Array.from(document.styleSheets)) {
-            try {
-              const rules = (sheet as CSSStyleSheet).cssRules;
-              if (!rules) continue;
-              for (const rule of Array.from(rules)) {
-                cssText += (rule as CSSRule).cssText + '\n';
-              }
-            } catch (_e) {
-              // ignore cross-origin stylesheets
-            }
-          }
-          return cssText;
-        };
+        const allSelected = withDescendantElements(selected);
+        const canvasElements = allSelected.filter(e => e instanceof GfxPrimitiveElementModel) as GfxPrimitiveElementModel[];
+        const blockElements = allSelected.filter(e => e instanceof GfxBlockElementModel) as GfxBlockElementModel[];
 
-        // 仅克隆编辑视口，减少体积；通过 translate 将选区对齐到 (0,0)
-        const rootEl = document.querySelector('affine-edgeless-root')?.parentElement || document.body;
-        const cloned = rootEl.cloneNode(true) as HTMLElement;
-        const wrapper = document.createElement('div');
-        wrapper.setAttribute('xmlns', 'http://www.w3.org/1999/xhtml');
-        wrapper.style.width = `${rootEl.clientWidth}px`;
-        wrapper.style.height = `${rootEl.clientHeight}px`;
-        wrapper.style.overflow = 'hidden';
-        wrapper.style.transform = `translate(${-area.x}px, ${-area.y}px)`;
-        wrapper.appendChild(cloned);
+        const surface = (gfx as any).surfaceComponent;
+        const renderer = surface?.renderer;
+        if (!renderer || typeof renderer.getCanvasByBound !== 'function') {
+          throw new Error('CanvasRenderer not available');
+        }
 
-        const cssText = collectCssText();
-        const svg = document.createElementNS('http://www.w3.org/2000/svg', 'svg');
-        svg.setAttribute('xmlns', 'http://www.w3.org/2000/svg');
-        svg.setAttribute('width', String(area.width));
-        svg.setAttribute('height', String(area.height));
-        svg.setAttribute('viewBox', `0 0 ${area.width} ${area.height}`);
+        // 情况1：仅 GFX 层（清晰）
+        if (blockElements.length === 0) {
+          const offscreen = document.createElement('canvas');
+          offscreen.width = Math.max(1, Math.round(area.width * scale));
+          offscreen.height = Math.max(1, Math.round(area.height * scale));
+          const ctx = offscreen.getContext('2d');
+          if (!ctx) throw new Error('Failed to get canvas context');
+          ctx.scale(scale, scale);
 
-        const style = document.createElement('style');
-        style.textContent = cssText;
-        svg.appendChild(style);
+          const surfaceCanvas = renderer.getCanvasByBound(
+            new Bound(bound.x, bound.y, bound.w, bound.h),
+            canvasElements
+          );
+          ctx.drawImage(surfaceCanvas, 0, 0, bound.w, bound.h);
 
-        const foreign = document.createElementNS('http://www.w3.org/2000/svg', 'foreignObject');
-        foreign.setAttribute('x', '0');
-        foreign.setAttribute('y', '0');
-        foreign.setAttribute('width', String(area.width));
-        foreign.setAttribute('height', String(area.height));
-        foreign.appendChild(wrapper);
-        svg.appendChild(foreign);
+          const blob: Blob | null = await new Promise(resolve => offscreen.toBlob(resolve, 'image/png'));
+          if (!blob) throw new Error('Failed to generate image blob');
 
-        const serializer = new XMLSerializer();
-        const svgStr = serializer.serializeToString(svg);
-        const svgBlob = new Blob([svgStr], { type: 'image/svg+xml;charset=utf-8' });
-        const svgUrl = URL.createObjectURL(svgBlob);
+          const a = document.createElement('a');
+          a.download = 'affine-snapshot.png';
+          a.href = URL.createObjectURL(blob);
+          a.click();
+          URL.revokeObjectURL(a.href);
 
-        const img = new Image();
-        await new Promise<void>((resolve, reject) => {
-          img.onload = () => resolve();
-          img.onerror = e => reject(e);
-          img.src = svgUrl;
-        });
+          notify.success({
+            title: I18n.t('com.affine.copy.asImage.success'),
+          });
+          return;
+        }
 
-        const out = document.createElement('canvas');
-        out.width = Math.max(1, Math.round(area.width * scale));
-        out.height = Math.max(1, Math.round(area.height * scale));
-        const octx = out.getContext('2d');
-        if (!octx) throw new Error('Failed to get canvas context');
-        octx.scale(scale, scale);
-        octx.drawImage(img, 0, 0);
-        URL.revokeObjectURL(svgUrl);
+        // 情况2：包含块级 DOM，临时放大视口后进行 DOM 截图
+        const originalZoom = gfx.viewport.zoom;
+        const originalViewportBounds = gfx.viewport.viewportBounds;
+        try {
+          // 定位并放大到目标缩放
+          gfx.viewport.setViewportByBound(bound, [20, 20, 20, 20], false);
+          const targetZoom = Math.min(4, Math.max(2, originalZoom * 2));
+          gfx.viewport.setZoom(targetZoom);
 
-        const blob: Blob | null = await new Promise(resolve => out.toBlob(resolve, 'image/png'));
-        if (!blob) throw new Error('Failed to generate image blob');
+          // 等待布局稳定
+          await new Promise(r => requestAnimationFrame(r as FrameRequestCallback));
+          await new Promise(r => setTimeout(r, 50));
 
-        const a = document.createElement('a');
-        a.download = 'affine-snapshot.png';
-        a.href = URL.createObjectURL(blob);
-        a.click();
-        URL.revokeObjectURL(a.href);
+          // 重新计算区域（放大后 DOMRect 会变化）
+          const domRectZoomed = getSelectedRect();
+          const zoomedArea = {
+            x: domRectZoomed.left,
+            y: domRectZoomed.top,
+            width: domRectZoomed.width,
+            height: domRectZoomed.height,
+          };
 
-        notify.success({
-          title: I18n.t('com.affine.copy.asImage.success'),
-        });
+          // @ts-expect-error dynamic import at runtime
+          const html2canvas = (await import('html2canvas')).default as any;
+          const canvas = await html2canvas(document.body as HTMLElement, {
+            backgroundColor: null,
+            x: zoomedArea.x,
+            y: zoomedArea.y,
+            width: zoomedArea.width,
+            height: zoomedArea.height,
+            scale: window.devicePixelRatio || 1,
+            useCORS: true,
+          });
+
+          const blob: Blob | null = await new Promise(resolve => canvas.toBlob(resolve, 'image/png'));
+          if (!blob) throw new Error('Failed to generate image blob');
+
+          const a = document.createElement('a');
+          a.download = 'affine-snapshot.png';
+          a.href = URL.createObjectURL(blob);
+          a.click();
+          URL.revokeObjectURL(a.href);
+
+          notify.success({
+            title: I18n.t('com.affine.copy.asImage.success'),
+          });
+        } finally {
+          // 恢复视口与缩放
+          gfx.viewport.setZoom(originalZoom);
+          // 基于原 bounds 近似恢复
+          gfx.viewport.setViewportByBound(
+            new Bound(
+              originalViewportBounds.x,
+              originalViewportBounds.y,
+              originalViewportBounds.w,
+              originalViewportBounds.h
+            ),
+            [0, 0, 0, 0],
+            false
+          );
+        }
       })()
         .catch((e: unknown) => {
           notify.error({
