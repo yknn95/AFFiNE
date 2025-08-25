@@ -96,7 +96,7 @@ function withDescendantElements(elements: GfxModel[]) {
     if (set.has(element)) return;
     set.add(element);
     if (isGfxGroupCompatibleModel(element)) {
-      element.descendantElements.forEach(descendant => set.add(descendant));
+      element.descendantElements.forEach((descendant: GfxModel) => set.add(descendant));
     }
   });
   return [...set];
@@ -105,22 +105,7 @@ function withDescendantElements(elements: GfxModel[]) {
 const MARGIN = 20;
 
 export function copyAsImage(std: BlockStdScope) {
-  //if (!apis) {
-  //  notify.error({
-  //    title: I18n.t('com.affine.copy.asImage.notAvailable.title'),
-  //    message: I18n.t('com.affine.copy.asImage.notAvailable.message'),
-  //    actions: [
-  //      {
-  //        key: 'download',
-  //        label: I18n.t('com.affine.copy.asImage.notAvailable.action'),
-  //        onClick: () => {
-  //          window.open('https://affine.pro/download');
-  //        },
-  //      },
-  //    ],
-  //  });
-  //  return;
-  //}
+  const isElectronAvailable = !!apis; // 保留变量，但不再使用 Electron 剪贴板路径
 
   const gfx = std.get(GfxControllerIdentifier);
 
@@ -157,7 +142,7 @@ export function copyAsImage(std: BlockStdScope) {
   }
 
   // hide unselected overlap elements
-  const overlapElements = gfx.gfxElements.filter(ele => {
+  const overlapElements = gfx.gfxElements.filter((ele: GfxModel) => {
     const eleBound = Bound.deserialize(ele.xywh);
     const exEleBound = expandBound(eleBound, MARGIN * zoom);
     const isSelected = elements.includes(ele);
@@ -172,7 +157,6 @@ export function copyAsImage(std: BlockStdScope) {
 
   // capture image
   setTimeout(() => {
-    if (!apis) return;
     try {
       const domRect = getSelectedRect();
       const { zoom } = gfx.viewport;
@@ -183,19 +167,40 @@ export function copyAsImage(std: BlockStdScope) {
 
       gfx.selection.clear();
 
-      apis.ui
-        .captureArea({
-          x: domRect.left - margin,
-          y: domRect.top - margin,
-          width: domRect.width + margin * 2,
-          height: domRect.height + margin * 2,
-        })
-        .then(() => {
-          notify.success({
-            title: I18n.t('com.affine.copy.asImage.success'),
-          });
-        })
-        .catch(e => {
+      const area = {
+        x: domRect.left - margin,
+        y: domRect.top - margin,
+        width: domRect.width + margin * 2,
+        height: domRect.height + margin * 2,
+      };
+
+      (async () => {
+        // 统一使用 html2canvas 截取并下载 PNG
+        // @ts-expect-error html2canvas module is available at runtime in workspace
+        const html2canvas = (await import('html2canvas')).default as any;
+        const canvas = await html2canvas(document.body as HTMLElement, {
+          backgroundColor: null,
+          x: area.x,
+          y: area.y,
+          width: area.width,
+          height: area.height,
+          useCORS: true,
+        });
+
+        const blob: Blob | null = await new Promise(resolve => canvas.toBlob(resolve, 'image/png'));
+        if (!blob) throw new Error('Failed to generate image blob');
+
+        const a = document.createElement('a');
+        a.download = 'affine-snapshot.png';
+        a.href = URL.createObjectURL(blob);
+        a.click();
+        URL.revokeObjectURL(a.href);
+
+        notify.success({
+          title: I18n.t('com.affine.copy.asImage.success'),
+        });
+      })()
+        .catch((e: unknown) => {
           notify.error({
             title: I18n.t('com.affine.copy.asImage.failed'),
             message: String(e),
@@ -205,7 +210,7 @@ export function copyAsImage(std: BlockStdScope) {
           styleEle.remove();
           showEdgelessElements(overlapElements, std);
         });
-    } catch (e) {
+    } catch (e: unknown) {
       styleEle.remove();
       showEdgelessElements(overlapElements, std);
       notify.error({
@@ -233,3 +238,4 @@ export function createCopyAsPngMenuItem(framework: FrameworkProvider) {
     },
   };
 }
+
