@@ -206,7 +206,11 @@ export function copyAsImage(std: BlockStdScope) {
 
           const surfaceCanvas = renderer.getCanvasByBound(
             new Bound(bound.x, bound.y, bound.w, bound.h),
-            canvasElements
+            canvasElements,
+            undefined,
+            undefined,
+            false,
+            scale
           );
           ctx.drawImage(surfaceCanvas, 0, 0, bound.w, bound.h);
 
