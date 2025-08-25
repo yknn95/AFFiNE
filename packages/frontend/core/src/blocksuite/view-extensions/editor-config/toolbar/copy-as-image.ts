@@ -187,7 +187,7 @@ export function copyAsImage(std: BlockStdScope) {
 
         const allSelected = withDescendantElements(selected);
         const canvasElements = allSelected.filter(e => e instanceof GfxPrimitiveElementModel) as GfxPrimitiveElementModel[];
-        const blockElements = allSelected.filter(e => e instanceof GfxBlockElementModel) as GfxBlockElementModel[];
+        const blockElements = allSelected.filter(e => !(e instanceof GfxPrimitiveElementModel));
 
         const surface = (gfx as any).surfaceComponent;
         const renderer = surface?.renderer;
@@ -231,7 +231,8 @@ export function copyAsImage(std: BlockStdScope) {
         try {
           // 定位并放大到目标缩放
           gfx.viewport.setViewportByBound(bound, [20, 20, 20, 20], false);
-          const targetZoom = Math.min(4, Math.max(2, originalZoom * 2));
+          // 在原基础上再放大一倍（原来 2x → 现在 4x），并设置上限避免卡顿
+          const targetZoom = Math.min(8, Math.max(2, originalZoom * 4));
           gfx.viewport.setZoom(targetZoom);
 
           // 等待布局稳定
