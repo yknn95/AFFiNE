@@ -105,22 +105,22 @@ function withDescendantElements(elements: GfxModel[]) {
 const MARGIN = 20;
 
 export function copyAsImage(std: BlockStdScope) {
-  if (!apis) {
-    notify.error({
-      title: I18n.t('com.affine.copy.asImage.notAvailable.title'),
-      message: I18n.t('com.affine.copy.asImage.notAvailable.message'),
-      actions: [
-        {
-          key: 'download',
-          label: I18n.t('com.affine.copy.asImage.notAvailable.action'),
-          onClick: () => {
-            window.open('https://affine.pro/download');
-          },
-        },
-      ],
-    });
-    return;
-  }
+  //if (!apis) {
+  //  notify.error({
+  //    title: I18n.t('com.affine.copy.asImage.notAvailable.title'),
+  //    message: I18n.t('com.affine.copy.asImage.notAvailable.message'),
+  //    actions: [
+  //      {
+  //        key: 'download',
+  //        label: I18n.t('com.affine.copy.asImage.notAvailable.action'),
+  //        onClick: () => {
+  //          window.open('https://affine.pro/download');
+  //        },
+  //      },
+  //    ],
+  //  });
+  //  return;
+  //}
 
   const gfx = std.get(GfxControllerIdentifier);
 
