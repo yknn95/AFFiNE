@@ -797,6 +797,7 @@ __metadata:
     eslint-plugin-sonarjs: "npm:^3.0.1"
     eslint-plugin-unicorn: "npm:^59.0.0"
     happy-dom: "npm:^20.0.0"
+    html2canvas: "npm:^1.4.1"
     husky: "npm:^9.1.7"
     lint-staged: "npm:^16.0.0"
     msw: "npm:^2.12.4"

@@ -336,7 +336,8 @@ export class Viewport {
     const viewportBounds = Bound.from(this.viewportBounds);
     return (
       viewportBounds.contains(bound) ||
-      viewportBounds.isIntersectWithBound(bound)
+      viewportBounds.isIntersectWithBound(bound) ||
+      viewportBounds.isPartiallyVisible(bound)
     );
   }
 

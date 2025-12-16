@@ -24,6 +24,15 @@ import {
   turnImageIntoCardView,
 } from './utils';
 
+function isInViewport(element: GfxBlockComponent):boolean {
+  if (element.transformState$.value === 'idle') return false;
+
+  const { viewport } = element.gfx;
+  const isInViewport = viewport.isInViewport(element.model.elementBound)
+  
+  return isInViewport
+}
+
 @Peekable()
 export class ImageEdgelessBlockComponent extends GfxBlockComponent<ImageBlockModel> {
   static override styles = css`
@@ -70,6 +79,8 @@ export class ImageEdgelessBlockComponent extends GfxBlockComponent<ImageBlockMod
     'Image'
   );
 
+  isInViewport = false;
+
   get blobUrl() {
     return this.resourceController.blobUrl$.value;
   }
@@ -109,6 +120,21 @@ export class ImageEdgelessBlockComponent extends GfxBlockComponent<ImageBlockMod
     this.disposables.add(
       this.model.props.sourceId$.subscribe(() => {
         this.refreshData();
+      })
+    );
+
+    // Initialize isInViewport value
+    this.isInViewport = isInViewport(this);
+    
+    // Update isInViewport when viewport changes
+    this.disposables.add(
+      this.gfx.viewport.viewportUpdated.subscribe(() => {
+        // this._updateOptimizedUrl();
+        const newIsInViewport = isInViewport(this);
+        if (this.isInViewport !== newIsInViewport) {
+          this.isInViewport = newIsInViewport;
+          this.style.display = this.isInViewport ? 'block' : 'none';
+        }
       })
     );
   }

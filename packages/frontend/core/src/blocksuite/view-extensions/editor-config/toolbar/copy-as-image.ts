@@ -1,7 +1,6 @@
 import { notify } from '@affine/component';
 import { isMindmapChild, isMindMapRoot } from '@affine/core/blocksuite/ai';
 import { EditorService } from '@affine/core/modules/editor';
-import { apis } from '@affine/electron-api';
 import { I18n } from '@affine/i18n';
 import type { MenuContext } from '@blocksuite/affine/components/toolbar';
 import { Bound, getCommonBound } from '@blocksuite/affine/global/gfx';
@@ -26,15 +25,8 @@ const snapshotStyle = `
   }
 `;
 
-function getSelectedRect() {
-  const selected = document
-    .querySelector('edgeless-selected-rect')
-    ?.shadowRoot?.querySelector('.affine-edgeless-selected-rect');
-  if (!selected) {
-    throw new Error('Missing edgeless selected rect');
-  }
-  return selected.getBoundingClientRect();
-}
+// 已不再依赖 DOM 选区截图
+// 移除 DOM 选区依赖
 
 function expandBound(bound: Bound, margin: number) {
   const x = bound.x - margin;
@@ -52,16 +44,6 @@ function isOverlap(target: Bound, source: Bound) {
   const bottom = target.y + target.h;
 
   return x < right && y < bottom && x + w > left && y + h > top;
-}
-
-function isInside(target: Bound, source: Bound) {
-  const { x, y, w, h } = source;
-  const left = target.x;
-  const top = target.y;
-  const right = target.x + target.w;
-  const bottom = target.y + target.h;
-
-  return x >= left && y >= top && x + w <= right && y + h <= bottom;
 }
 
 function hideEdgelessElements(elements: GfxModel[], std: BlockStdScope) {
@@ -96,7 +78,9 @@ function withDescendantElements(elements: GfxModel[]) {
     if (set.has(element)) return;
     set.add(element);
     if (isGfxGroupCompatibleModel(element)) {
-      element.descendantElements.forEach(descendant => set.add(descendant));
+      element.descendantElements.forEach((descendant: GfxModel) =>
+        set.add(descendant)
+      );
     }
   });
   return [...set];
@@ -105,22 +89,7 @@ function withDescendantElements(elements: GfxModel[]) {
 const MARGIN = 20;
 
 export function copyAsImage(std: BlockStdScope) {
-  if (!apis) {
-    notify.error({
-      title: I18n.t('com.affine.copy.asImage.notAvailable.title'),
-      message: I18n.t('com.affine.copy.asImage.notAvailable.message'),
-      actions: [
-        {
-          key: 'download',
-          label: I18n.t('com.affine.copy.asImage.notAvailable.action'),
-          onClick: () => {
-            window.open('https://affine.pro/download');
-          },
-        },
-      ],
-    });
-    return;
-  }
+  // 兼容 Web：不再依赖 Electron apis
 
   const gfx = std.get(GfxControllerIdentifier);
 
@@ -145,19 +114,10 @@ export function copyAsImage(std: BlockStdScope) {
   const { zoom } = gfx.viewport;
   const exBound = expandBound(bound, MARGIN * zoom);
 
-  // fit to screen
-  if (
-    !isInside(gfx.viewport.viewportBounds, exBound) ||
-    gfx.viewport.zoom < 1
-  ) {
-    gfx.viewport.setViewportByBound(bound, [20, 20, 20, 20], false);
-    if (gfx.viewport.zoom > 1) {
-      gfx.viewport.setZoom(1);
-    }
-  }
+  // 不再调整视口，避免影响用户当前视图
 
   // hide unselected overlap elements
-  const overlapElements = gfx.gfxElements.filter(ele => {
+  const overlapElements = gfx.gfxElements.filter((ele: GfxModel) => {
     const eleBound = Bound.deserialize(ele.xywh);
     const exEleBound = expandBound(eleBound, MARGIN * zoom);
     const isSelected = elements.includes(ele);
@@ -170,48 +130,143 @@ export function copyAsImage(std: BlockStdScope) {
   styleEle.innerHTML = snapshotStyle;
   document.head.append(styleEle);
 
-  // capture image
-  setTimeout(() => {
-    if (!apis) return;
+  // 生成 PNG 并下载
+  setTimeout(async () => {
     try {
-      const domRect = getSelectedRect();
-      const { zoom } = gfx.viewport;
-      const isFrameSelected =
-        selected.length === 1 &&
-        (selected[0] as GfxBlockElementModel).flavour === 'affine:frame';
-      const margin = isFrameSelected ? -2 : MARGIN * zoom;
+      const SCALE = 1;
+      const blocks = elements.filter(
+        e => !(e instanceof GfxPrimitiveElementModel)
+      ) as GfxModel[] as GfxBlockElementModel[];
+      const canvasElements = elements.filter(
+        e => e instanceof GfxPrimitiveElementModel
+      ) as GfxPrimitiveElementModel[];
 
+      // 输出画布
+      const outCanvas = document.createElement('canvas');
+      const dpr = (window.devicePixelRatio || 1) * SCALE;
+      outCanvas.width = Math.max(1, Math.floor(bound.w * dpr));
+      outCanvas.height = Math.max(1, Math.floor(bound.h * dpr));
+      outCanvas.style.width = `${bound.w}px`;
+      outCanvas.style.height = `${bound.h}px`;
+      const outCtx = outCanvas.getContext('2d');
+      if (!outCtx) throw new Error('Canvas context not available');
+      outCtx.imageSmoothingEnabled = true;
+      outCtx.imageSmoothingQuality = 'high';
+
+      // 根据当前背景（黑/白）填充基础画布
+      const getRgb = (color: string): { r: number; g: number; b: number } | null => {
+        if (!color) return null;
+        const c = color.trim();
+        // rgb/rgba
+        const rgbMatch = c.match(/^rgba?\((\d+)\s*,\s*(\d+)\s*,\s*(\d+)(?:\s*,\s*[\d.]+)?\)$/i);
+        if (rgbMatch) {
+          return { r: Number(rgbMatch[1]), g: Number(rgbMatch[2]), b: Number(rgbMatch[3]) };
+        }
+        // hex #rgb or #rrggbb
+        const hexMatch = c.match(/^#([0-9a-f]{3}|[0-9a-f]{6})$/i);
+        if (hexMatch) {
+          let hex = hexMatch[1];
+          if (hex.length === 3) {
+            hex = hex.split('').map(ch => ch + ch).join('');
+          }
+          const num = parseInt(hex, 16);
+          return { r: (num >> 16) & 255, g: (num >> 8) & 255, b: num & 255 };
+        }
+        return null;
+      };
+      const getLuminance = (rgb: { r: number; g: number; b: number }) => {
+        // perceived luminance
+        return (0.299 * rgb.r + 0.587 * rgb.g + 0.114 * rgb.b) / 255;
+      };
+      let bgColor = '';
+      const bgElm = document.querySelector('.edgeless-background') as HTMLElement | null;
+      if (bgElm) {
+        bgColor = getComputedStyle(bgElm).backgroundColor || '';
+      }
+      if (!bgColor) {
+        const rootStyle = getComputedStyle(document.documentElement);
+        bgColor = rootStyle.getPropertyValue('--affine-background-primary-color').trim();
+      }
+      const rgb = getRgb(bgColor);
+      const isDark = rgb ? getLuminance(rgb) < 0.5 : false;
+      outCtx.fillStyle = isDark ? '#000' : '#fff';
+      outCtx.fillRect(0, 0, outCanvas.width, outCanvas.height);
+
+      // 绘制画布元素（shape、线条等）
+      const surfaceComponent = (gfx as any).surfaceComponent;
+      const renderer = surfaceComponent?.renderer;
+      if (renderer?.getCanvasByBound) {
+        const canvasLayer = renderer.getCanvasByBound(
+          bound,
+          canvasElements,
+          undefined,
+          false,
+          false,
+          SCALE
+        );
+        outCtx.drawImage(canvasLayer, 0, 0);
+      }
+
+      // 绘制块（文本、卡片等 DOM 渲染内容）
+      const html2canvas = (await import('html2canvas')).default;
+      for (const block of blocks) {
+        const blockComponent = std.view.getBlock(block.id) as HTMLElement | null;
+        if (!blockComponent) continue;
+        const blockBound = Bound.deserialize((block as any).xywh);
+        const blockCanvas = await html2canvas(blockComponent, {
+          backgroundColor: 'transparent',
+          scale: SCALE,
+          onclone: async (documentClone: Document, element: HTMLElement) => {
+            // 移除 transform/阴影，避免 html2canvas 错位
+            element.style.setProperty('transform', 'none');
+            const layer = documentClone.querySelector('.affine-edgeless-layer');
+            if (layer && layer instanceof HTMLElement) {
+              layer.style.setProperty('transform', 'none');
+            }
+            const boxShadowEles = documentClone.querySelectorAll("[style*='box-shadow']");
+            boxShadowEles.forEach(ele => {
+              if (ele instanceof HTMLElement) {
+                ele.style.setProperty('box-shadow', 'none');
+              }
+            });
+          },
+          useCORS: true,
+        });
+        const dx = (blockBound.x - bound.x) * dpr;
+        const dy = (blockBound.y - bound.y) * dpr;
+        const dw = blockBound.w * dpr;
+        const dh = blockBound.h * dpr;
+        outCtx.drawImage(blockCanvas, dx, dy, dw, dh);
+      }
+
+      // 清理选择与样式，并导出 PNG
       gfx.selection.clear();
 
-      apis.ui
-        .captureArea({
-          x: domRect.left - margin,
-          y: domRect.top - margin,
-          width: domRect.width + margin * 2,
-          height: domRect.height + margin * 2,
-        })
-        .then(() => {
-          notify.success({
-            title: I18n.t('com.affine.copy.asImage.success'),
-          });
-        })
-        .catch(e => {
-          notify.error({
-            title: I18n.t('com.affine.copy.asImage.failed'),
-            message: String(e),
-          });
-        })
-        .finally(() => {
-          styleEle.remove();
-          showEdgelessElements(overlapElements, std);
-        });
+      const blob: Blob | null = await new Promise(resolve =>
+        outCanvas.toBlob(resolve, 'image/png')
+      );
+      if (!blob) throw new Error('Failed to export PNG');
+
+      const url = URL.createObjectURL(blob);
+      const a = document.createElement('a');
+      a.href = url;
+      a.download = 'affine-export.png';
+      document.body.appendChild(a);
+      a.click();
+      a.remove();
+      URL.revokeObjectURL(url);
+
+      notify.success({
+        title: I18n.t('com.affine.copy.asImage.success'),
+      });
     } catch (e) {
-      styleEle.remove();
-      showEdgelessElements(overlapElements, std);
       notify.error({
         title: I18n.t('com.affine.copy.asImage.failed'),
         message: String(e),
       });
+    } finally {
+      styleEle.remove();
+      showEdgelessElements(overlapElements, std);
     }
   }, 100);
 }
@@ -233,3 +288,4 @@ export function createCopyAsPngMenuItem(framework: FrameworkProvider) {
     },
   };
 }
+

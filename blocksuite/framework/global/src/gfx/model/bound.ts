@@ -228,6 +228,22 @@ export class Bound implements IBound {
     return minX <= x && x <= maxX && minY <= y && y <= maxY;
   }
 
+  /**
+   * Check if any part of the given bound is visible/overlapping with the current bound.
+   * Unlike `contains` which requires complete containment, this method returns true if there's any overlap.
+   * Useful for handling cases where content (like images) is larger than the viewport but partially visible.
+   * @param bound - The bound to check for overlap
+   * @returns true if there's any overlap between bounds
+   */
+  isPartiallyVisible(bound: Bound): boolean {
+    return (
+      bound.maxX > this.minX &&
+      bound.maxY > this.minY &&
+      bound.minX < this.maxX &&
+      bound.minY < this.maxY
+    );
+  }
+
   expand(margin: [number, number]): Bound;
   expand(left: number, top?: number, right?: number, bottom?: number): Bound;
   expand(
