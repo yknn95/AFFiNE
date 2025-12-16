@@ -57,6 +57,40 @@ async function getImageBlob(model: ImageBlockModel) {
 export async function refreshData(
   block: ImageBlockComponent | ImageEdgelessBlockComponent
 ) {
+//const { model } = block;
+//const blob = await getImageBlob(model);
+//if (blob) {
+//  // 只处理图片类型，且非GIF和非SVG的图片
+//  if (blob.type.startsWith('image/') && blob.type !== 'image/gif' && blob.type !== 'image/svg+xml') {
+//    // 只转换大于4MB的图片
+//    const MIN_MB = 4 * 1024 * 1024;
+//    if (blob.size > MIN_MB || blob.type !== 'image/webp') {
+//      try {
+//        const originalSize = blob.size;
+//        const webpBlob = await convertToWebP(blob);
+//        console.log('Converting large image to WebP...');
+//
+//        // 如果转换后的文件更小，则更新
+//        if (webpBlob.size < originalSize) {
+//          console.log(`WebP conversion reduced size from ${originalSize} to ${webpBlob.size}`);
+//
+//          // 上传新的WebP文件
+//          const newBlobId = await block.resourceController.engine?.set(webpBlob);
+//          if (newBlobId) {
+//            await block.resourceController.engine?.upload(newBlobId);
+//
+//            // 更新block的sourceId
+//            block.store.updateBlock(model, { sourceId: newBlobId });
+//          }
+//        }
+//      } catch (error) {
+//        console.error('Failed to convert image to WebP:', error);
+//      }
+//    }
+//  }
+//}
+
+// 刷新URL
   await block.resourceController.refreshUrlWith();
 }
 
@@ -110,6 +144,82 @@ export async function resetImageSize(
   const props: Partial<ImageBlockProps> = { ...imageSize, xywh };
 
   block.store.updateBlock(model, props);
+}
+
+export async function convertToWebP(blob: Blob, quality = 0.9): Promise<Blob> {
+  return new Promise((resolve) => {
+    // For SVGs and other vector formats, maintain original format
+    if (blob.type === 'image/gif' || blob.type === 'image/svg+xml') {
+      resolve(blob);
+      return;
+    }
+
+    const reader = new FileReader();
+    reader.addEventListener('load', _ => {
+      const img = new Image();
+      img.onload = () => {
+        try {
+          // Determine if resizing is needed (limit to 2000 pixels on longest side)
+          const MAX_DIMENSION = 2000;
+          let width = img.naturalWidth;
+          let height = img.naturalHeight;
+
+          // Check if image needs resizing
+          if (width > MAX_DIMENSION || height > MAX_DIMENSION) {
+            if (width > height) {
+              height = Math.round((height * MAX_DIMENSION) / width);
+              width = MAX_DIMENSION;
+            } else {
+              width = Math.round((width * MAX_DIMENSION) / height);
+              height = MAX_DIMENSION;
+            }
+          }
+
+          // Create a canvas with the desired dimensions
+          const canvas = document.createElement('canvas');
+          canvas.width = width;
+          canvas.height = height;
+
+          const ctx = canvas.getContext('2d');
+          if (!ctx) {
+            // If canvas context fails, return original blob
+            resolve(blob);
+            return;
+          }
+
+          // Draw the image to the canvas with specified dimensions
+          ctx.drawImage(img, 0, 0, img.naturalWidth, img.naturalHeight, 0, 0, width, height);
+
+          // Convert to WebP
+          canvas.toBlob(
+            (webpBlob) => {
+              if (webpBlob) {
+                resolve(webpBlob);
+              } else {
+                // Fallback to original if WebP conversion fails
+                resolve(blob);
+              }
+            },
+            'image/webp',
+            quality
+          );
+        } catch (error) {
+          console.error('Error during WebP conversion:', error);
+          resolve(blob);
+        }
+      };
+      img.onerror = () => {
+        console.warn('Failed to load image for WebP conversion');
+        resolve(blob);
+      };
+      img.src = reader.result as string;
+    });
+    reader.addEventListener('error', () => {
+      console.warn('Failed to read file for WebP conversion');
+      resolve(blob);
+    });
+    reader.readAsDataURL(blob);
+  });
 }
 
 export async function copyImageBlob(
@@ -231,7 +341,7 @@ async function buildPropsWith(std: BlockStdScope, file: File) {
   const { size } = file;
   const [imageSize, sourceId] = await Promise.all([
     readImageSize(file),
-    std.store.blobSync.set(file),
+    std.store.blobSync.set(await convertToWebP(file)),
   ]);
 
   if (!(imageSize.width * imageSize.height)) {
