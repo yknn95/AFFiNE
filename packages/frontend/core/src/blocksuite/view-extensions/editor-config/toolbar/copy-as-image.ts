@@ -140,9 +140,15 @@ export function copyAsImage(std: BlockStdScope) {
       const blocks = elements.filter(
         e => !(e instanceof GfxPrimitiveElementModel)
       ) as GfxModel[] as GfxBlockElementModel[];
-      const canvasElements = elements.filter(
-        e => e instanceof GfxPrimitiveElementModel
-      ) as GfxPrimitiveElementModel[];
+      
+      // 收集所有与选中区域相关的画布元素（包括连线）
+      // 连线可能不在选中元素中，但需要渲染到导出图片中
+      const canvasElements = gfx.gfxElements.filter((ele: GfxModel) => {
+        if (!(ele instanceof GfxPrimitiveElementModel)) return false;
+        const eleBound = Bound.deserialize(ele.xywh);
+        // 包含选中元素 或 与选中区域有重叠的元素（如连线）
+        return elements.includes(ele) || isOverlap(bound, eleBound);
+      }) as GfxPrimitiveElementModel[];
 
       // output canvas
       const outCanvas = document.createElement('canvas');
