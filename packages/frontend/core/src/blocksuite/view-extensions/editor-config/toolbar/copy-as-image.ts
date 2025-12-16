@@ -23,19 +23,7 @@ const snapshotStyle = `
   .edgeless-background {
     background-image: none;
   }
-  /* 确保连接器（思维导图线条）在截图时可见 */
-  .affine-edgeless-connector, 
-  .affine-connector,
-  [data-type="connector"],
-  [data-connector-id] {
-    opacity: 1 !important;
-    visibility: visible !important;
-    display: block !important;
-  }
 `;
-
-// 已不再依赖 DOM 选区截图
-// 移除 DOM 选区依赖
 
 function expandBound(bound: Bound, margin: number) {
   const x = bound.x - margin;
@@ -108,8 +96,6 @@ function withDescendantElements(elements: GfxModel[]) {
 const MARGIN = 20;
 
 export function copyAsImage(std: BlockStdScope) {
-  // 兼容 Web：不再依赖 Electron apis
-
   const gfx = std.get(GfxControllerIdentifier);
 
   let selected = gfx.selection.selectedElements;
@@ -133,20 +119,11 @@ export function copyAsImage(std: BlockStdScope) {
   const { zoom } = gfx.viewport;
   const exBound = expandBound(bound, MARGIN * zoom);
 
-  // 不再调整视口，避免影响用户当前视图
-
   // hide unselected overlap elements
-  // 但保留连接器元素（思维导图线条）
   const overlapElements = gfx.gfxElements.filter((ele: GfxModel) => {
     const eleBound = Bound.deserialize(ele.xywh);
     const exEleBound = expandBound(eleBound, MARGIN * zoom);
     const isSelected = elements.includes(ele);
-    
-    // 如果是连接器元素（思维导图线条），不隐藏它
-    if (ele.type === 'connector' || ele.flavour === 'affine:connector') {
-      return false;
-    }
-    
     return !isSelected && isOverlap(exBound, exEleBound);
   });
   hideEdgelessElements(overlapElements, std);
@@ -156,27 +133,18 @@ export function copyAsImage(std: BlockStdScope) {
   styleEle.innerHTML = snapshotStyle;
   document.head.append(styleEle);
 
-  // 生成 PNG 并下载
+  // generate PNG and download
   setTimeout(async () => {
     try {
       const SCALE = 1;
-      
-      // 改进分类逻辑：明确区分块元素、画布元素和连接器
       const blocks = elements.filter(
-        e => !(e instanceof GfxPrimitiveElementModel) && 
-             e.type !== 'connector' && e.flavour !== 'affine:connector'
+        e => !(e instanceof GfxPrimitiveElementModel)
       ) as GfxModel[] as GfxBlockElementModel[];
-      
       const canvasElements = elements.filter(
         e => e instanceof GfxPrimitiveElementModel
       ) as GfxPrimitiveElementModel[];
-      
-      // 获取所有连接器元素（思维导图线条）
-      const connectorElements = elements.filter(
-        e => e.type === 'connector' || e.flavour === 'affine:connector'
-      ) as GfxModel[];
 
-      // 输出画布
+      // output canvas
       const outCanvas = document.createElement('canvas');
       const dpr = (window.devicePixelRatio || 1) * SCALE;
       outCanvas.width = Math.max(1, Math.floor(bound.w * dpr));
@@ -188,7 +156,7 @@ export function copyAsImage(std: BlockStdScope) {
       outCtx.imageSmoothingEnabled = true;
       outCtx.imageSmoothingQuality = 'high';
 
-      // 根据当前背景（黑/白）填充基础画布
+      // fill background based on current theme (dark/light)
       const getRgb = (color: string): { r: number; g: number; b: number } | null => {
         if (!color) return null;
         const c = color.trim();
@@ -227,11 +195,10 @@ export function copyAsImage(std: BlockStdScope) {
       outCtx.fillStyle = isDark ? '#000' : '#fff';
       outCtx.fillRect(0, 0, outCanvas.width, outCanvas.height);
 
-      // 绘制画布元素（shape、线条等）
+      // draw canvas elements (shapes, lines, etc.)
       const surfaceComponent = (gfx as any).surfaceComponent;
       const renderer = surfaceComponent?.renderer;
       if (renderer?.getCanvasByBound) {
-        // 绘制基础画布元素
         const canvasLayer = renderer.getCanvasByBound(
           bound,
           canvasElements,
@@ -241,31 +208,10 @@ export function copyAsImage(std: BlockStdScope) {
           SCALE
         );
         outCtx.drawImage(canvasLayer, 0, 0);
-        
-        // 单独绘制连接器元素，确保它们显示在正确的层级
-        if (connectorElements.length > 0) {
-          try {
-            const connectorLayer = renderer.getCanvasByBound(
-              bound,
-              connectorElements as any,
-              undefined,
-              false,
-              false,
-              SCALE
-            );
-            if (connectorLayer) {
-              outCtx.drawImage(connectorLayer, 0, 0);
-            }
-          } catch (e) {
-            console.warn('Failed to render connector elements:', e);
-          }
-        }
       }
 
-      // 绘制块（文本、卡片等 DOM 渲染内容）
+      // draw blocks (text, cards, etc. - DOM rendered content)
       const html2canvas = (await import('html2canvas')).default;
-      
-      // 先绘制标准块元素
       for (const block of blocks) {
         const blockComponent = std.view.getBlock(block.id) as HTMLElement | null;
         if (!blockComponent) continue;
@@ -274,7 +220,7 @@ export function copyAsImage(std: BlockStdScope) {
           backgroundColor: 'transparent',
           scale: SCALE,
           onclone: async (documentClone: Document, element: HTMLElement) => {
-            // 移除 transform/阴影，避免 html2canvas 错位
+            // remove transform/shadow to avoid html2canvas misalignment
             element.style.setProperty('transform', 'none');
             const layer = documentClone.querySelector('.affine-edgeless-layer');
             if (layer && layer instanceof HTMLElement) {
@@ -295,36 +241,8 @@ export function copyAsImage(std: BlockStdScope) {
         const dh = blockBound.h * dpr;
         outCtx.drawImage(blockCanvas, dx, dy, dw, dh);
       }
-      
-      // 备用方案：如果连接器是DOM元素，尝试单独渲染它们
-      if (connectorElements.length > 0) {
-        console.log('尝试作为DOM元素渲染连接器...');
-        for (const connector of connectorElements) {
-          const connectorComponent = std.view.getBlock(connector.id) as HTMLElement | null;
-          if (connectorComponent) {
-            try {
-              const connectorBound = Bound.deserialize((connector as any).xywh);
-              const connectorCanvas = await html2canvas(connectorComponent, {
-                backgroundColor: 'transparent',
-                scale: SCALE,
-                onclone: (documentClone, element) => {
-                  element.style.setProperty('transform', 'none');
-                },
-                useCORS: true,
-              });
-              const dx = (connectorBound.x - bound.x) * dpr;
-              const dy = (connectorBound.y - bound.y) * dpr;
-              const dw = connectorBound.w * dpr;
-              const dh = connectorBound.h * dpr;
-              outCtx.drawImage(connectorCanvas, dx, dy, dw, dh);
-            } catch (e) {
-              console.warn('Failed to render connector as DOM element:', e);
-            }
-          }
-        }
-      }
 
-      // 清理选择与样式，并导出 PNG
+      // clear selection and export PNG
       gfx.selection.clear();
 
       const blob: Blob | null = await new Promise(resolve =>
