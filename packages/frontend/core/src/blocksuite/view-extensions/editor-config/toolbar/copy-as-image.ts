@@ -141,14 +141,11 @@ export function copyAsImage(std: BlockStdScope) {
         e => !(e instanceof GfxPrimitiveElementModel)
       ) as GfxModel[] as GfxBlockElementModel[];
       
-      // 收集所有与选中区域相关的画布元素（包括连线）
-      // 连线可能不在选中元素中，但需要渲染到导出图片中
-      const canvasElements = gfx.gfxElements.filter((ele: GfxModel) => {
-        if (!(ele instanceof GfxPrimitiveElementModel)) return false;
-        const eleBound = Bound.deserialize(ele.xywh);
-        // 包含选中元素 或 与选中区域有重叠的元素（如连线）
-        return elements.includes(ele) || isOverlap(bound, eleBound);
-      }) as GfxPrimitiveElementModel[];
+      // 思维导图的连线不是独立元素,而是包含在 MindmapElementModel 内部
+      // 收集独立的画布元素(shapes、独立连线等)
+      const canvasElements = elements.filter(
+        e => e instanceof GfxPrimitiveElementModel
+      ) as GfxPrimitiveElementModel[];
 
       // output canvas
       const outCanvas = document.createElement('canvas');
@@ -201,13 +198,15 @@ export function copyAsImage(std: BlockStdScope) {
       outCtx.fillStyle = isDark ? '#000' : '#fff';
       outCtx.fillRect(0, 0, outCanvas.width, outCanvas.height);
 
-      // draw canvas elements (shapes, lines, etc.)
+      // draw canvas elements (shapes, lines, mindmap connectors, etc.)
+      // 将 blocks 也传递给渲染器,以便渲染思维导图及其内部连线
       const surfaceComponent = (gfx as any).surfaceComponent;
       const renderer = surfaceComponent?.renderer;
       if (renderer?.getCanvasByBound) {
+        const allElements = [...canvasElements, ...blocks];
         const canvasLayer = renderer.getCanvasByBound(
           bound,
-          canvasElements,
+          allElements,
           undefined,
           false,
           false,
@@ -297,4 +296,5 @@ export function createCopyAsPngMenuItem(framework: FrameworkProvider) {
     },
   };
 }
+
 
