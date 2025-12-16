@@ -199,14 +199,14 @@ export function copyAsImage(std: BlockStdScope) {
       outCtx.fillRect(0, 0, outCanvas.width, outCanvas.height);
 
       // draw canvas elements (shapes, lines, mindmap with connectors, etc.)
-      // getCanvasByBound 只接受 GfxPrimitiveElementModel (包括 MindmapElementModel)
-      // MindmapElementModel 的渲染器会自动渲染其内部连线
+      // 不传递 surfaceElements 参数,让渲染器从 grid 自动搜索 bound 内的所有元素
+      // 这样会包含 'canvas' 和 'local' 类型的元素(思维导图连线是 LocalConnectorElementModel)
       const surfaceComponent = (gfx as any).surfaceComponent;
       const renderer = surfaceComponent?.renderer;
       if (renderer?.getCanvasByBound) {
         const canvasLayer = renderer.getCanvasByBound(
           bound,
-          canvasElements,  // 只传递 GfxPrimitiveElementModel
+          undefined,       // 不传递元素,让渲染器自动搜索(包含 local elements)
           undefined,       // canvas
           false,           // clearBeforeDrawing
           false            // withZoom
