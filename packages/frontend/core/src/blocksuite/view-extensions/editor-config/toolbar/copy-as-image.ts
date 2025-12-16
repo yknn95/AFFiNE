@@ -198,19 +198,18 @@ export function copyAsImage(std: BlockStdScope) {
       outCtx.fillStyle = isDark ? '#000' : '#fff';
       outCtx.fillRect(0, 0, outCanvas.width, outCanvas.height);
 
-      // draw canvas elements (shapes, lines, mindmap connectors, etc.)
-      // 将 blocks 也传递给渲染器,以便渲染思维导图及其内部连线
+      // draw canvas elements (shapes, lines, mindmap with connectors, etc.)
+      // getCanvasByBound 只接受 GfxPrimitiveElementModel (包括 MindmapElementModel)
+      // MindmapElementModel 的渲染器会自动渲染其内部连线
       const surfaceComponent = (gfx as any).surfaceComponent;
       const renderer = surfaceComponent?.renderer;
       if (renderer?.getCanvasByBound) {
-        const allElements = [...canvasElements, ...blocks];
         const canvasLayer = renderer.getCanvasByBound(
           bound,
-          allElements,
-          undefined,
-          false,
-          false,
-          SCALE
+          canvasElements,  // 只传递 GfxPrimitiveElementModel
+          undefined,       // canvas
+          false,           // clearBeforeDrawing
+          false            // withZoom
         );
         outCtx.drawImage(canvasLayer, 0, 0);
       }
