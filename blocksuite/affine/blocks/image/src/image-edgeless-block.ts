@@ -235,7 +235,7 @@ export class ImageEdgelessBlockComponent extends GfxBlockComponent<ImageBlockMod
   accessor resizableImg!: HTMLDivElement;
 
   @query('canvas')
-  accessor canvas!: HTMLCanvasElement;
+  accessor canvas!: HTMLCanvasElement | null;
 
   private _imageCache = new Map<string, HTMLImageElement>();
   private _loadingPromises = new Map<string, Promise<HTMLImageElement>>();
@@ -272,7 +272,25 @@ export class ImageEdgelessBlockComponent extends GfxBlockComponent<ImageBlockMod
 
   private _renderImageToCanvas = debounce(async () => {
     const newIsInViewport = isInViewport(this);
-    if(!newIsInViewport) return
+    this.isInViewport = newIsInViewport
+    if(!newIsInViewport) {
+      // 移除canvas
+      if(this.resizableImg && this.canvas && this.canvas.parentNode) {
+        this.resizableImg.removeChild(this.canvas)
+        // 清理canvas
+        this.canvas = null
+      }
+      return
+    }
+    
+    // 当前dom如果没有canvas，则添加canvas
+    if(this.resizableImg && !this.canvas) {
+      const canvas = document.createElement('canvas')
+      canvas.classList.add('drag-target')
+      canvas.draggable = false
+      this.resizableImg.appendChild(canvas)
+      this.canvas = canvas
+    }
     if (!this.canvas || !this.blobUrl) return;
 
     const ctx = this.canvas.getContext('2d');
@@ -329,4 +347,3 @@ declare global {
     'affine-edgeless-image': ImageEdgelessBlockComponent;
   }
 }
-
