@@ -86,8 +86,6 @@ export class ImageEdgelessBlockComponent extends GfxBlockComponent<ImageBlockMod
     'Image'
   );
 
-  isInViewport = false;
-
   get blobUrl() {
     return this.resourceController.blobUrl$.value;
   }
@@ -129,9 +127,6 @@ export class ImageEdgelessBlockComponent extends GfxBlockComponent<ImageBlockMod
         this.refreshData();
       })
     );
-
-    // Initialize isInViewport value
-    this.isInViewport = isInViewport(this);
     
     // Update isInViewport when viewport changes
     this.disposables.add(
@@ -271,27 +266,9 @@ export class ImageEdgelessBlockComponent extends GfxBlockComponent<ImageBlockMod
   }
 
   private _renderImageToCanvas = debounce(async () => {
-    const newIsInViewport = isInViewport(this);
-    this.isInViewport = newIsInViewport
-    if(!newIsInViewport) {
-      // 移除canvas
-      if(this.resizableImg && this.canvas && this.canvas.parentNode) {
-        this.resizableImg.removeChild(this.canvas)
-        // 清理canvas
-        this.canvas = null
-      }
-      return
-    }
-    
-    // 当前dom如果没有canvas，则添加canvas
-    if(this.resizableImg && !this.canvas) {
-      const canvas = document.createElement('canvas')
-      canvas.classList.add('drag-target')
-      canvas.draggable = false
-      this.resizableImg.appendChild(canvas)
-      this.canvas = canvas
-    }
     if (!this.canvas || !this.blobUrl) return;
+    const newIsInViewport = isInViewport(this);
+    if(!newIsInViewport) return
 
     const ctx = this.canvas.getContext('2d');
     if (!ctx) return;
