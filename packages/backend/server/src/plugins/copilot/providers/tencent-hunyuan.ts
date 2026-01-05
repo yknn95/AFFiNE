@@ -169,7 +169,7 @@ export class TencentHunyuanProvider extends CopilotProvider<TencentHunyuanConfig
   }
 
   override configured(): boolean {
-    return !!this.config.apiKey;
+    return !!this.config?.apiKey;
   }
 
   protected override setup() {

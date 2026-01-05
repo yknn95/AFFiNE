@@ -2,7 +2,6 @@ import {
   AnthropicOfficialProvider,
   AnthropicVertexProvider,
 } from './anthropic';
-import { DeepSeekProvider } from './deepseek';
 import { FalProvider } from './fal';
 import { GeminiGenerativeProvider, GeminiVertexProvider } from './gemini';
 import { MorphProvider } from './morph';
@@ -12,7 +11,6 @@ import { TencentHunyuanProvider } from './tencent-hunyuan';
 
 export const CopilotProviders = [
   OpenAIProvider,
-  DeepSeekProvider,
   FalProvider,
   GeminiGenerativeProvider,
   GeminiVertexProvider,
@@ -28,7 +26,6 @@ export {
   AnthropicVertexProvider,
 } from './anthropic';
 export { CopilotProviderFactory } from './factory';
-export { DeepSeekProvider } from './deepseek';
 export { FalProvider } from './fal';
 export { GeminiGenerativeProvider, GeminiVertexProvider } from './gemini';
 export { OpenAIProvider } from './openai';
