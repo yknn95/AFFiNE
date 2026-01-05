@@ -145,11 +145,13 @@ export const KNOWN_CONFIG_GROUPS = [
     fields: [
       'enabled',
       'scenarios',
+      'providers.deepseek',
       'providers.openai',
       'providers.gemini',
       'providers.perplexity',
       'providers.anthropic',
       'providers.fal',
+      'providers.tencentHunyuan',
       'unsplash',
       'exa',
       {

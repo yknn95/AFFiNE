@@ -273,6 +273,10 @@
       "type": "Object",
       "desc": "Use custom models in scenarios and override default settings."
     },
+    "providers.deepseek": {
+      "type": "Object",
+      "desc": "The config for the deepseek provider."
+    },
     "providers.openai": {
       "type": "Object",
       "desc": "The config for the openai provider.",
@@ -305,6 +309,10 @@
     "providers.morph": {
       "type": "Object",
       "desc": "The config for the morph provider."
+    },
+    "providers.tencentHunyuan": {
+      "type": "Object",
+      "desc": "The config for tencent hunyuan provider."
     },
     "unsplash": {
       "type": "Object",
