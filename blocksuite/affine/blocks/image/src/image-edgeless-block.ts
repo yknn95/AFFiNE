@@ -23,16 +23,6 @@ import {
   refreshData,
   turnImageIntoCardView,
 } from './utils';
-import debounce from 'lodash-es/debounce';
-
-function isInViewport(element: GfxBlockComponent):boolean {
-  if (element.transformState$.value === 'idle') return false;
-
-  const { viewport } = element.gfx;
-  const isInViewport = viewport.isInViewport(element.model.elementBound)
-  
-  return isInViewport
-}
 
 @Peekable()
 export class ImageEdgelessBlockComponent extends GfxBlockComponent<ImageBlockModel> {
@@ -68,14 +58,8 @@ export class ImageEdgelessBlockComponent extends GfxBlockComponent<ImageBlockMod
       bottom: 18px;
     }
 
-    affine-edgeless-image .resizable-img {
-      width: 100%;
-      height: 100%;
-      overflow: hidden;
-    }
-
-    affine-edgeless-image .resizable-img canvas {
-      display: block;
+    affine-edgeless-image .resizable-img,
+    affine-edgeless-image .resizable-img img {
       width: 100%;
       height: 100%;
     }
@@ -127,40 +111,11 @@ export class ImageEdgelessBlockComponent extends GfxBlockComponent<ImageBlockMod
         this.refreshData();
       })
     );
-    
-    // Update isInViewport when viewport changes
-    this.disposables.add(
-      this.gfx.viewport.viewportUpdated.subscribe(() => {
-        this._renderImageToCanvas();
-      })
-    );
-
-    // Subscribe to blobUrl changes and update canvas
-    this.disposables.add(
-      this.resourceController.blobUrl$.subscribe(() => {
-        this._renderImageToCanvas();
-      })
-    );
-  }
-
-  override disconnectedCallback() {
-    super.disconnectedCallback();
-    
-    // Clear image cache and pending promises
-    this._imageCache.clear();
-    this._loadingPromises.clear();
   }
 
   override renderGfxBlock() {
     const blobUrl = this.blobUrl;
     const { rotate = 0, size = 0, caption = 'Image' } = this.model.props;
-
-    // Trigger canvas rendering when component renders
-    if (blobUrl) {
-      this.updateComplete.then(() => {
-        this._renderImageToCanvas();
-      });
-    }
 
     const containerStyleMap = styleMap({
       display: 'flex',
@@ -190,10 +145,15 @@ export class ImageEdgelessBlockComponent extends GfxBlockComponent<ImageBlockMod
           blobUrl,
           () => html`
             <div class="resizable-img">
-              <canvas
+              <img
                 class="drag-target"
                 draggable="false"
-              ></canvas>
+                loading="lazy"
+		decoding="async"
+                src=${blobUrl}
+                alt=${caption}
+                @error=${this._handleError}
+              />
             </div>
             ${when(loading, () => html`<div class="loading">${icon}</div>`)}
             ${when(
@@ -228,86 +188,6 @@ export class ImageEdgelessBlockComponent extends GfxBlockComponent<ImageBlockMod
 
   @query('.resizable-img')
   accessor resizableImg!: HTMLDivElement;
-
-  @query('canvas')
-  accessor canvas!: HTMLCanvasElement | null;
-
-  private _imageCache = new Map<string, HTMLImageElement>();
-  private _loadingPromises = new Map<string, Promise<HTMLImageElement>>();
-
-  private _loadImageWithCache(url: string): Promise<HTMLImageElement> {
-    // Return cached image if available
-    if (this._imageCache.has(url)) {
-      return Promise.resolve(this._imageCache.get(url)!);
-    }
-
-    // Return existing loading promise if already loading
-    if (this._loadingPromises.has(url)) {
-      return this._loadingPromises.get(url)!;
-    }
-
-    // Create new loading promise
-    const loadingPromise = new Promise<HTMLImageElement>((resolve, reject) => {
-      const img = new Image();
-      img.onload = () => {
-        this._imageCache.set(url, img);
-        this._loadingPromises.delete(url);
-        resolve(img);
-      };
-      img.onerror = () => {
-        this._loadingPromises.delete(url);
-        reject(new Error(`Failed to load image: ${url}`));
-      };
-      img.src = url;
-    });
-
-    this._loadingPromises.set(url, loadingPromise);
-    return loadingPromise;
-  }
-
-  private _renderImageToCanvas = debounce(async () => {
-    if (!this.canvas || !this.blobUrl) return;
-    const newIsInViewport = isInViewport(this);
-    if(!newIsInViewport) return
-
-    const ctx = this.canvas.getContext('2d');
-    if (!ctx) return;
-
-    try {
-      const img = await this._loadImageWithCache(this.blobUrl);
-      const container = this.resizableImg;
-      if (!container) return;
-      
-      // Set canvas dimensions to match container size
-      const rect = container.getBoundingClientRect();
-      this.canvas.width = rect.width;
-      this.canvas.height = rect.height;
-      
-      // Calculate scaling to maintain aspect ratio
-      const scale = Math.min(
-        rect.width / img.naturalWidth,
-        rect.height / img.naturalHeight
-      );
-      
-      const scaledWidth = img.naturalWidth * scale;
-      const scaledHeight = img.naturalHeight * scale;
-      
-      // Center the image in the canvas
-      const x = (rect.width - scaledWidth) / 2;
-      const y = (rect.height - scaledHeight) / 2;
-      
-      // Clear canvas and draw image at centered position
-      ctx.clearRect(0, 0, rect.width, rect.height);
-      ctx.drawImage(img, x, y, scaledWidth, scaledHeight);
-      
-      // Reset any transform
-      this.canvas.style.transform = '';
-      this.canvas.style.transformOrigin = '';
-    } catch (error) {
-      console.error('Error rendering image to canvas:', error);
-      this._handleError();
-    }
-  }, 200);
 }
 
 export const ImageEdgelessBlockInteraction = GfxViewInteractionExtension(

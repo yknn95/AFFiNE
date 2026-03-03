@@ -28,6 +28,7 @@ export declare class YArray {
 }
 
 export declare class YMap {
+  constructor()
   get length(): number
   get isEmpty(): boolean
   get<T = unknown>(key: string): T

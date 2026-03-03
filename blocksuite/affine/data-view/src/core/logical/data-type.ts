@@ -14,7 +14,8 @@ export class DTInstance<
   Name extends string = string,
   Data = unknown,
   ValueSchema extends Zod.ZodType = Zod.ZodType,
-> implements TypeInstance {
+> implements TypeInstance
+{
   readonly _valueType = undefined as never as Zod.TypeOf<ValueSchema>;
 
   constructor(
@@ -46,7 +47,8 @@ export class DataType<
   Name extends string = string,
   DataSchema extends Zod.ZodType = Zod.ZodType,
   ValueSchema extends Zod.ZodType = Zod.ZodType,
-> implements TypeDefinition {
+> implements TypeDefinition
+{
   constructor(
     private readonly name: Name,
     _dataSchema: DataSchema,

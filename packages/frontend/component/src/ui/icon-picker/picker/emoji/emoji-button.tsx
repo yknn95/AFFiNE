@@ -20,7 +20,6 @@ export const EmojiButton = memo(function EmojiButton({
       size={24}
       style={{ padding: 4 }}
       icon={<span>{emoji}</span>}
-      iconStyle={{ justifyContent: 'center' }}
       onClick={handleClick}
     />
   );

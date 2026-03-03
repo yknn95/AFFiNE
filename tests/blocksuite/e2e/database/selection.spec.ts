@@ -350,23 +350,22 @@ test.describe('kanban view selection', () => {
 
     await focusKanbanCardHeader(page);
     await assertKanbanCellSelected(page, {
-      // group by `number` column, `Ungroups` is hidden because it's empty (hideEmpty: true by default)
-      // so the first visible group is the one with value "1" at groupIndex: 0
-      groupIndex: 0,
+      // group by `number` column, the first(groupIndex: 0) group is `Ungroups`
+      groupIndex: 1,
       cardIndex: 0,
       cellIndex: 0,
     });
 
     await pressArrowDown(page, 3);
     await assertKanbanCellSelected(page, {
-      groupIndex: 0,
+      groupIndex: 1,
       cardIndex: 0,
       cellIndex: 0,
     });
 
     await pressArrowUp(page);
     await assertKanbanCellSelected(page, {
-      groupIndex: 0,
+      groupIndex: 1,
       cardIndex: 0,
       cellIndex: 2,
     });
@@ -381,8 +380,7 @@ test.describe('kanban view selection', () => {
       columns: [
         {
           type: 'number',
-          // Both rows have value 1 to put them in the same group
-          value: [1, 1],
+          value: [1, 2],
         },
         {
           type: 'rich-text',
@@ -394,16 +392,14 @@ test.describe('kanban view selection', () => {
     await focusKanbanCardHeader(page);
     await pressArrowUp(page);
     await assertKanbanCellSelected(page, {
-      // `Ungroups` is hidden because it's empty (hideEmpty: true by default)
-      // so the first visible group is "1" at groupIndex: 0
-      groupIndex: 0,
+      groupIndex: 1,
       cardIndex: 1,
       cellIndex: 2,
     });
 
     await pressArrowDown(page);
     await assertKanbanCellSelected(page, {
-      groupIndex: 0,
+      groupIndex: 1,
       cardIndex: 0,
       cellIndex: 0,
     });

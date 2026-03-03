@@ -112,7 +112,7 @@ async function buildPropsWith(
   try {
     const { name, size } = file;
     // TODO(@fundon): should re-upload when upload timeout
-    const sourceId = await std.store.blobSync.set(file)
+    const sourceId = await std.store.blobSync.set(file);
     type = await getFileType(file);
 
     return {

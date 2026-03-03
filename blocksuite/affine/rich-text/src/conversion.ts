@@ -26,7 +26,6 @@ export interface TextConversionConfig {
   description?: string;
   hotkey: string[] | null;
   icon: TemplateResult<1>;
-  searchAlias?: string[];
 }
 
 export const textConversionConfigs: TextConversionConfig[] = [
@@ -107,7 +106,6 @@ export const textConversionConfigs: TextConversionConfig[] = [
     type: 'todo',
     name: 'To-do List',
     description: 'Add tasks to a to-do list.',
-    searchAlias: ['checkbox'],
     hotkey: null,
     icon: CheckBoxIcon,
   },

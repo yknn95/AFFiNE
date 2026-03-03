@@ -65,8 +65,9 @@ export const usePageHelper = (docCollection: Workspace) => {
 
   const importFileAndOpen = useMemo(
     () => async () => {
-      const { showImportModal } =
-        await import('@blocksuite/affine/widgets/linked-doc');
+      const { showImportModal } = await import(
+        '@blocksuite/affine/widgets/linked-doc'
+      );
       const { promise, resolve, reject } =
         Promise.withResolvers<
           Parameters<

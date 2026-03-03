@@ -98,11 +98,11 @@ impl YTypeRef {
     }
   }
 
-  pub fn ty(&self) -> Option<RwLockReadGuard<'_, YType>> {
+  pub fn ty(&self) -> Option<RwLockReadGuard<YType>> {
     self.inner.get().and_then(|ty| ty.read().ok())
   }
 
-  pub fn ty_mut(&self) -> Option<RwLockWriteGuard<'_, YType>> {
+  pub fn ty_mut(&self) -> Option<RwLockWriteGuard<YType>> {
     self.inner.get().and_then(|ty| ty.write().ok())
   }
 
@@ -128,13 +128,13 @@ impl YTypeRef {
   }
 
   #[allow(dead_code)]
-  pub fn read(&self) -> Option<(RwLockReadGuard<'_, DocStore>, RwLockReadGuard<'_, YType>)> {
+  pub fn read(&self) -> Option<(RwLockReadGuard<DocStore>, RwLockReadGuard<YType>)> {
     self
       .store()
       .and_then(|store| self.ty().map(|ty| (store, ty)))
   }
 
-  pub fn write(&self) -> Option<(RwLockWriteGuard<'_, DocStore>, RwLockWriteGuard<'_, YType>)> {
+  pub fn write(&self) -> Option<(RwLockWriteGuard<DocStore>, RwLockWriteGuard<YType>)> {
     self
       .store_mut()
       .and_then(|store| self.ty_mut().map(|ty| (store, ty)))

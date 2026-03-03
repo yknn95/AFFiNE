@@ -18,11 +18,9 @@ export class TableGroupFooter extends WithDisposable(ShadowlessElement) {
   accessor gridGroup!: TableGridGroup;
 
   group$ = computed(() => {
-    const groups =
-      this.tableViewLogic.groupTrait$.value?.groupsDataList$.value ?? [];
-    return groups
-      .filter((group): group is NonNullable<typeof group> => group != null)
-      .find(g => g.key === this.gridGroup.groupId);
+    return this.tableViewLogic.groupTrait$.value?.groupsDataList$.value?.find(
+      g => g.key === this.gridGroup.groupId
+    );
   });
 
   get selectionController() {

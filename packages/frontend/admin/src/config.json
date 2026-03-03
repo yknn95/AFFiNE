@@ -306,10 +306,6 @@
       "type": "Object",
       "desc": "The config for the morph provider."
     },
-    "providers.tencentHunyuan": {
-      "type": "Object",
-      "desc": "The config for tencent hunyuan provider."
-    },
     "unsplash": {
       "type": "Object",
       "desc": "The config for the unsplash key."

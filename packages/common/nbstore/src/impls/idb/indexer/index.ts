@@ -18,7 +18,6 @@ import { backoffRetry, exhaustMapWithTrailing } from './utils';
 
 export class IndexedDBIndexerStorage extends IndexerStorageBase {
   static readonly identifier = 'IndexedDBIndexerStorage';
-  override recommendRefreshInterval: number = 0; // force refresh on each indexer operation
   readonly connection = share(new IDBConnection(this.options));
   override isReadonly = false;
   private readonly data = new DataStruct();

@@ -25,9 +25,6 @@ const snapshotStyle = `
   }
 `;
 
-// 已不再依赖 DOM 选区截图
-// 移除 DOM 选区依赖
-
 function expandBound(bound: Bound, margin: number) {
   const x = bound.x - margin;
   const y = bound.y - margin;
@@ -44,6 +41,16 @@ function isOverlap(target: Bound, source: Bound) {
   const bottom = target.y + target.h;
 
   return x < right && y < bottom && x + w > left && y + h > top;
+}
+
+function isInside(target: Bound, source: Bound) {
+  const { x, y, w, h } = source;
+  const left = target.x;
+  const top = target.y;
+  const right = target.x + target.w;
+  const bottom = target.y + target.h;
+
+  return x >= left && y >= top && x + w <= right && y + h <= bottom;
 }
 
 function hideEdgelessElements(elements: GfxModel[], std: BlockStdScope) {
@@ -89,8 +96,6 @@ function withDescendantElements(elements: GfxModel[]) {
 const MARGIN = 20;
 
 export function copyAsImage(std: BlockStdScope) {
-  // 兼容 Web：不再依赖 Electron apis
-
   const gfx = std.get(GfxControllerIdentifier);
 
   let selected = gfx.selection.selectedElements;
@@ -114,8 +119,6 @@ export function copyAsImage(std: BlockStdScope) {
   const { zoom } = gfx.viewport;
   const exBound = expandBound(bound, MARGIN * zoom);
 
-  // 不再调整视口，避免影响用户当前视图
-
   // hide unselected overlap elements
   const overlapElements = gfx.gfxElements.filter((ele: GfxModel) => {
     const eleBound = Bound.deserialize(ele.xywh);
@@ -130,18 +133,21 @@ export function copyAsImage(std: BlockStdScope) {
   styleEle.innerHTML = snapshotStyle;
   document.head.append(styleEle);
 
-  // 生成 PNG 并下载
+  // generate PNG and download
   setTimeout(async () => {
     try {
       const SCALE = 1;
       const blocks = elements.filter(
         e => !(e instanceof GfxPrimitiveElementModel)
       ) as GfxModel[] as GfxBlockElementModel[];
+      
+      // 思维导图的连线不是独立元素,而是包含在 MindmapElementModel 内部
+      // 收集独立的画布元素(shapes、独立连线等)
       const canvasElements = elements.filter(
         e => e instanceof GfxPrimitiveElementModel
       ) as GfxPrimitiveElementModel[];
 
-      // 输出画布
+      // output canvas
       const outCanvas = document.createElement('canvas');
       const dpr = (window.devicePixelRatio || 1) * SCALE;
       outCanvas.width = Math.max(1, Math.floor(bound.w * dpr));
@@ -153,7 +159,7 @@ export function copyAsImage(std: BlockStdScope) {
       outCtx.imageSmoothingEnabled = true;
       outCtx.imageSmoothingQuality = 'high';
 
-      // 根据当前背景（黑/白）填充基础画布
+      // fill background based on current theme (dark/light)
       const getRgb = (color: string): { r: number; g: number; b: number } | null => {
         if (!color) return null;
         const c = color.trim();
@@ -192,22 +198,23 @@ export function copyAsImage(std: BlockStdScope) {
       outCtx.fillStyle = isDark ? '#000' : '#fff';
       outCtx.fillRect(0, 0, outCanvas.width, outCanvas.height);
 
-      // 绘制画布元素（shape、线条等）
+      // draw canvas elements (shapes, lines, mindmap with connectors, etc.)
+      // 不传递 surfaceElements 参数,让渲染器从 grid 自动搜索 bound 内的所有元素
+      // 这样会包含 'canvas' 和 'local' 类型的元素(思维导图连线是 LocalConnectorElementModel)
       const surfaceComponent = (gfx as any).surfaceComponent;
       const renderer = surfaceComponent?.renderer;
       if (renderer?.getCanvasByBound) {
         const canvasLayer = renderer.getCanvasByBound(
           bound,
-          canvasElements,
-          undefined,
-          false,
-          false,
-          SCALE
+          undefined,       // 不传递元素,让渲染器自动搜索(包含 local elements)
+          undefined,       // canvas
+          false,           // clearBeforeDrawing
+          false            // withZoom
         );
         outCtx.drawImage(canvasLayer, 0, 0);
       }
 
-      // 绘制块（文本、卡片等 DOM 渲染内容）
+      // draw blocks (text, cards, etc. - DOM rendered content)
       const html2canvas = (await import('html2canvas')).default;
       for (const block of blocks) {
         const blockComponent = std.view.getBlock(block.id) as HTMLElement | null;
@@ -217,7 +224,7 @@ export function copyAsImage(std: BlockStdScope) {
           backgroundColor: 'transparent',
           scale: SCALE,
           onclone: async (documentClone: Document, element: HTMLElement) => {
-            // 移除 transform/阴影，避免 html2canvas 错位
+            // remove transform/shadow to avoid html2canvas misalignment
             element.style.setProperty('transform', 'none');
             const layer = documentClone.querySelector('.affine-edgeless-layer');
             if (layer && layer instanceof HTMLElement) {
@@ -239,7 +246,7 @@ export function copyAsImage(std: BlockStdScope) {
         outCtx.drawImage(blockCanvas, dx, dy, dw, dh);
       }
 
-      // 清理选择与样式，并导出 PNG
+      // clear selection and export PNG
       gfx.selection.clear();
 
       const blob: Blob | null = await new Promise(resolve =>
@@ -288,4 +295,5 @@ export function createCopyAsPngMenuItem(framework: FrameworkProvider) {
     },
   };
 }
+
 

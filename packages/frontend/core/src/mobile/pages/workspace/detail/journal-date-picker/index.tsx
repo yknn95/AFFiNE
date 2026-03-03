@@ -3,10 +3,8 @@ import { type HTMLAttributes, useCallback, useEffect, useState } from 'react';
 import { JournalDatePickerContext } from './context';
 import { ResizeViewport } from './viewport';
 
-export interface JournalDatePickerProps extends Omit<
-  HTMLAttributes<HTMLDivElement>,
-  'onChange'
-> {
+export interface JournalDatePickerProps
+  extends Omit<HTMLAttributes<HTMLDivElement>, 'onChange'> {
   date: string;
   onChange: (date: string) => void;
   withDotDates: Set<string | null | undefined>;

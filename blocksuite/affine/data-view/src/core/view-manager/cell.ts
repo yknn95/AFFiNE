@@ -29,7 +29,8 @@ export class CellBase<
   RawValue = unknown,
   JsonValue = unknown,
   Data extends Record<string, unknown> = Record<string, unknown>,
-> implements Cell<RawValue, JsonValue, Data> {
+> implements Cell<RawValue, JsonValue, Data>
+{
   get dataSource() {
     return this.view.manager.dataSource;
   }

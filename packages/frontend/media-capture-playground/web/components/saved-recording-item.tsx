@@ -727,7 +727,6 @@ export function SavedRecordingItem({
   const handlePlayPause = React.useCallback(() => {
     if (audioRef.current) {
       if (audioRef.current.paused) {
-        // eslint-disable-next-line @typescript-eslint/no-floating-promises
         void audioRef.current.play();
       } else {
         audioRef.current.pause();

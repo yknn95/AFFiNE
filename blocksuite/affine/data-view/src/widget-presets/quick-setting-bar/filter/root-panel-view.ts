@@ -1,8 +1,10 @@
 import {
   menu,
+  popFilterableSimpleMenu,
   popMenu,
   type PopupTarget,
   popupTargetFromElement,
+  subMenuMiddleware,
 } from '@blocksuite/affine-components/context-menu';
 import { SignalWatcher } from '@blocksuite/global/lit';
 import {
@@ -15,7 +17,6 @@ import {
   PlusIcon,
 } from '@blocksuite/icons/lit';
 import { ShadowlessElement } from '@blocksuite/std';
-import { type Middleware, offset } from '@floating-ui/dom';
 import { computed, type ReadonlySignal } from '@preact/signals-core';
 import { css, html } from 'lit';
 import { property, state } from 'lit/decorators.js';
@@ -207,64 +208,66 @@ export class FilterRootView extends SignalWatcher(ShadowlessElement) {
     if (!filter) {
       return;
     }
-    const handler = popMenu(popupTargetFromElement(target), {
-      placement: 'bottom-end',
-      middleware: [offset({ mainAxis: 12, crossAxis: 0 })],
-      options: {
+    popFilterableSimpleMenu(popupTargetFromElement(target), [
+      menu.action({
+        name: filter.type === 'filter' ? 'Turn into group' : 'Wrap in group',
+        prefix: ConvertIcon(),
+        onHover: hover => {
+          this.containerClass = hover
+            ? { index: i, class: 'hover-style' }
+            : undefined;
+        },
+        hide: () => getDepth(filter) > 3,
+        select: () => {
+          this.onChange({
+            type: 'group',
+            op: 'and',
+            conditions: [this.filterGroup.value],
+          });
+        },
+      }),
+      menu.action({
+        name: 'Duplicate',
+        prefix: DuplicateIcon(),
+        onHover: hover => {
+          this.containerClass = hover
+            ? { index: i, class: 'hover-style' }
+            : undefined;
+        },
+        select: () => {
+          const conditions = [...this.filterGroup.value.conditions];
+          conditions.splice(
+            i + 1,
+            0,
+            JSON.parse(JSON.stringify(conditions[i]))
+          );
+          this.onChange({ ...this.filterGroup.value, conditions: conditions });
+        },
+      }),
+      menu.group({
+        name: '',
         items: [
           menu.action({
-            name:
-              filter.type === 'filter' ? 'Turn into group' : 'Wrap in group',
-            prefix: ConvertIcon(),
-            hide: () => getDepth(filter) > 3,
-            select: () => {
-              this.onChange({
-                type: 'group',
-                op: 'and',
-                conditions: [this.filterGroup.value],
-              });
+            name: 'Delete',
+            prefix: DeleteIcon(),
+            class: { 'delete-item': true },
+            onHover: hover => {
+              this.containerClass = hover
+                ? { index: i, class: 'delete-style' }
+                : undefined;
             },
-          }),
-          menu.action({
-            name: 'Duplicate',
-            prefix: DuplicateIcon(),
             select: () => {
               const conditions = [...this.filterGroup.value.conditions];
-              conditions.splice(
-                i + 1,
-                0,
-                JSON.parse(JSON.stringify(conditions[i]))
-              );
+              conditions.splice(i, 1);
               this.onChange({
                 ...this.filterGroup.value,
-                conditions: conditions,
+                conditions,
               });
             },
           }),
-          menu.group({
-            name: '',
-            items: [
-              menu.action({
-                name: 'Delete',
-                prefix: DeleteIcon(),
-                class: { 'delete-item': true },
-                select: () => {
-                  const conditions = [...this.filterGroup.value.conditions];
-                  conditions.splice(i, 1);
-                  this.onChange({
-                    ...this.filterGroup.value,
-                    conditions,
-                  });
-                },
-              }),
-            ],
-          }),
         ],
-      },
-    });
-    handler.menu.menuElement.style.minWidth = '200px';
-    handler.menu.menuElement.style.maxWidth = 'fit-content';
-    handler.menu.menuElement.style.minHeight = 'fit-content';
+      }),
+    ]);
   }
 
   private deleteFilter(i: number) {
@@ -375,20 +378,16 @@ export const popFilterRoot = (
   props: {
     filterTrait: FilterTrait;
     onBack: () => void;
-    onClose?: () => void;
     dataViewLogic: DataViewUILogicBase;
-  },
-  middleware?: Array<Middleware | null | undefined | false>
+  }
 ) => {
   const filterTrait = props.filterTrait;
   const view = filterTrait.view;
-  const handler = popMenu(target, {
-    middleware,
+  popMenu(target, {
     options: {
       title: {
         text: 'Filters',
         onBack: props.onBack,
-        onClose: props.onClose,
       },
       items: [
         menu.group({
@@ -410,16 +409,23 @@ export const popFilterRoot = (
               prefix: PlusIcon(),
               select: ele => {
                 const value = filterTrait.filter$.value;
-                popCreateFilter(popupTargetFromElement(ele), {
-                  vars: view.vars$,
-                  onSelect: filter => {
-                    filterTrait.filterSet({
-                      ...value,
-                      conditions: [...value.conditions, filter],
-                    });
-                    props.dataViewLogic.eventTrace('CreateDatabaseFilter', {});
+                popCreateFilter(
+                  popupTargetFromElement(ele),
+                  {
+                    vars: view.vars$,
+                    onSelect: filter => {
+                      filterTrait.filterSet({
+                        ...value,
+                        conditions: [...value.conditions, filter],
+                      });
+                      props.dataViewLogic.eventTrace(
+                        'CreateDatabaseFilter',
+                        {}
+                      );
+                    },
                   },
-                });
+                  { middleware: subMenuMiddleware }
+                );
                 return false;
               },
             }),
@@ -428,5 +434,4 @@ export const popFilterRoot = (
       ],
     },
   });
-  handler.menu.menuElement.style.minHeight = '550px';
 };

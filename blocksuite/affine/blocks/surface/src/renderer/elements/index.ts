@@ -8,8 +8,9 @@ import type { RoughCanvas } from '../../index.js';
 import type { CanvasRenderer } from '../canvas-renderer.js';
 
 export type ElementRenderer<
-  T extends GfxPrimitiveElementModel | GfxLocalElementModel =
-    GfxPrimitiveElementModel,
+  T extends
+    | GfxPrimitiveElementModel
+    | GfxLocalElementModel = GfxPrimitiveElementModel,
 > = (
   model: T,
   ctx: CanvasRenderingContext2D,

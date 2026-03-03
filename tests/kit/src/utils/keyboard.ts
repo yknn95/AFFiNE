@@ -114,7 +114,6 @@ export async function writeTextToClipboard(
   // paste the url
   await page.evaluate(
     async ([text]) => {
-      // eslint-disable-next-line @typescript-eslint/no-floating-promises
       navigator.clipboard.writeText('');
       const e = new ClipboardEvent('paste', {
         clipboardData: new DataTransfer(),

@@ -18,7 +18,6 @@ import {
   MoreHorizontalIcon,
   SortIcon,
 } from '@blocksuite/icons/lit';
-import { autoPlacement, offset, shift } from '@floating-ui/dom';
 import { css, html } from 'lit';
 import { styleMap } from 'lit/directives/style-map.js';
 
@@ -98,8 +97,7 @@ declare global {
 const createSettingMenus = (
   target: PopupTarget,
   dataViewLogic: DataViewUILogicBase,
-  reopen: () => void,
-  closeMenu: () => void
+  reopen: () => void
 ) => {
   const view = dataViewLogic.view;
   const settingItems: MenuConfig[] = [];
@@ -107,25 +105,15 @@ const createSettingMenus = (
     menu.action({
       name: 'Properties',
       prefix: InfoIcon(),
-      closeOnSelect: false,
       postfix: html` <div style="font-size: 14px;">
           ${view.properties$.value.length} shown
         </div>
         ${ArrowRightSmallIcon()}`,
       select: () => {
-        popPropertiesSetting(
-          target,
-          {
-            view: view,
-            onBack: reopen,
-            onClose: closeMenu,
-          },
-          [
-            autoPlacement({ allowedPlacements: ['bottom-start', 'top-start'] }),
-            offset({ mainAxis: 15, crossAxis: -162 }),
-            shift({ crossAxis: true }),
-          ]
-        );
+        popPropertiesSetting(target, {
+          view: view,
+          onBack: reopen,
+        });
       },
     })
   );
@@ -136,7 +124,6 @@ const createSettingMenus = (
       menu.action({
         name: 'Filter',
         prefix: FilterIcon(),
-        closeOnSelect: false,
         postfix: html` <div style="font-size: 14px;">
             ${filterCount === 0
               ? ''
@@ -147,66 +134,28 @@ const createSettingMenus = (
           ${ArrowRightSmallIcon()}`,
         select: () => {
           if (!filterTrait.filter$.value.conditions.length) {
-            popCreateFilter(
-              target,
-              {
-                vars: view.vars$,
-                onBack: reopen,
-                onClose: closeMenu,
-                onSelect: filter => {
-                  filterTrait.filterSet({
-                    ...(filterTrait.filter$.value ?? emptyFilterGroup),
-                    conditions: [
-                      ...filterTrait.filter$.value.conditions,
-                      filter,
-                    ],
-                  });
-                  popFilterRoot(
-                    target,
-                    {
-                      filterTrait: filterTrait,
-                      onBack: reopen,
-                      onClose: closeMenu,
-                      dataViewLogic: dataViewLogic,
-                    },
-                    [
-                      autoPlacement({
-                        allowedPlacements: ['bottom-start', 'top-start'],
-                      }),
-                      offset({ mainAxis: 15, crossAxis: -162 }),
-                      shift({ crossAxis: true }),
-                    ]
-                  );
-                  dataViewLogic.eventTrace('CreateDatabaseFilter', {});
-                },
+            popCreateFilter(target, {
+              vars: view.vars$,
+              onBack: reopen,
+              onSelect: filter => {
+                filterTrait.filterSet({
+                  ...(filterTrait.filter$.value ?? emptyFilterGroup),
+                  conditions: [...filterTrait.filter$.value.conditions, filter],
+                });
+                popFilterRoot(target, {
+                  filterTrait: filterTrait,
+                  onBack: reopen,
+                  dataViewLogic: dataViewLogic,
+                });
+                dataViewLogic.eventTrace('CreateDatabaseFilter', {});
               },
-              {
-                middleware: [
-                  autoPlacement({
-                    allowedPlacements: ['bottom-start', 'top-start'],
-                  }),
-                  offset({ mainAxis: 15, crossAxis: -162 }),
-                  shift({ crossAxis: true }),
-                ],
-              }
-            );
+            });
           } else {
-            popFilterRoot(
-              target,
-              {
-                filterTrait: filterTrait,
-                onBack: reopen,
-                onClose: closeMenu,
-                dataViewLogic: dataViewLogic,
-              },
-              [
-                autoPlacement({
-                  allowedPlacements: ['bottom-start', 'top-start'],
-                }),
-                offset({ mainAxis: 15, crossAxis: -162 }),
-                shift({ crossAxis: true }),
-              ]
-            );
+            popFilterRoot(target, {
+              filterTrait: filterTrait,
+              onBack: reopen,
+              dataViewLogic: dataViewLogic,
+            });
           }
         },
       })
@@ -219,7 +168,6 @@ const createSettingMenus = (
       menu.action({
         name: 'Sort',
         prefix: SortIcon(),
-        closeOnSelect: false,
         postfix: html` <div style="font-size: 14px;">
             ${sortCount === 0
               ? ''
@@ -235,42 +183,18 @@ const createSettingMenus = (
             dataViewLogic.eventTrace
           );
           if (!sortList.length) {
-            popCreateSort(
-              target,
-              {
-                sortUtils: sortUtils,
-                onBack: reopen,
-                onClose: closeMenu,
-              },
-              {
-                middleware: [
-                  autoPlacement({
-                    allowedPlacements: ['bottom-start', 'top-start'],
-                  }),
-                  offset({ mainAxis: 15, crossAxis: -162 }),
-                  shift({ crossAxis: true }),
-                ],
-              }
-            );
+            popCreateSort(target, {
+              sortUtils: sortUtils,
+              onBack: reopen,
+            });
           } else {
-            popSortRoot(
-              target,
-              {
-                sortUtils: sortUtils,
-                title: {
-                  text: 'Sort',
-                  onBack: reopen,
-                  onClose: closeMenu,
-                },
+            popSortRoot(target, {
+              sortUtils: sortUtils,
+              title: {
+                text: 'Sort',
+                onBack: reopen,
               },
-              [
-                autoPlacement({
-                  allowedPlacements: ['bottom-start', 'top-start'],
-                }),
-                offset({ mainAxis: 15, crossAxis: -162 }),
-                shift({ crossAxis: true }),
-              ]
-            );
+            });
           }
         },
       })
@@ -282,7 +206,6 @@ const createSettingMenus = (
       menu.action({
         name: 'Group',
         prefix: GroupingIcon(),
-        closeOnSelect: false,
         postfix: html` <div style="font-size: 14px;">
             ${groupTrait.property$.value?.name$.value ?? ''}
           </div>
@@ -290,37 +213,12 @@ const createSettingMenus = (
         select: () => {
           const groupBy = groupTrait.property$.value;
           if (!groupBy) {
-            popSelectGroupByProperty(
-              target,
-              groupTrait,
-              {
-                onSelect: () =>
-                  popGroupSetting(target, groupTrait, reopen, closeMenu, [
-                    autoPlacement({
-                      allowedPlacements: ['bottom-start', 'top-start'],
-                    }),
-                    offset({ mainAxis: 15, crossAxis: -162 }),
-                    shift({ crossAxis: true }),
-                  ]),
-                onBack: reopen,
-                onClose: closeMenu,
-              },
-              [
-                autoPlacement({
-                  allowedPlacements: ['bottom-start', 'top-start'],
-                }),
-                offset({ mainAxis: 15, crossAxis: -162 }),
-                shift({ crossAxis: true }),
-              ]
-            );
+            popSelectGroupByProperty(target, groupTrait, {
+              onSelect: () => popGroupSetting(target, groupTrait, reopen),
+              onBack: reopen,
+            });
           } else {
-            popGroupSetting(target, groupTrait, reopen, closeMenu, [
-              autoPlacement({
-                allowedPlacements: ['bottom-start', 'top-start'],
-              }),
-              offset({ mainAxis: 15, crossAxis: -162 }),
-              shift({ crossAxis: true }),
-            ]);
+            popGroupSetting(target, groupTrait, reopen);
           }
         },
       })
@@ -410,7 +308,7 @@ export const popViewOptions = (
                 ></affine-menu-button>`;
               };
             });
-            const subHandler = popMenu(target, {
+            popMenu(target, {
               options: {
                 title: {
                   onBack: reopen,
@@ -440,15 +338,7 @@ export const popViewOptions = (
                   // }),
                 ],
               },
-              middleware: [
-                autoPlacement({
-                  allowedPlacements: ['bottom-start', 'top-start'],
-                }),
-                offset({ mainAxis: 15, crossAxis: -162 }),
-                shift({ crossAxis: true }),
-              ],
             });
-            subHandler.menu.menuElement.style.minHeight = '550px';
           },
           prefix: LayoutIcon(),
         }),
@@ -458,9 +348,7 @@ export const popViewOptions = (
 
   items.push(
     menu.group({
-      items: createSettingMenus(target, dataViewLogic, reopen, () =>
-        handler.close()
-      ),
+      items: createSettingMenus(target, dataViewLogic, reopen),
     })
   );
   items.push(
@@ -469,7 +357,6 @@ export const popViewOptions = (
         menu.action({
           name: 'Duplicate',
           prefix: DuplicateIcon(),
-          closeOnSelect: false,
           select: () => {
             view.duplicate();
           },
@@ -477,7 +364,6 @@ export const popViewOptions = (
         menu.action({
           name: 'Delete',
           prefix: DeleteIcon(),
-          closeOnSelect: false,
           select: () => {
             view.delete();
           },
@@ -486,22 +372,13 @@ export const popViewOptions = (
       ],
     })
   );
-  let handler: ReturnType<typeof popMenu>;
-  handler = popMenu(target, {
+  popMenu(target, {
     options: {
       title: {
         text: 'View settings',
-        onClose: () => handler.close(),
       },
       items,
       onClose: onClose,
     },
-    middleware: [
-      autoPlacement({ allowedPlacements: ['bottom-start'] }),
-      offset({ mainAxis: 15, crossAxis: -162 }),
-      shift({ crossAxis: true }),
-    ],
   });
-  handler.menu.menuElement.style.minHeight = '550px';
-  return handler;
 };

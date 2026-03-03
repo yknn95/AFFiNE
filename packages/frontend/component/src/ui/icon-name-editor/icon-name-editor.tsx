@@ -25,7 +25,8 @@ export interface IconAndNameEditorContentProps extends IconEditorProps {
 }
 
 export interface IconAndNameEditorMenuProps
-  extends Omit<MenuProps, 'items'>, IconAndNameEditorContentProps {
+  extends Omit<MenuProps, 'items'>,
+    IconAndNameEditorContentProps {
   open?: boolean;
   onOpenChange?: (open: boolean) => void;
 
@@ -85,7 +86,6 @@ export const IconEditor = ({
         data-icon-type={icon?.type}
         aria-label={icon ? 'Change Icon' : 'Select Icon'}
         title={icon ? 'Change Icon' : 'Select Icon'}
-        contentClassName={styles.iconContent}
       >
         <IconRenderer data={icon} fallback={iconPlaceholder} />
       </Button>

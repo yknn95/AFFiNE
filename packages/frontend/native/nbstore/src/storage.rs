@@ -1,19 +1,15 @@
-use std::sync::Arc;
-
 use affine_schema::get_migrator;
 use sqlx::{
   migrate::MigrateDatabase,
   sqlite::{Sqlite, SqliteConnectOptions, SqlitePoolOptions},
   Pool, Row,
 };
-use tokio::sync::RwLock;
 
-use super::{error::Result, indexer::InMemoryIndex};
+use super::error::Result;
 
 pub struct SqliteDocStorage {
   pub pool: Pool<Sqlite>,
   path: String,
-  pub index: Arc<RwLock<InMemoryIndex>>,
 }
 
 impl SqliteDocStorage {
@@ -23,8 +19,6 @@ impl SqliteDocStorage {
       .foreign_keys(false);
 
     let mut pool_options = SqlitePoolOptions::new();
-
-    let index = Arc::new(RwLock::new(InMemoryIndex::default()));
 
     if path == ":memory:" {
       pool_options = pool_options
@@ -36,7 +30,6 @@ impl SqliteDocStorage {
       Self {
         pool: pool_options.connect_lazy_with(sqlite_options),
         path,
-        index,
       }
     } else {
       Self {
@@ -44,7 +37,6 @@ impl SqliteDocStorage {
           .max_connections(4)
           .connect_lazy_with(sqlite_options.journal_mode(sqlx::sqlite::SqliteJournalMode::Wal)),
         path,
-        index,
       }
     }
   }
@@ -69,7 +61,6 @@ impl SqliteDocStorage {
     };
 
     self.migrate().await?;
-    self.init_index().await?;
 
     Ok(())
   }

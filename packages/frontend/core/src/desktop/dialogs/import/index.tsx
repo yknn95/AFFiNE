@@ -1,4 +1,5 @@
-import { Button, IconButton, IconType, Modal } from '@affine/component';
+import { Button, IconButton, Modal } from '@affine/component';
+import { IconType } from '@affine/component';
 import { getStoreManager } from '@affine/core/blocksuite/manager/store';
 import { useAsyncCallback } from '@affine/core/components/hooks/affine-async-hooks';
 import { useNavigateHelper } from '@affine/core/components/hooks/use-navigate-helper';

@@ -58,10 +58,8 @@ export interface SearchQueryDSL extends BaseQueryDSL {
   };
 }
 
-export interface TopHitsDSL extends Omit<
-  SearchQueryDSL,
-  'query' | 'sort' | 'from' | 'cursor'
-> {}
+export interface TopHitsDSL
+  extends Omit<SearchQueryDSL, 'query' | 'sort' | 'from' | 'cursor'> {}
 
 export interface AggregateQueryDSL extends BaseQueryDSL {
   aggs: {

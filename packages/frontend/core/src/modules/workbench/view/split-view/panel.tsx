@@ -32,9 +32,8 @@ import {
 } from './state';
 import { allowedSplitViewEntityTypes } from './types';
 
-export interface SplitViewPanelProps extends PropsWithChildren<
-  HTMLAttributes<HTMLDivElement>
-> {
+export interface SplitViewPanelProps
+  extends PropsWithChildren<HTMLAttributes<HTMLDivElement>> {
   view: View;
   index: number;
   resizeHandle?: React.ReactNode;

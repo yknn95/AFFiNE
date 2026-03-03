@@ -20,11 +20,11 @@ a and b.
 
 ### a
 
-`string` | `null` | `undefined`
+`undefined` | `null` | `string`
 
 ### b
 
-`string` | `null` | `undefined`
+`undefined` | `null` | `string`
 
 ### n
 

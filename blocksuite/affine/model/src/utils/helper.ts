@@ -30,8 +30,9 @@ export type EmbedBlockModel<Props = object> = BlockModel<EmbedProps<Props>>;
 export function createEmbedBlockSchema<
   Props extends object,
   Model extends EmbedBlockModel<Props>,
-  Transformer extends BaseBlockTransformer<EmbedProps<Props>> =
-    BaseBlockTransformer<EmbedProps<Props>>,
+  Transformer extends BaseBlockTransformer<
+    EmbedProps<Props>
+  > = BaseBlockTransformer<EmbedProps<Props>>,
 >({
   name,
   version,

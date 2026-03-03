@@ -13,7 +13,6 @@ import { GeminiGenerativeConfig, GeminiVertexConfig } from './providers/gemini';
 import { MorphConfig } from './providers/morph';
 import { OpenAIConfig } from './providers/openai';
 import { PerplexityConfig } from './providers/perplexity';
-import type { TencentHunyuanConfig } from './providers/tencent-hunyuan';
 import { VertexSchema } from './providers/types';
 declare global {
   interface AppConfigSchema {
@@ -36,7 +35,6 @@ declare global {
         anthropic: ConfigItem<AnthropicOfficialConfig>;
         anthropicVertex: ConfigItem<AnthropicVertexConfig>;
         morph: ConfigItem<MorphConfig>;
-        tencentHunyuan: ConfigItem<TencentHunyuanConfig>;
       };
     };
   }
@@ -63,17 +61,6 @@ defineModuleConfig('copilot', {
         quick_text_generation: 'gemini-2.5-flash',
         polish_and_summarize: 'gemini-2.5-flash',
       },
-    },
-  },
-  'providers.tencentHunyuan': {
-    desc: 'The config for the tencent hunyuan provider.',
-    default: {
-      secretId: '',
-      secretKey: '',
-      region: 'ap-beijing',
-      // OpenAI兼容模式（可选）
-      apiKey: '',
-      baseURL: 'https://hunyuan.tencentcloudapi.com/v1',
     },
   },
   'providers.openai': {

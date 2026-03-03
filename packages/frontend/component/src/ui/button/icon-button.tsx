@@ -10,19 +10,20 @@ import {
 import { Button, type ButtonProps } from './button';
 import { iconButton, iconSizeVar } from './button.css';
 
-export interface IconButtonProps extends Omit<
-  ButtonProps,
-  | 'variant'
-  | 'size'
-  | 'prefix'
-  | 'suffix'
-  | 'children'
-  | 'prefixClassName'
-  | 'prefixStyle'
-  | 'suffix'
-  | 'suffixClassName'
-  | 'suffixStyle'
-> {
+export interface IconButtonProps
+  extends Omit<
+    ButtonProps,
+    | 'variant'
+    | 'size'
+    | 'prefix'
+    | 'suffix'
+    | 'children'
+    | 'prefixClassName'
+    | 'prefixStyle'
+    | 'suffix'
+    | 'suffixClassName'
+    | 'suffixStyle'
+  > {
   /**  Icon element */
   children?: ReactElement<SVGAttributes<SVGElement>>;
   /** Same as `children`, compatibility of the old API */

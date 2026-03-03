@@ -34,8 +34,9 @@ afterAll(() => {
 
 describe('workspace db management', () => {
   test('trash workspace', async () => {
-    const { trashWorkspace } =
-      await import('@affine/electron/helper/workspace/handlers');
+    const { trashWorkspace } = await import(
+      '@affine/electron/helper/workspace/handlers'
+    );
     const workspaceId = v4();
     const workspacePath = path.join(
       appDataPath,
@@ -57,8 +58,9 @@ describe('workspace db management', () => {
   });
 
   test('delete workspace', async () => {
-    const { deleteWorkspace } =
-      await import('@affine/electron/helper/workspace/handlers');
+    const { deleteWorkspace } = await import(
+      '@affine/electron/helper/workspace/handlers'
+    );
     const workspaceId = v4();
     const workspacePath = path.join(
       appDataPath,

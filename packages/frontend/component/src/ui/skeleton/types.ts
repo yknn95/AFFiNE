@@ -4,7 +4,8 @@ import type { HTMLAttributes, PropsWithChildren } from 'react';
  * @reference These props are migrated from [MUI Skeleton props](https://mui.com/material-ui/api/skeleton/#props)
  */
 export interface SkeletonProps
-  extends PropsWithChildren, HTMLAttributes<HTMLElement> {
+  extends PropsWithChildren,
+    HTMLAttributes<HTMLElement> {
   /**
    * The animation. If `false` the animation effect is disabled.
    */

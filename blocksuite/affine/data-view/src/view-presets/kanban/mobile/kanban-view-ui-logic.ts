@@ -136,9 +136,6 @@ export class MobileKanbanViewUI extends DataViewUIBase<MobileKanbanViewUILogic> 
     if (!groups) {
       return html``;
     }
-    const groupEntries = groups.filter(
-      (group): group is NonNullable<(typeof groups)[number]> => group != null
-    );
     const vPadding = this.logic.root.config.virtualPadding$.value;
     const wrapperStyle = styleMap({
       marginLeft: `-${vPadding}px`,
@@ -152,7 +149,7 @@ export class MobileKanbanViewUI extends DataViewUIBase<MobileKanbanViewUILogic> 
       })}
       <div class="${mobileKanbanGroups}" style="${wrapperStyle}">
         ${repeat(
-          groupEntries,
+          groups,
           group => group.key,
           group => {
             return html` <mobile-kanban-group

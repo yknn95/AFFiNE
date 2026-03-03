@@ -4,10 +4,8 @@ import type { HTMLAttributes } from 'react';
 import { MemberItem } from './item';
 import * as styles from './styles.css';
 
-interface InlineMemberListProps extends Omit<
-  HTMLAttributes<HTMLDivElement>,
-  'onChange'
-> {
+interface InlineMemberListProps
+  extends Omit<HTMLAttributes<HTMLDivElement>, 'onChange'> {
   members: string[];
   focusedIndex?: number;
   onRemove?: (id: string) => void;

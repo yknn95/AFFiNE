@@ -18,11 +18,6 @@ export const iconPicker = style({
   lineHeight: 1,
   color: cssVarV2.icon.primary,
 });
-
-export const iconContent = style({
-  display: 'contents',
-});
-
 globalStyle(`${iconPicker} span:has(svg)`, {
   lineHeight: 0,
 });

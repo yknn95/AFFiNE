@@ -68,7 +68,8 @@ export abstract class PropertyBase<
   RawValue = unknown,
   JsonValue = unknown,
   Data extends Record<string, unknown> = Record<string, unknown>,
-> implements Property<RawValue, JsonValue, Data> {
+> implements Property<RawValue, JsonValue, Data>
+{
   meta$ = computed(() => {
     return this.dataSource.propertyMetaGet(this.type$.value);
   });

@@ -50,7 +50,8 @@ type IsFourLevelsDeep<
     : false;
 
 // for type checking
-export const _assertIsAllEventsDefinedInFourLevels: IsFourLevelsDeep<Events> = true;
+export const _assertIsAllEventsDefinedInFourLevels: IsFourLevelsDeep<Events> =
+  true;
 
 export interface EventProps {
   // location

@@ -183,9 +183,8 @@ export class RevenueCatService {
       return ent.products.items;
     }
     const entId = ent.id;
-    const cachedProduct = this.productsCache.get(entId);
-    if (cachedProduct) {
-      return cachedProduct;
+    if (this.productsCache.has(entId)) {
+      return this.productsCache.get(entId)!;
     }
 
     const res = await fetch(

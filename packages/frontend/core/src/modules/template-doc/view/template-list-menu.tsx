@@ -117,7 +117,8 @@ export const TemplateListMenuContentScrollable = (
 };
 
 interface TemplateListMenuProps
-  extends TemplateListMenuContentProps, Omit<MenuProps, 'items'> {}
+  extends TemplateListMenuContentProps,
+    Omit<MenuProps, 'items'> {}
 export const TemplateListMenu = ({
   children,
   onSelect,

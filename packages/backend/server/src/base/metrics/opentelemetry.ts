@@ -13,8 +13,8 @@ import { HttpInstrumentation } from '@opentelemetry/instrumentation-http';
 import { IORedisInstrumentation } from '@opentelemetry/instrumentation-ioredis';
 import { NestInstrumentation } from '@opentelemetry/instrumentation-nestjs-core';
 import { SocketIoInstrumentation } from '@opentelemetry/instrumentation-socket.io';
-import { resourceFromAttributes } from '@opentelemetry/resources';
-import { IMetricReader, MetricProducer } from '@opentelemetry/sdk-metrics';
+import { Resource } from '@opentelemetry/resources';
+import { MetricProducer, MetricReader } from '@opentelemetry/sdk-metrics';
 import { NodeSDK, NodeSDKConfiguration } from '@opentelemetry/sdk-node';
 import {
   BatchSpanProcessor,
@@ -34,7 +34,7 @@ import { registerCustomMetrics } from './metrics';
 import { PrismaMetricProducer } from './prisma';
 
 export abstract class BaseOpentelemetryOptionsFactory {
-  abstract getMetricReader(): IMetricReader;
+  abstract getMetricReader(): MetricReader;
   abstract getSpanExporter(): SpanExporter;
 
   getInstractions(): Instrumentation[] {
@@ -53,7 +53,7 @@ export abstract class BaseOpentelemetryOptionsFactory {
   }
 
   getResource() {
-    return resourceFromAttributes({
+    return new Resource({
       [ATTR_K8S_NAMESPACE_NAME]: env.NAMESPACE,
       [ATTR_SERVICE_NAME]: env.FLAVOR,
       [ATTR_SERVICE_VERSION]: env.version,
@@ -82,7 +82,7 @@ export abstract class BaseOpentelemetryOptionsFactory {
 
 @Injectable()
 export class OpentelemetryOptionsFactory extends BaseOpentelemetryOptionsFactory {
-  override getMetricReader(): IMetricReader {
+  override getMetricReader(): MetricReader {
     return new PrometheusExporter({
       metricProducers: this.getMetricsProducers(),
     });

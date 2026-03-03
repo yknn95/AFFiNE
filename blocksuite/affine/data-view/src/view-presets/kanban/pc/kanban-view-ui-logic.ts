@@ -202,11 +202,7 @@ export class KanbanViewUI extends DataViewUIBase<KanbanViewUILogic> {
       return html``;
     }
 
-    const safeGroups = groups.filter(
-      (group): group is NonNullable<(typeof groups)[number]> => group != null
-    );
-
-    return html`${safeGroups.map(group => {
+    return html`${groups.map(group => {
       return html` <affine-data-view-kanban-group
         ${sortable(group.key)}
         data-key="${group.key}"
@@ -230,13 +226,8 @@ export class KanbanViewUI extends DataViewUIBase<KanbanViewUILogic> {
   }
 
   override render(): TemplateResult {
-    const groups = this.logic.groups$.value?.filter(
-      (
-        group
-      ): group is NonNullable<(typeof this.logic.groups$.value)[number]> =>
-        group != null
-    );
-    if (!groups || groups.length === 0) {
+    const groups = this.logic.groups$.value;
+    if (!groups) {
       return html``;
     }
 

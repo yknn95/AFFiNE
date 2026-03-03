@@ -1,10 +1,18 @@
-import { Array as YArray, Doc as YDoc, Map as YMap } from 'yjs';
+// TODO(@forehalo):
+//   Because of the `@affine/server` package can't import directly from workspace packages,
+//   this is a temporary solution to get the block suite data(title, description) from given yjs binary or yjs doc.
+//   The logic is mainly copied from
+//     - packages/frontend/core/src/modules/docs-search/worker/in-worker.ts
+//     - packages/frontend/core/src/components/page-list/use-block-suite-page-preview.ts
+//   and it's better to be provided by blocksuite
 
+// eslint-disable-next-line @typescript-eslint/no-restricted-imports -- import from bundle
 import {
-  parseYDocFromBinary,
-  parseYDocToMarkdown,
+  parsePageDoc as parseDocToMarkdown,
+  readAllBlocksFromDoc,
   readAllDocIdsFromRootDoc,
-} from '../../native';
+} from '@affine/reader/dist';
+import { applyUpdate, Array as YArray, Doc as YDoc, Map as YMap } from 'yjs';
 
 export interface PageDocContent {
   title: string;
@@ -157,49 +165,64 @@ export function parsePageDoc(
 }
 
 export function readAllDocIdsFromWorkspaceSnapshot(snapshot: Uint8Array) {
-  return readAllDocIdsFromRootDoc(Buffer.from(snapshot), false);
-}
-
-function safeParseJson<T>(str: string): T | undefined {
-  try {
-    return JSON.parse(str) as T;
-  } catch {
-    return undefined;
-  }
+  const rootDoc = new YDoc();
+  applyUpdate(rootDoc, snapshot);
+  return readAllDocIdsFromRootDoc(rootDoc, {
+    includeTrash: false,
+  });
 }
 
 export async function readAllBlocksFromDocSnapshot(
+  workspaceId: string,
   docId: string,
-  docSnapshot: Uint8Array
+  docSnapshot: Uint8Array,
+  workspaceSnapshot?: Uint8Array,
+  maxSummaryLength?: number
 ) {
-  const result = parseYDocFromBinary(Buffer.from(docSnapshot), docId);
-
-  return {
-    ...result,
-    blocks: result.blocks.map(block => ({
-      ...block,
-      docId,
-      ref: block.refInfo,
-      additional: block.additional
-        ? safeParseJson(block.additional)
-        : undefined,
-    })),
-  };
+  let rootYDoc: YDoc | undefined;
+  if (workspaceSnapshot) {
+    rootYDoc = new YDoc({
+      guid: workspaceId,
+    });
+    applyUpdate(rootYDoc, workspaceSnapshot);
+  }
+  const ydoc = new YDoc({
+    guid: docId,
+  });
+  applyUpdate(ydoc, docSnapshot);
+  return await readAllBlocksFromDoc({
+    ydoc,
+    rootYDoc,
+    spaceId: workspaceId,
+    maxSummaryLength,
+  });
 }
 
 export function parseDocToMarkdownFromDocSnapshot(
+  workspaceId: string,
   docId: string,
   docSnapshot: Uint8Array,
   aiEditable = false
 ) {
-  const parsed = parseYDocToMarkdown(
-    Buffer.from(docSnapshot),
-    docId,
-    aiEditable
-  );
+  const ydoc = new YDoc({
+    guid: docId,
+  });
+  applyUpdate(ydoc, docSnapshot);
+
+  const parsed = parseDocToMarkdown({
+    workspaceId,
+    doc: ydoc,
+    buildBlobUrl: (blobId: string) => {
+      return `/${workspaceId}/blobs/${blobId}`;
+    },
+    buildDocUrl: (docId: string) => {
+      return `/workspace/${workspaceId}/${docId}`;
+    },
+    aiEditable,
+  });
 
   return {
     title: parsed.title,
-    markdown: parsed.markdown,
+    markdown: parsed.md,
   };
 }

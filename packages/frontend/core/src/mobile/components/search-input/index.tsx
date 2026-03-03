@@ -16,10 +16,8 @@ import {
 
 import * as styles from './style.css';
 
-export interface SearchInputProps extends Omit<
-  HTMLProps<HTMLInputElement>,
-  'onInput'
-> {
+export interface SearchInputProps
+  extends Omit<HTMLProps<HTMLInputElement>, 'onInput'> {
   value?: string;
   height?: number;
   cornerRadius?: number;

@@ -150,7 +150,6 @@ export const KNOWN_CONFIG_GROUPS = [
       'providers.perplexity',
       'providers.anthropic',
       'providers.fal',
-      'providers.tencentHunyuan',
       'unsplash',
       'exa',
       {

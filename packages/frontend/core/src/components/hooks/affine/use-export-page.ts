@@ -24,7 +24,6 @@ import {
   download,
   HtmlTransformer,
   MarkdownTransformer,
-  PdfTransformer,
   ZipTransformer,
 } from '@blocksuite/affine/widgets/linked-doc';
 import { useLiveData, useService } from '@toeverything/infra';
@@ -33,13 +32,7 @@ import { nanoid } from 'nanoid';
 
 import { useAsyncCallback } from '../affine-async-hooks';
 
-type ExportType =
-  | 'pdf'
-  | 'html'
-  | 'png'
-  | 'markdown'
-  | 'snapshot'
-  | 'pdf-export';
+type ExportType = 'pdf' | 'html' | 'png' | 'markdown' | 'snapshot';
 
 interface ExportHandlerOptions {
   page: Store;
@@ -169,10 +162,6 @@ async function exportHandler({
       return;
     case 'png': {
       await editorRoot?.std.get(ExportManager).exportPng();
-      return;
-    }
-    case 'pdf-export': {
-      await PdfTransformer.exportDoc(page);
       return;
     }
   }

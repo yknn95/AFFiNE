@@ -88,6 +88,31 @@ const AllDocsButton = () => {
   );
 };
 
+const AIChatButton = () => {
+  const featureFlagService = useService(FeatureFlagService);
+  const serverService = useService(ServerService);
+  const serverFeatures = useLiveData(serverService.server.features$);
+  const enableAI = useLiveData(featureFlagService.flags.enable_ai.$);
+
+  const { workbenchService } = useServices({
+    WorkbenchService,
+  });
+  const workbench = workbenchService.workbench;
+  const aiChatActive = useLiveData(
+    workbench.location$.selector(location => location.pathname === '/chat')
+  );
+
+  if (!enableAI || !serverFeatures?.copilot) {
+    return null;
+  }
+
+  return (
+    <MenuLinkItem icon={<AiOutlineIcon />} active={aiChatActive} to={'/chat'}>
+      <span data-testid="ai-chat">Intelligence</span>
+    </MenuLinkItem>
+  );
+};
+
 /**
  * This is for the whole affine app sidebar.
  * This component wraps the app sidebar in `@affine/component` with logic and data.
@@ -186,6 +211,7 @@ export const RootAppSidebar = memo((): ReactElement => {
         <AllDocsButton />
         <AppSidebarJournalButton />
         {sessionStatus === 'authenticated' && <NotificationButton />}
+        <AIChatButton />
         <MenuItem
           data-testid="slider-bar-workspace-setting-button"
           icon={<SettingsIcon />}
@@ -217,17 +243,8 @@ export const RootAppSidebar = memo((): ReactElement => {
           </MenuItem>
           <InviteMembersButton />
           <TemplateDocEntrance />
-          <ExternalMenuLinkItem
-            href="https://affine.pro/blog?tag=Release+Note"
-            icon={<JournalIcon />}
-            label={t['com.affine.app-sidebar.learn-more']()}
-          />
         </CollapsibleSection>
       </SidebarScrollableContainer>
-      <SidebarContainer className={bottomContainer}>
-        <SidebarAudioPlayer />
-        {BUILD_CONFIG.isElectron ? <UpdaterButton /> : <AppDownloadButton />}
-      </SidebarContainer>
     </AppSidebar>
   );
 });

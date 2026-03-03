@@ -1,5 +1,4 @@
 import { dirname, join } from 'path';
-import { fileURLToPath } from 'url';
 import { StorybookConfig } from '@storybook/react-vite';
 import { vanillaExtractPlugin } from '@vanilla-extract/vite-plugin';
 import swc from 'unplugin-swc';
@@ -69,6 +68,5 @@ export default {
 } satisfies StorybookConfig;
 
 function getAbsolutePath(value: string): any {
-  return dirname(fileURLToPath(import.meta.resolve(join(value, 'package.json'))));
+  return dirname(require.resolve(join(value, 'package.json')));
 }
-

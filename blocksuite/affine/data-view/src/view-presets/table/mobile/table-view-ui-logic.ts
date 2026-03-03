@@ -108,13 +108,10 @@ export class MobileTableViewUI extends DataViewUIBase<MobileTableViewUILogic> {
   private renderTable() {
     const groups = this.logic.view.groupTrait.groupsDataList$.value;
     if (groups) {
-      const groupEntries = groups.filter(
-        (group): group is NonNullable<(typeof groups)[number]> => group != null
-      );
       return html`
         <div style="display:flex;flex-direction: column;gap: 16px;">
           ${repeat(
-            groupEntries,
+            groups,
             v => v.key,
             group => {
               return html` <mobile-table-group

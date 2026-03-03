@@ -74,7 +74,7 @@ The bound of the element without considering the response extension.
 
 #### Get Signature
 
-> **get** **lockedBySelf**(): `boolean` \| `undefined`
+> **get** **lockedBySelf**(): `undefined` \| `boolean`
 
 Indicates whether the current block is explicitly locked by self.
 For checking the lock status of the element, use `isLocked` instead.
@@ -82,7 +82,7 @@ For (un)locking the element, use `(un)lock` instead.
 
 ##### Returns
 
-`boolean` \| `undefined`
+`undefined` \| `boolean`
 
 #### Set Signature
 
@@ -96,7 +96,7 @@ For (un)locking the element, use `(un)lock` instead.
 
 ###### lockedBySelf
 
-`boolean` | `undefined`
+`undefined` | `boolean`
 
 ##### Returns
 

@@ -107,8 +107,7 @@ export const AttachmentFallback = ({ model, ext }: ErrorProps) => {
   const Icon = FILE_ICONS[model.props.type] ?? FileIcon;
   const title = t['com.affine.attachment.preview.error.title']();
   const subtitle = `.${ext} ${t['com.affine.attachment.preview.error.subtitle']()}`;
-  
-// 状态变量
+  // 状态变量
   const [mediaUrl, setMediaUrl] = useState<string | null>(null);
   const [isError, setIsError] = useState(false);
   // 判断是否为视频或音频文件
@@ -120,7 +119,7 @@ export const AttachmentFallback = ({ model, ext }: ErrorProps) => {
       const fetchMediaUrl = async () => {
         try {
           const blob = await getAttachmentBlob(model);
-          const url = URL.createObjectURL(blob as Blob);
+          const url = URL.createObjectURL(blob);
           setMediaUrl(url);
         } catch (error) {
           console.error("Error fetching video URL:", error);

@@ -12,7 +12,7 @@ import { repeat } from 'lit/directives/repeat.js';
 import { styleMap } from 'lit/directives/style-map.js';
 import { html } from 'lit/static-html.js';
 
-import type { Group, GroupTrait } from '../../../core/group-by/trait.js';
+import type { GroupTrait } from '../../../core/group-by/trait.js';
 import {
   createUniComponentFromWebComponent,
   renderUniLit,
@@ -30,7 +30,6 @@ import { TableSelectionController } from './controller/selection.js';
 import {
   addGroupIconStyle,
   addGroupStyle,
-  groupsHiddenMessageStyle,
   tableGroupsContainerStyle,
   tableScrollContainerStyle,
   tableViewStyle,
@@ -155,27 +154,26 @@ export class TableViewUI extends DataViewUIBase<TableViewUILogic> {
   }
 
   private renderTable() {
-    const groups = this.logic.view.groupTrait.groupsDataList$.value?.filter(
-      (g): g is Group => g !== undefined
-    );
-    if (groups && groups.length) {
+    const groups = this.logic.view.groupTrait.groupsDataList$.value;
+    if (groups) {
       return html`
         <div class="${tableGroupsContainerStyle}">
           ${repeat(
             groups,
-            group => group.key,
-            group =>
-              html`<affine-data-view-table-group
+            v => v.key,
+            group => {
+              return html` <affine-data-view-table-group
                 data-group-key="${group.key}"
                 .tableViewLogic="${this.logic}"
                 .group="${group}"
-              ></affine-data-view-table-group>`
+              ></affine-data-view-table-group>`;
+            }
           )}
           ${this.logic.renderAddGroup(this.logic.view.groupTrait)}
         </div>
       `;
     }
-    return html`<affine-data-view-table-group
+    return html` <affine-data-view-table-group
       .tableViewLogic="${this.logic}"
     ></affine-data-view-table-group>`;
   }
@@ -207,11 +205,7 @@ export class TableViewUI extends DataViewUIBase<TableViewUILogic> {
             class="affine-database-table-container"
             style="${containerStyle}"
           >
-            ${this.logic.view.groupTrait.allHidden$.value
-              ? html`<div class="${groupsHiddenMessageStyle}">
-                  All groups are hidden
-                </div>`
-              : this.renderTable()}
+            ${this.renderTable()}
           </div>
         </div>
       </div>

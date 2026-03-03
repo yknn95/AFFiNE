@@ -11,10 +11,8 @@ import { forwardRef } from 'react';
 import { NavigationBackButton } from '../navigation-back';
 import * as styles from './styles.css';
 
-export interface PageHeaderProps extends Omit<
-  HtmlHTMLAttributes<HTMLHeadElement>,
-  'prefix'
-> {
+export interface PageHeaderProps
+  extends Omit<HtmlHTMLAttributes<HTMLHeadElement>, 'prefix'> {
   /**
    * whether to show back button
    */

@@ -7,7 +7,8 @@ import { useDropTarget } from '../../ui/dnd';
 import { Tooltip, type TooltipProps } from '../../ui/tooltip';
 import * as styles from './resize-panel.css';
 
-export interface ResizeHandleProps extends React.HtmlHTMLAttributes<HTMLDivElement> {
+export interface ResizeHandleProps
+  extends React.HtmlHTMLAttributes<HTMLDivElement> {
   resizing: boolean;
   open: boolean;
   minWidth: number;
@@ -26,7 +27,8 @@ export interface ResizeHandleProps extends React.HtmlHTMLAttributes<HTMLDivEleme
   dropTargetOptions?: Parameters<typeof useDropTarget>[0];
 }
 
-export interface ResizePanelProps extends React.HtmlHTMLAttributes<HTMLDivElement> {
+export interface ResizePanelProps
+  extends React.HtmlHTMLAttributes<HTMLDivElement> {
   resizing: boolean;
   open: boolean;
   floating?: boolean;

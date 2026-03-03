@@ -24,7 +24,7 @@ export const popCreateFilter = (
     middleware?: Middleware[];
   }
 ) => {
-  const subHandler = popMenu(target, {
+  popMenu(target, {
     middleware: ops?.middleware,
     options: {
       onClose: props.onClose,
@@ -64,5 +64,4 @@ export const popCreateFilter = (
       ],
     },
   });
-  subHandler.menu.menuElement.style.minHeight = '550px';
 };

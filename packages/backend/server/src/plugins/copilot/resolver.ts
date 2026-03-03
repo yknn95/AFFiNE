@@ -77,10 +77,9 @@ class CreateChatSessionInput {
 }
 
 @InputType()
-class UpdateChatSessionInput implements Omit<
-  UpdateChatSession,
-  'userId' | 'title'
-> {
+class UpdateChatSessionInput
+  implements Omit<UpdateChatSession, 'userId' | 'title'>
+{
   @Field(() => String)
   sessionId!: string;
 

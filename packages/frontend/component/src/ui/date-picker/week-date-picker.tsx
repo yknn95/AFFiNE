@@ -22,10 +22,8 @@ export interface WeekDatePickerHandle {
   setCursor?: (cursor: dayjs.Dayjs) => void;
 }
 
-export interface WeekDatePickerProps extends Omit<
-  HTMLAttributes<HTMLDivElement>,
-  'onChange'
-> {
+export interface WeekDatePickerProps
+  extends Omit<HTMLAttributes<HTMLDivElement>, 'onChange'> {
   value?: string;
   onChange?: (value: string) => void;
   handleRef?: ForwardedRef<WeekDatePickerHandle>;

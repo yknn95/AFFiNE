@@ -106,13 +106,13 @@ Get the signal for the readonly state of the store.
 
 #### Get Signature
 
-> **get** **root**(): `BlockModel`\<`object`\> \| `null`
+> **get** **root**(): `null` \| `BlockModel`\<`object`\>
 
 Get the root block of the store.
 
 ##### Returns
 
-`BlockModel`\<`object`\> \| `null`
+`null` \| `BlockModel`\<`object`\>
 
 ***
 
@@ -146,7 +146,7 @@ Optional properties for the new block
 
 Optional parent block or parent block ID
 
-`string` | `BlockModel`\<`object`\> | `null`
+`null` | `string` | `BlockModel`\<`object`\>
 
 ##### parentIndex?
 
@@ -184,7 +184,7 @@ Array of blocks to add
 
 Optional parent block or parent block ID
 
-`string` | `BlockModel`\<`object`\> | `null`
+`null` | `string` | `BlockModel`\<`object`\>
 
 ##### parentIndex?
 
@@ -286,7 +286,7 @@ Array of all models
 
 ### getBlock()
 
-> **getBlock**(`id`): `Block` \| `undefined`
+> **getBlock**(`id`): `undefined` \| `Block`
 
 Gets a block by its ID
 
@@ -300,7 +300,7 @@ The block's ID
 
 #### Returns
 
-`Block` \| `undefined`
+`undefined` \| `Block`
 
 The block instance if found, undefined otherwise
 
@@ -308,7 +308,7 @@ The block instance if found, undefined otherwise
 
 ### getBlock$()
 
-> **getBlock$**(`id`): `Block` \| `undefined`
+> **getBlock$**(`id`): `undefined` \| `Block`
 
 Gets a block by its ID
 
@@ -322,7 +322,7 @@ The block's ID
 
 #### Returns
 
-`Block` \| `undefined`
+`undefined` \| `Block`
 
 The block instance in signal if found, undefined otherwise
 
@@ -352,7 +352,7 @@ Array of matching blocks
 
 ### getModelById()
 
-> **getModelById**\<`Model`\>(`id`): `Model` \| `null`
+> **getModelById**\<`Model`\>(`id`): `null` \| `Model`
 
 Get a model by its ID
 
@@ -372,7 +372,7 @@ The model's ID
 
 #### Returns
 
-`Model` \| `null`
+`null` \| `Model`
 
 The model instance if found, null otherwise
 
@@ -402,7 +402,7 @@ Array of matching models
 
 ### getNext()
 
-> **getNext**(`block`): `BlockModel`\<`object`\> \| `null`
+> **getNext**(`block`): `null` \| `BlockModel`\<`object`\>
 
 Get the next sibling block of a given block
 
@@ -416,7 +416,7 @@ Block model or block ID to find next sibling for
 
 #### Returns
 
-`BlockModel`\<`object`\> \| `null`
+`null` \| `BlockModel`\<`object`\>
 
 The next sibling block model if found, null otherwise
 
@@ -446,7 +446,7 @@ Array of next sibling blocks if found, empty array otherwise
 
 ### getParent()
 
-> **getParent**(`target`): `BlockModel`\<`object`\> \| `null`
+> **getParent**(`target`): `null` \| `BlockModel`\<`object`\>
 
 Gets the parent block of a given block
 
@@ -460,7 +460,7 @@ Block model or block ID to find parent for
 
 #### Returns
 
-`BlockModel`\<`object`\> \| `null`
+`null` \| `BlockModel`\<`object`\>
 
 The parent block model if found, null otherwise
 
@@ -468,7 +468,7 @@ The parent block model if found, null otherwise
 
 ### getPrev()
 
-> **getPrev**(`block`): `BlockModel`\<`object`\> \| `null`
+> **getPrev**(`block`): `null` \| `BlockModel`\<`object`\>
 
 Get the previous sibling block of a given block
 
@@ -482,7 +482,7 @@ Block model or block ID to find previous sibling for
 
 #### Returns
 
-`BlockModel`\<`object`\> \| `null`
+`null` \| `BlockModel`\<`object`\>
 
 The previous sibling block model if found, null otherwise
 
@@ -556,7 +556,7 @@ The new parent block model
 
 Optional target sibling block model
 
-`BlockModel`\<`object`\> | `null`
+`null` | `BlockModel`\<`object`\>
 
 ##### shouldInsertBeforeSibling
 
@@ -652,7 +652,7 @@ The extension instance
 
 #### Get Signature
 
-> **get** **getOptional**(): \<`T`\>(`identifier`, `options?`) => `T` \| `null`
+> **get** **getOptional**(): \<`T`\>(`identifier`, `options?`) => `null` \| `T`
 
 Optional get an extension instance from the store.
 The major difference between `get` and `getOptional` is that `getOptional` will not throw an error if the extension is not found.
@@ -667,7 +667,7 @@ const extension = store.getOptional(SomeExtension);
 
 The extension instance
 
-> \<`T`\>(`identifier`, `options?`): `T` \| `null`
+> \<`T`\>(`identifier`, `options?`): `null` \| `T`
 
 ###### Type Parameters
 
@@ -687,7 +687,7 @@ The extension instance
 
 ###### Returns
 
-`T` \| `null`
+`null` \| `T`
 
 ***
 

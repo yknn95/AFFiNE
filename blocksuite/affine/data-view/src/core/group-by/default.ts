@@ -18,7 +18,6 @@ export const defaultGroupBy = (
         type: 'groupBy',
         columnId: propertyId,
         name: name,
-        hideEmpty: true,
       }
     : undefined;
 };
