@@ -14,8 +14,14 @@ export class ImageBlockTransformer extends BaseBlockTransformer<ImageBlockProps>
   ): Promise<SnapshotNode<ImageBlockProps>> {
     const snapshotRet = await super.fromSnapshot(payload);
     const sourceId = snapshotRet.props.sourceId;
-    if (!payload.assets.isEmpty() && sourceId && !sourceId.startsWith('/'))
-      await payload.assets.writeToBlob(sourceId);
+    const originalSourceId = snapshotRet.props.originalSourceId;
+    
+    if (!payload.assets.isEmpty()) {
+      if (sourceId && !sourceId.startsWith('/'))
+        await payload.assets.writeToBlob(sourceId);
+      if (originalSourceId && !originalSourceId.startsWith('/'))
+        await payload.assets.writeToBlob(originalSourceId);
+    }
 
     return snapshotRet;
   }
@@ -25,9 +31,14 @@ export class ImageBlockTransformer extends BaseBlockTransformer<ImageBlockProps>
   ): BlockSnapshotLeaf {
     const snapshotRet = super.toSnapshot(snapshot);
     const sourceId = snapshot.model.props.sourceId;
+    const originalSourceId = snapshot.model.props.originalSourceId;
+    const pathBlobIdMap = snapshot.assets.getPathBlobIdMap();
+    
     if (sourceId) {
-      const pathBlobIdMap = snapshot.assets.getPathBlobIdMap();
       pathBlobIdMap.set(snapshot.model.id, sourceId);
+    }
+    if (originalSourceId) {
+      pathBlobIdMap.set(`${snapshot.model.id}-original`, originalSourceId);
     }
     return snapshotRet;
   }

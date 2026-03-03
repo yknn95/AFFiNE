@@ -339,9 +339,13 @@ function hasExceeded(
 
 async function buildPropsWith(std: BlockStdScope, file: File) {
   const { size } = file;
-  const [imageSize, sourceId] = await Promise.all([
+  const webpBlob = await convertToWebP(file);
+  
+  // Save both original image and WebP thumbnail
+  const [imageSize, sourceId, originalSourceId] = await Promise.all([
     readImageSize(file),
-    std.store.blobSync.set(await convertToWebP(file)),
+    std.store.blobSync.set(webpBlob),
+    std.store.blobSync.set(file),
   ]);
 
   if (!(imageSize.width * imageSize.height)) {
@@ -349,7 +353,13 @@ async function buildPropsWith(std: BlockStdScope, file: File) {
     throw new Error('Failed to read image size');
   }
 
-  return { size, sourceId, ...imageSize } satisfies Partial<ImageBlockProps>;
+  return { 
+    size, 
+    sourceId, 
+    originalSourceId, 
+    originalSize: file.size,
+    ...imageSize 
+  } satisfies Partial<ImageBlockProps>;
 }
 
 export async function addSiblingImageBlocks(

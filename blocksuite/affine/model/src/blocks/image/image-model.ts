@@ -16,6 +16,10 @@ import { ImageBlockTransformer } from './image-transformer.js';
 export type ImageBlockProps = {
   caption?: string;
   sourceId?: string;
+  /** Original image source ID for high-resolution viewing in fullscreen */
+  originalSourceId?: string;
+  /** Original image file size in bytes */
+  originalSize?: number;
   width?: number;
   height?: number;
   rotate: number;
@@ -28,6 +32,8 @@ export type ImageBlockProps = {
 const defaultImageProps: ImageBlockProps = {
   caption: '',
   sourceId: '',
+  originalSourceId: '',
+  originalSize: -1,
   width: 0,
   height: 0,
   index: 'a0',
