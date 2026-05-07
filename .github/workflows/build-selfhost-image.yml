@@ -18,8 +18,27 @@ permissions:
   packages: 'write'
 
 jobs:
+  prepare:
+    name: Prepare Inputs
+    runs-on: ubuntu-latest
+    outputs:
+      app-version: ${{ steps.meta.outputs.app-version }}
+      git-short-hash: ${{ steps.meta.outputs.git-short-hash }}
+    steps:
+      - uses: actions/checkout@v6
+      - name: Compute metadata
+        id: meta
+        shell: bash
+        run: |
+          echo "app-version=$(jq -r '.version' package.json)" >> "$GITHUB_OUTPUT"
+          echo "git-short-hash=$(git rev-parse --short HEAD)" >> "$GITHUB_OUTPUT"
+
   build-image:
     name: Build Image
+    needs:
+      - prepare
     uses: ./.github/workflows/build-images.yml
     with:
-      flavor: ${{ github.event.inputs.flavor }}
+      build-type: ${{ github.event.inputs.flavor }}
+      app-version: ${{ needs.prepare.outputs.app-version }}
+      git-short-hash: ${{ needs.prepare.outputs.git-short-hash }}
