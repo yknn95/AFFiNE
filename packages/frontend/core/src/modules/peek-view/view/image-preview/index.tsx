@@ -271,21 +271,27 @@ export type ImagePreviewModalProps = {
 const useImageBlob = (
   docCollection: Workspace,
   docId: string,
-  blockId: string
+  blockId: string,
+  useOriginal = true
 ) => {
   const { data, error, isLoading } = useSWR(
-    ['workspace', 'image', docId, blockId],
+    ['workspace', 'image', docId, blockId, useOriginal],
     {
-      fetcher: async ([_, __, pageId, blockId]) => {
+      fetcher: async ([_, __, pageId, blockId, shouldUseOriginal]) => {
         const page = docCollection.getDoc(pageId)?.getStore();
         const block = page?.getBlock(blockId);
         if (!block) {
           return null;
         }
         const blockModel = block.model as ImageBlockModel;
-        return await docCollection.blobSync.get(
-          blockModel.props.sourceId as string
-        );
+        const sourceId =
+          shouldUseOriginal && blockModel.props.originalSourceId
+            ? blockModel.props.originalSourceId
+            : blockModel.props.sourceId;
+        if (!sourceId) {
+          return null;
+        }
+        return await docCollection.blobSync.get(sourceId as string);
       },
       suspense: false,
     }

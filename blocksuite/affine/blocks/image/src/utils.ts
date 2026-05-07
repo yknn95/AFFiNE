@@ -112,6 +112,80 @@ export async function resetImageSize(
   block.store.updateBlock(model, props);
 }
 
+export async function convertToWebP(blob: Blob, quality = 0.9): Promise<Blob> {
+  return new Promise(resolve => {
+    if (blob.type === 'image/gif' || blob.type === 'image/svg+xml') {
+      resolve(blob);
+      return;
+    }
+
+    const reader = new FileReader();
+    reader.addEventListener('load', () => {
+      const img = new Image();
+      img.onload = () => {
+        try {
+          const maxDimension = 2000;
+          let width = img.naturalWidth;
+          let height = img.naturalHeight;
+
+          if (width > maxDimension || height > maxDimension) {
+            if (width > height) {
+              height = Math.round((height * maxDimension) / width);
+              width = maxDimension;
+            } else {
+              width = Math.round((width * maxDimension) / height);
+              height = maxDimension;
+            }
+          }
+
+          const canvas = document.createElement('canvas');
+          canvas.width = width;
+          canvas.height = height;
+
+          const ctx = canvas.getContext('2d');
+          if (!ctx) {
+            resolve(blob);
+            return;
+          }
+
+          ctx.drawImage(
+            img,
+            0,
+            0,
+            img.naturalWidth,
+            img.naturalHeight,
+            0,
+            0,
+            width,
+            height
+          );
+
+          canvas.toBlob(
+            webpBlob => {
+              resolve(webpBlob ?? blob);
+            },
+            'image/webp',
+            quality
+          );
+        } catch (error) {
+          console.error('Error during WebP conversion:', error);
+          resolve(blob);
+        }
+      };
+      img.onerror = () => {
+        console.warn('Failed to load image for WebP conversion');
+        resolve(blob);
+      };
+      img.src = reader.result as string;
+    });
+    reader.addEventListener('error', () => {
+      console.warn('Failed to read file for WebP conversion');
+      resolve(blob);
+    });
+    reader.readAsDataURL(blob);
+  });
+}
+
 export async function copyImageBlob(
   block: ImageBlockComponent | ImageEdgelessBlockComponent
 ) {
@@ -229,8 +303,10 @@ function hasExceeded(
 
 async function buildPropsWith(std: BlockStdScope, file: File) {
   const { size } = file;
-  const [imageSize, sourceId] = await Promise.all([
+  const webpBlob = await convertToWebP(file);
+  const [imageSize, sourceId, originalSourceId] = await Promise.all([
     readImageSize(file),
+    std.store.blobSync.set(webpBlob),
     std.store.blobSync.set(file),
   ]);
 
@@ -239,7 +315,13 @@ async function buildPropsWith(std: BlockStdScope, file: File) {
     throw new Error('Failed to read image size');
   }
 
-  return { size, sourceId, ...imageSize } satisfies Partial<ImageBlockProps>;
+  return {
+    size,
+    sourceId,
+    originalSourceId,
+    originalSize: file.size,
+    ...imageSize,
+  } satisfies Partial<ImageBlockProps>;
 }
 
 export async function addSiblingImageBlocks(
