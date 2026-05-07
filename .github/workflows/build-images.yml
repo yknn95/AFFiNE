@@ -173,7 +173,7 @@ jobs:
       - name: List server-native files
         run: ls -alh ./packages/backend/native
       - name: Build @affine/reader
-        run: yarn workspace @affine/reader build
+        run: node ./tools/cli/bin/runner.js affine.ts bundle -p @affine/reader
       - name: Build Server
         run: yarn workspace @affine/server build
       - name: Upload server dist
