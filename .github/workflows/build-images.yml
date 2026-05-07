@@ -163,7 +163,8 @@ jobs:
         uses: ./.github/actions/setup-node
         with:
           electron-install: false
-          extra-flags: workspaces focus @affine/server @affine/reader @affine-tools/cli @types/affine__env
+          extra-flags: workspaces focus @affine/monorepo @affine/server @affine/reader
+          full-cache: true
       - name: Download server-native
         uses: actions/download-artifact@v8
         with:
