@@ -52,11 +52,7 @@ type AttachmentResolvedStateInfo = ResolvedStateInfo & {
   kind?: TemplateResult;
 };
 
-@Peekable({
-  enableOn: ({ model }: AttachmentBlockComponent) => {
-    return model.props.type.endsWith('pdf');
-  },
-})
+@Peekable()
 export class AttachmentBlockComponent extends CaptionedBlockComponent<AttachmentBlockModel> {
   static override styles = styles;
 

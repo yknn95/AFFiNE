@@ -53,12 +53,11 @@ export enum Feature {
   // workspace
   UnlimitedWorkspace = 'unlimited_workspace',
   TeamPlan = 'team_plan_v1',
-  QuotaExceededReadonlyWorkspace = 'quota_exceeded_readonly_workspace_v1',
 }
 
 // TODO(@forehalo): may merge `FeatureShapes` and `FeatureConfigs`?
 export const FeaturesShapes = {
-  early_access: z.object({ whitelist: z.array(z.string()).readonly() }),
+  early_access: z.object({ whitelist: z.array(z.string()) }),
   unlimited_workspace: EMPTY_CONFIG,
   unlimited_copilot: EMPTY_CONFIG,
   ai_early_access: EMPTY_CONFIG,
@@ -67,7 +66,6 @@ export const FeaturesShapes = {
   pro_plan_v1: UserPlanQuotaConfig,
   lifetime_pro_plan_v1: UserPlanQuotaConfig,
   team_plan_v1: WorkspaceQuotaConfig,
-  quota_exceeded_readonly_workspace_v1: EMPTY_CONFIG,
 } satisfies Record<Feature, z.ZodObject<any>>;
 
 export type UserFeatureName = keyof Pick<
@@ -82,9 +80,7 @@ export type UserFeatureName = keyof Pick<
 >;
 export type WorkspaceFeatureName = keyof Pick<
   typeof FeaturesShapes,
-  | 'unlimited_workspace'
-  | 'team_plan_v1'
-  | 'quota_exceeded_readonly_workspace_v1'
+  'unlimited_workspace' | 'team_plan_v1'
 >;
 
 export type FeatureName = UserFeatureName | WorkspaceFeatureName;
@@ -92,82 +88,85 @@ export type FeatureConfig<T extends FeatureName> = z.infer<
   (typeof FeaturesShapes)[T]
 >;
 
-const FreeFeature = {
-  type: FeatureType.Quota,
-  configs: {
-    // quota name
-    name: 'Free',
-    blobLimit: 10 * OneMB,
-    businessBlobLimit: 100 * OneMB,
-    storageQuota: 10 * OneGB,
-    historyPeriod: 7 * OneDay,
-    memberLimit: 3,
-    copilotActionLimit: 10,
-  },
-} as const;
-
-const ProFeature = {
-  type: FeatureType.Quota,
-  configs: {
-    name: 'Pro',
-    blobLimit: 100 * OneMB,
-    storageQuota: 100 * OneGB,
-    historyPeriod: 30 * OneDay,
-    memberLimit: 10,
-    copilotActionLimit: 10,
-  },
-} as const;
-
-const LifetimeProFeature = {
-  type: FeatureType.Quota,
-  configs: {
-    name: 'Lifetime Pro',
-    blobLimit: 100 * OneMB,
-    storageQuota: 1024 * OneGB,
-    historyPeriod: 30 * OneDay,
-    memberLimit: 10,
-    copilotActionLimit: 10,
-  },
-} as const;
-
-const TeamFeature = {
-  type: FeatureType.Quota,
-  configs: {
-    name: 'Team Workspace',
-    blobLimit: 500 * OneMB,
-    storageQuota: 100 * OneGB,
-    seatQuota: 20 * OneGB,
-    historyPeriod: 30 * OneDay,
-    memberLimit: 1,
-  },
-} as const;
-
-const WhitelistFeature = {
-  type: FeatureType.Feature,
-  configs: { whitelist: [] },
-} as const;
-
-const EmptyFeature = {
-  type: FeatureType.Feature,
-  configs: {},
-} as const;
-
 export const FeatureConfigs: {
   [K in FeatureName]: {
     type: FeatureType;
     configs: FeatureConfig<K>;
+    deprecatedVersion: number;
   };
 } = {
-  get free_plan_v1() {
-    return env.selfhosted ? ProFeature : FreeFeature;
+  free_plan_v1: {
+    type: FeatureType.Quota,
+    deprecatedVersion: 4,
+    configs: {
+      name: 'Free',
+      blobLimit: 10 * OneMB,
+      businessBlobLimit: 100 * OneMB,
+      storageQuota: 10 * OneGB,
+      historyPeriod: 7 * OneDay,
+      memberLimit: 3,
+      copilotActionLimit: 10,
+    },
   },
-  pro_plan_v1: ProFeature,
-  lifetime_pro_plan_v1: LifetimeProFeature,
-  team_plan_v1: TeamFeature,
-  early_access: WhitelistFeature,
-  unlimited_workspace: EmptyFeature,
-  quota_exceeded_readonly_workspace_v1: EmptyFeature,
-  unlimited_copilot: EmptyFeature,
-  ai_early_access: EmptyFeature,
-  administrator: EmptyFeature,
+  pro_plan_v1: {
+    type: FeatureType.Quota,
+    deprecatedVersion: 2,
+    configs: {
+      name: 'Pro',
+      blobLimit: 1000 * OneMB,
+      storageQuota: 100 * OneGB,
+      historyPeriod: 30 * OneDay,
+      memberLimit: 500,
+      copilotActionLimit: 10000000000,
+    },
+  },
+  lifetime_pro_plan_v1: {
+    type: FeatureType.Quota,
+    deprecatedVersion: 1,
+    configs: {
+      name: 'Lifetime Pro',
+      blobLimit: 100 * OneMB,
+      storageQuota: 1024 * OneGB,
+      historyPeriod: 30 * OneDay,
+      memberLimit: 10,
+      copilotActionLimit: 10,
+    },
+  },
+  team_plan_v1: {
+    type: FeatureType.Quota,
+    deprecatedVersion: 1,
+    configs: {
+      name: 'Team Workspace',
+      blobLimit: 500 * OneMB,
+      storageQuota: 100 * OneGB,
+      seatQuota: 20 * OneGB,
+      historyPeriod: 30 * OneDay,
+      memberLimit: 1,
+    },
+  },
+  early_access: {
+    type: FeatureType.Feature,
+    deprecatedVersion: 2,
+    configs: { whitelist: [] },
+  },
+  unlimited_workspace: {
+    type: FeatureType.Feature,
+    deprecatedVersion: 1,
+    configs: {},
+  },
+  unlimited_copilot: {
+    type: FeatureType.Feature,
+    deprecatedVersion: 1,
+    configs: {},
+  },
+  ai_early_access: {
+    type: FeatureType.Feature,
+    deprecatedVersion: 1,
+    configs: {},
+  },
+  administrator: {
+    type: FeatureType.Feature,
+    deprecatedVersion: 1,
+    configs: {},
+  },
 };

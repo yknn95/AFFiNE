@@ -4,7 +4,7 @@ import type { AttachmentBlockModel } from '@blocksuite/affine/model';
 import { ArrowDownBigIcon } from '@blocksuite/icons/rc';
 import clsx from 'clsx';
 import type { PropsWithChildren, ReactElement } from 'react';
-import { Suspense } from 'react';
+import { Suspense, useEffect, useState } from 'react';
 import { ErrorBoundary, type FallbackProps } from 'react-error-boundary';
 
 import * as styles from './error.css';
@@ -88,30 +88,87 @@ interface ErrorProps {
   ext: string;
 }
 
+export async function getAttachmentBlob(model: AttachmentBlockModel) {
+  const { sourceId$, type$ } = model.props;
+  const sourceId = sourceId$.peek();
+  const type = type$.peek();
+  if (!sourceId) return null;
+
+  const doc = model.store;
+  const blob = await doc.blobSync.get(sourceId);
+  if (!blob) return null;
+
+  return new Blob([blob], { type });
+}
+
 export const AttachmentFallback = ({ model, ext }: ErrorProps) => {
   const t = useI18n();
   const Icon = FILE_ICONS[model.props.type] ?? FileIcon;
   const title = t['com.affine.attachment.preview.error.title']();
   const subtitle = `.${ext} ${t['com.affine.attachment.preview.error.subtitle']()}`;
+  const [mediaUrl, setMediaUrl] = useState<string | null>(null);
+  const isVideo = ['mp4', 'webm', 'avi', 'mkv', 'mov'].includes(
+    ext.toLowerCase()
+  );
+  const isAudio = ['mp3', 'wav'].includes(ext.toLowerCase());
+
+  useEffect(() => {
+    if (!isVideo && !isAudio) {
+      return;
+    }
+
+    let objectUrl: string | null = null;
+    void getAttachmentBlob(model)
+      .then(blob => {
+        if (!blob) {
+          return;
+        }
+        objectUrl = URL.createObjectURL(blob);
+        setMediaUrl(objectUrl);
+      })
+      .catch(error => {
+        console.error('Error fetching media URL:', error);
+      });
+
+    return () => {
+      if (objectUrl) {
+        URL.revokeObjectURL(objectUrl);
+      }
+    };
+  }, [isAudio, isVideo, model]);
 
   return (
-    <ErrorBase
-      icon={<Icon />}
-      title={title}
-      subtitle={subtitle}
-      buttons={[
-        <Button
-          key="download"
-          variant="primary"
-          prefix={<ArrowDownBigIcon />}
-          onClick={() => {
-            download(model).catch(console.error);
-          }}
-        >
-          Download
-        </Button>,
-      ]}
-    />
+    <div className={clsx([styles.viewer, styles.error])}>
+      {isVideo && mediaUrl ? (
+        <video width="95%" height="95%" controls>
+          <source src={mediaUrl} type={`video/${ext}`} />
+          Your browser does not support the video tag.
+        </video>
+      ) : isAudio && mediaUrl ? (
+        <audio controls>
+          <source src={mediaUrl} type={`audio/${ext}`} />
+          Your browser does not support the audio element.
+        </audio>
+      ) : (
+        <ErrorBase
+          icon={<Icon />}
+          title={title}
+          subtitle={subtitle}
+          buttons={[
+            <Button
+              key="download"
+              variant="primary"
+              prefix={<ArrowDownBigIcon />}
+              onClick={() => {
+                download(model).catch(console.error);
+              }}
+            >
+              Download
+            </Button>,
+          ]}
+        />
+      )}
+    </div>
   );
 };
 
