@@ -9,6 +9,9 @@ import type {
 } from '@affine/core/modules/cloud';
 import type { FeatureFlagService } from '@affine/core/modules/feature-flag';
 import type { CopilotChatHistoryFragment } from '@affine/graphql';
+import track, { type EventArgs } from '@affine/track';
+import { combine } from '@atlaskit/pragmatic-drag-and-drop/combine';
+import { dropTargetForElements } from '@atlaskit/pragmatic-drag-and-drop/element/adapter';
 import { SignalWatcher, WithDisposable } from '@blocksuite/affine/global/lit';
 import { unsafeCSSVar, unsafeCSSVarV2 } from '@blocksuite/affine/shared/theme';
 import type { EditorHost } from '@blocksuite/affine/std';
@@ -26,6 +29,7 @@ import { reportResponse } from '../../utils/action-reporter';
 import { readBlobAsURL } from '../../utils/image';
 import { mergeStreamObjects } from '../../utils/stream-objects';
 import type { SearchMenuConfig } from '../ai-chat-add-context';
+import { addFilesToChat } from '../ai-chat-chips/attachment-utils';
 import type { ChatChip, DocDisplayConfig } from '../ai-chat-chips/type';
 import { isDocChip } from '../ai-chat-chips/utils';
 import {
@@ -33,11 +37,7 @@ import {
   isChatMessage,
   StreamObjectSchema,
 } from '../ai-chat-messages';
-import type {
-  AIChatInputContext,
-  AINetworkSearchConfig,
-  AIReasoningConfig,
-} from './type';
+import type { AIChatInputContext, AIReasoningConfig } from './type';
 
 function getFirstTwoLines(text: string) {
   const lines = text.split('\n');
@@ -261,6 +261,31 @@ export class AIChatInput extends SignalWatcher(
       user-select: none;
     }
 
+    .chat-panel-input[data-drag-over='true'] {
+      --input-border-width: 1px;
+      --input-border-color: var(--affine-v2-layer-insideBorder-primaryBorder);
+      background-color: ${unsafeCSSVarV2('layer/background/hoverOverlay')};
+    }
+
+    .chat-panel-input-drop-overlay {
+      position: absolute;
+      inset: 0;
+      pointer-events: none;
+      border-radius: inherit;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      font-size: 13px;
+      font-weight: 500;
+      color: ${unsafeCSSVarV2('icon/activated')};
+      background-color: color-mix(
+        in srgb,
+        var(--affine-v2-layer-background-primary) 92%,
+        transparent
+      );
+      z-index: 1;
+    }
+
     .chat-panel-send {
       display: flex;
       justify-content: center;
@@ -330,6 +355,16 @@ export class AIChatInput extends SignalWatcher(
   @state()
   accessor focused = false;
 
+  @state()
+  accessor isDragOver = false;
+
+  @query('.chat-panel-input')
+  accessor chatPanelInput!: HTMLDivElement;
+
+  private _dragEnterCounter = 0;
+
+  private _internalDropCleanup: (() => void) | null = null;
+
   @property({ attribute: false })
   accessor chatContextValue!: AIChatInputContext;
 
@@ -349,9 +384,6 @@ export class AIChatInput extends SignalWatcher(
 
   @property({ attribute: false })
   accessor addChip!: (chip: ChatChip, silent?: boolean) => Promise<void>;
-
-  @property({ attribute: false })
-  accessor networkSearchConfig!: AINetworkSearchConfig;
 
   @property({ attribute: false })
   accessor reasoningConfig!: AIReasoningConfig;
@@ -401,13 +433,6 @@ export class AIChatInput extends SignalWatcher(
   @property({ attribute: false })
   accessor portalContainer: HTMLElement | null = null;
 
-  private get _isNetworkActive() {
-    return (
-      !!this.networkSearchConfig.visible.value &&
-      !!this.networkSearchConfig.enabled.value
-    );
-  }
-
   private get _isReasoningActive() {
     return !!this.reasoningConfig.enabled.value;
   }
@@ -448,6 +473,18 @@ export class AIChatInput extends SignalWatcher(
         }
       })
     );
+
+    this.updateComplete
+      .then(() => {
+        if (this.isConnected && !this._internalDropCleanup) {
+          this._setupInternalDropTarget();
+        }
+      })
+      .catch(console.error);
+
+    window.addEventListener('dragleave', this._handleWindowDragLeave);
+    window.addEventListener('drop', this._resetDragState);
+    window.addEventListener('dragend', this._resetDragState);
   }
 
   protected override firstUpdated(changedProperties: PropertyValues): void {
@@ -463,6 +500,57 @@ export class AIChatInput extends SignalWatcher(
     }
   }
 
+  override disconnectedCallback(): void {
+    super.disconnectedCallback();
+    this._internalDropCleanup?.();
+    this._internalDropCleanup = null;
+    window.removeEventListener('dragleave', this._handleWindowDragLeave);
+    window.removeEventListener('drop', this._resetDragState);
+    window.removeEventListener('dragend', this._resetDragState);
+  }
+
+  private _trackDragDrop(method: EventArgs['addEmbeddingDoc']['method']) {
+    const page = this.independentMode
+      ? track.$.intelligence
+      : track.$.chatPanel;
+    page.chatPanelInput.addEmbeddingDoc({
+      control: 'dragDrop',
+      method,
+    });
+  }
+
+  private _setupInternalDropTarget() {
+    const el = this.chatPanelInput;
+    if (!el) return;
+    const dropTargetCleanup = dropTargetForElements({
+      element: el,
+      canDrop: ({ source }) => {
+        const entity = (source.data as { entity?: { type?: string } }).entity;
+        return entity?.type === 'doc';
+      },
+      onDragEnter: () => {
+        this.isDragOver = true;
+      },
+      onDragLeave: () => {
+        this.isDragOver = false;
+      },
+      onDrop: ({ source }) => {
+        this.isDragOver = false;
+        const entity = (
+          source.data as { entity?: { type?: string; id?: string } }
+        ).entity;
+        if (entity?.type === 'doc' && entity.id) {
+          this.addChip({
+            docId: entity.id,
+            state: 'processing',
+          }).catch(console.error);
+          this._trackDragDrop('doc');
+        }
+      },
+    });
+    this._internalDropCleanup = combine(dropTargetCleanup);
+  }
+
   protected override render() {
     const { images, status } = this.chatContextValue;
     const hasImages = images.length > 0;
@@ -472,11 +560,19 @@ export class AIChatInput extends SignalWatcher(
       class="chat-panel-input"
       data-independent-mode=${this.independentMode}
       data-if-focused=${this.focused}
+      data-drag-over=${this.isDragOver}
       style=${styleMap({
         maxHeight: `${maxHeight}px !important`,
       })}
       @pointerdown=${this._handlePointerDown}
+      @dragenter=${this._handleDragEnter}
+      @dragover=${this._handleDragOver}
+      @dragleave=${this._handleDragLeave}
+      @drop=${this._handleDrop}
     >
+      ${this.isDragOver
+        ? html`<div class="chat-panel-input-drop-overlay">Drop to attach</div>`
+        : nothing}
       ${hasImages
         ? html`
             <image-preview-grid
@@ -536,9 +632,6 @@ export class AIChatInput extends SignalWatcher(
           .session=${this.session}
           .extendedThinking=${this._isReasoningActive}
           .onExtendedThinkingChange=${this._toggleReasoning}
-          .networkSearchVisible=${!!this.networkSearchConfig.visible.value}
-          .isNetworkActive=${this._isNetworkActive}
-          .onNetworkActiveChange=${this._toggleNetworkSearch}
           .serverService=${this.serverService}
           .toolsConfigService=${this.aiToolsConfigService}
           .notificationService=${this.notificationService}
@@ -628,14 +721,70 @@ export class AIChatInput extends SignalWatcher(
     }
   };
 
+  private _dragHasFiles(event: DragEvent) {
+    return Array.from(event.dataTransfer?.types ?? []).includes('Files');
+  }
+
+  private readonly _handleDragEnter = (event: DragEvent) => {
+    if (!this._dragHasFiles(event)) return;
+    event.preventDefault();
+    this._dragEnterCounter += 1;
+    this.isDragOver = true;
+  };
+
+  private readonly _handleDragOver = (event: DragEvent) => {
+    if (!this._dragHasFiles(event)) return;
+    event.preventDefault();
+    if (event.dataTransfer) {
+      event.dataTransfer.dropEffect = 'copy';
+    }
+  };
+
+  private readonly _handleDragLeave = (event: DragEvent) => {
+    if (!this._dragHasFiles(event)) return;
+    this._dragEnterCounter = Math.max(0, this._dragEnterCounter - 1);
+    if (this._dragEnterCounter === 0) {
+      this.isDragOver = false;
+    }
+  };
+
+  private readonly _resetDragState = () => {
+    if (this._dragEnterCounter === 0 && !this.isDragOver) return;
+    this._dragEnterCounter = 0;
+    this.isDragOver = false;
+  };
+
+  // Covers the cases where the drag session ends without dragleave/drop firing
+  // on the input (Esc-cancel, release outside window, drop on another element).
+  private readonly _handleWindowDragLeave = (event: DragEvent) => {
+    if (event.relatedTarget === null) this._resetDragState();
+  };
+
+  private readonly _handleDrop = async (event: DragEvent) => {
+    if (!this._dragHasFiles(event)) return;
+    event.preventDefault();
+    event.stopPropagation();
+    this._dragEnterCounter = 0;
+    this.isDragOver = false;
+
+    const files = Array.from(event.dataTransfer?.files ?? []);
+    if (!files.length) return;
+
+    try {
+      await addFilesToChat(files, {
+        addImages: this.addImages,
+        addChip: this.addChip,
+      });
+      this._trackDragDrop('file');
+    } catch (error) {
+      console.error(error);
+    }
+  };
+
   private readonly _handleAbort = () => {
     this.chatContextValue.abortController?.abort();
     this.updateContext({ status: 'success' });
     reportResponse('aborted:stop');
-  };
-
-  private readonly _toggleNetworkSearch = (isNetworkActive: boolean) => {
-    this.networkSearchConfig.setEnabled(isNetworkActive);
   };
 
   private readonly _toggleReasoning = (extendedThinking: boolean) => {
@@ -732,7 +881,6 @@ export class AIChatInput extends SignalWatcher(
         isRootSession: this.isRootSession,
         where: this.trackOptions?.where,
         control: this.trackOptions?.control,
-        webSearch: this._isNetworkActive,
         reasoning: this._isReasoningActive,
         toolsConfig: this.aiToolsConfigService.config.value,
         modelId,

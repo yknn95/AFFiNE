@@ -1,16 +1,16 @@
 import { showAILoginRequiredAtom } from '@affine/core/components/affine/auth/ai-login-required';
 import type { AIToolsConfig } from '@affine/core/modules/ai-button';
-import type { UserFriendlyError } from '@affine/error';
+import { UserFriendlyError } from '@affine/error';
 import {
   addContextBlobMutation,
   addContextCategoryMutation,
   addContextDocMutation,
   addContextFileMutation,
-  applyDocUpdatesQuery,
   cleanupCopilotSessionMutation,
   createCopilotContextMutation,
   createCopilotMessageMutation,
   createCopilotSessionMutation,
+  createCopilotSessionWithHistoryMutation,
   forkCopilotSessionMutation,
   getCopilotHistoriesQuery,
   getCopilotHistoryIdsQuery,
@@ -41,14 +41,27 @@ import {
 } from './error';
 
 export enum Endpoint {
-  Stream = 'stream',
+  Action = 'action',
   StreamObject = 'stream-object',
-  Workflow = 'workflow',
   Images = 'images',
 }
 
 type OptionsField<T extends GraphQLQuery> =
   RequestOptions<T>['variables'] extends { options: infer U } ? U : never;
+
+function toUserFriendlyError(err: any): UserFriendlyError {
+  return err instanceof UserFriendlyError
+    ? err
+    : UserFriendlyError.fromAny(err);
+}
+
+function isAbortError(error: UserFriendlyError) {
+  return (
+    error.name === 'REQUEST_ABORTED' ||
+    error.code === 'REQUEST_ABORTED' ||
+    error.message?.toLowerCase().includes('aborted') === true
+  );
+}
 
 function codeToError(error: UserFriendlyError) {
   switch (error.status) {
@@ -66,7 +79,7 @@ function codeToError(error: UserFriendlyError) {
 }
 
 export function resolveError(err: any) {
-  return codeToError(err);
+  return codeToError(toUserFriendlyError(err));
 }
 
 export function handleError(src: any) {
@@ -82,7 +95,6 @@ export class CopilotClient {
     readonly gql: <Query extends GraphQLQuery>(
       options: QueryOptions<Query>
     ) => Promise<QueryResponse<Query>>,
-    readonly fetcher: (input: string, init?: RequestInit) => Promise<Response>,
     readonly eventSource: (
       url: string,
       eventSourceInitDict?: EventSourceInit
@@ -100,6 +112,20 @@ export class CopilotClient {
         },
       });
       return res.createCopilotSession;
+    } catch (err) {
+      throw resolveError(err);
+    }
+  }
+
+  async createSessionWithHistory(
+    options: OptionsField<typeof createCopilotSessionWithHistoryMutation>
+  ) {
+    try {
+      const res = await this.gql({
+        query: createCopilotSessionWithHistoryMutation,
+        variables: { options },
+      });
+      return res.createCopilotSessionWithHistory;
     } catch (err) {
       throw resolveError(err);
     }
@@ -136,7 +162,11 @@ export class CopilotClient {
   }
 
   async createMessage(
-    options: OptionsField<typeof createCopilotMessageMutation>
+    options: OptionsField<typeof createCopilotMessageMutation>,
+    requestOptions?: Pick<
+      RequestOptions<typeof createCopilotMessageMutation>,
+      'timeout' | 'signal'
+    >
   ) {
     try {
       const res = await this.gql({
@@ -144,6 +174,8 @@ export class CopilotClient {
         variables: {
           options,
         },
+        timeout: requestOptions?.timeout,
+        signal: requestOptions?.signal,
       });
       return res.createCopilotMessage;
     } catch (err) {
@@ -185,7 +217,11 @@ export class CopilotClient {
       });
       return res.currentUser?.copilot?.chats.edges.map(e => e.node);
     } catch (err) {
-      throw resolveError(err);
+      const parsed = toUserFriendlyError(err);
+      if (isAbortError(parsed)) {
+        return [];
+      }
+      throw resolveError(parsed);
     }
   }
 
@@ -205,7 +241,11 @@ export class CopilotClient {
       });
       return res.currentUser?.copilot?.chats.edges.map(e => e.node);
     } catch (err) {
-      throw resolveError(err);
+      const parsed = toUserFriendlyError(err);
+      if (isAbortError(parsed)) {
+        return [];
+      }
+      throw resolveError(parsed);
     }
   }
 
@@ -230,7 +270,11 @@ export class CopilotClient {
 
       return res.currentUser?.copilot?.chats.edges.map(e => e.node);
     } catch (err) {
-      throw resolveError(err);
+      const parsed = toUserFriendlyError(err);
+      if (isAbortError(parsed)) {
+        return [];
+      }
+      throw resolveError(parsed);
     }
   }
 
@@ -255,7 +299,11 @@ export class CopilotClient {
 
       return res.currentUser?.copilot?.chats.edges.map(e => e.node);
     } catch (err) {
-      throw resolveError(err);
+      const parsed = toUserFriendlyError(err);
+      if (isAbortError(parsed)) {
+        return [];
+      }
+      throw resolveError(parsed);
     }
   }
 
@@ -412,64 +460,47 @@ export class CopilotClient {
     return { files, docs };
   }
 
-  async chatText({
-    sessionId,
-    messageId,
-    reasoning,
-    webSearch,
-    modelId,
-    toolsConfig,
-    signal,
-  }: {
-    sessionId: string;
-    messageId?: string;
-    reasoning?: boolean;
-    webSearch?: boolean;
-    modelId?: string;
-    toolsConfig?: AIToolsConfig;
-    signal?: AbortSignal;
-  }) {
-    let url = `/api/copilot/chat/${sessionId}`;
-    const queryString = this.paramsToQueryString({
-      messageId,
-      reasoning,
-      webSearch,
-      modelId,
-      toolsConfig,
-    });
-    if (queryString) {
-      url += `?${queryString}`;
-    }
-    const response = await this.fetcher(url.toString(), { signal });
-    return response.text();
-  }
-
   // Text or image to text
   chatTextStream(
     {
       sessionId,
       messageId,
       reasoning,
-      webSearch,
       modelId,
       toolsConfig,
+      actionId,
+      actionVersion,
+      runId,
+      retry,
+      byokLeaseId,
     }: {
       sessionId: string;
       messageId?: string;
       reasoning?: boolean;
-      webSearch?: boolean;
       modelId?: string;
       toolsConfig?: AIToolsConfig;
+      actionId?: string;
+      actionVersion?: string;
+      runId?: string;
+      retry?: boolean;
+      byokLeaseId?: string;
     },
-    endpoint = Endpoint.Stream
+    endpoint = Endpoint.StreamObject
   ) {
-    let url = `/api/copilot/chat/${sessionId}/${endpoint}`;
+    let url =
+      endpoint === Endpoint.Action
+        ? `/api/copilot/actions/${sessionId}/stream`
+        : `/api/copilot/chat/${sessionId}/${endpoint}`;
     const queryString = this.paramsToQueryString({
       messageId,
       reasoning,
-      webSearch,
       modelId,
       toolsConfig,
+      actionId,
+      actionVersion,
+      runId,
+      retry,
+      byokLeaseId,
     });
     if (queryString) {
       url += `?${queryString}`;
@@ -482,12 +513,14 @@ export class CopilotClient {
     sessionId: string,
     messageId?: string,
     seed?: string,
-    endpoint = Endpoint.Images
+    endpoint = Endpoint.Images,
+    byokLeaseId?: string
   ) {
     let url = `/api/copilot/chat/${sessionId}/${endpoint}`;
     const queryString = this.paramsToQueryString({
       messageId,
       seed,
+      byokLeaseId,
     });
     if (queryString) {
       url += `?${queryString}`;
@@ -518,23 +551,6 @@ export class CopilotClient {
       query: getWorkspaceEmbeddingStatusQuery,
       variables: { workspaceId },
     }).then(res => res.queryWorkspaceEmbeddingStatus);
-  }
-
-  applyDocUpdates(
-    workspaceId: string,
-    docId: string,
-    op: string,
-    updates: string
-  ) {
-    return this.gql({
-      query: applyDocUpdatesQuery,
-      variables: {
-        workspaceId,
-        docId,
-        op,
-        updates,
-      },
-    }).then(res => res.applyDocUpdates);
   }
 
   addContextBlob(options: OptionsField<typeof addContextBlobMutation>) {

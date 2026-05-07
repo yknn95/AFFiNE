@@ -9,7 +9,7 @@ const PackageRoot = iosPackage.path;
 
 console.log('[*] PackageRoot', PackageRoot);
 
-const version = process.argv[2] || '1.23.0'; // Default to 1.23.0 if no version provided
+const version = process.argv[2] || '1.25.4'; // Default to 1.25.4 if no version provided
 
 console.log('[*] graphql...');
 execSync(`${PackageRoot}/apollo-codegen-chore.sh "${version}"`, {
@@ -21,6 +21,7 @@ execSync(
   'cargo build -p affine_mobile_native --features use-as-lib --lib --release --target aarch64-apple-ios',
   {
     stdio: 'inherit',
+    env: { ...process.env, IPHONEOS_DEPLOYMENT_TARGET: '16.5' },
   }
 );
 

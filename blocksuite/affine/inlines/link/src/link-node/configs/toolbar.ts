@@ -72,7 +72,7 @@ export const builtinInlineLinkToolbarConfig = {
         },
         {
           id: 'edit',
-          tooltip: 'Edit',
+          tooltip: 'Edit Description',
           icon: EditIcon(),
           run(ctx) {
             const target = ctx.message$.peek()?.element;
@@ -288,7 +288,7 @@ export const builtinInlineLinkToolbarConfig = {
             .actions=${actions}
             .context=${ctx}
             .onToggle=${onToggle}
-            .viewType$=${viewType$}
+            .viewTypeSignal=${viewType$}
           ></affine-view-dropdown-menu>`
         )}`;
       },

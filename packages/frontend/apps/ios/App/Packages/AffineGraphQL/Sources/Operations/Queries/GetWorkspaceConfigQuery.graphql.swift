@@ -7,7 +7,7 @@ public class GetWorkspaceConfigQuery: GraphQLQuery {
   public static let operationName: String = "getWorkspaceConfig"
   public static let operationDocument: ApolloAPI.OperationDocument = .init(
     definition: .init(
-      #"query getWorkspaceConfig($id: String!) { workspace(id: $id) { __typename enableAi enableUrlPreview enableDocEmbedding inviteLink { __typename link expireTime } } }"#
+      #"query getWorkspaceConfig($id: String!) { workspace(id: $id) { __typename enableAi enableSharing enableUrlPreview enableDocEmbedding inviteLink { __typename link expireTime } } }"#
     ))
 
   public var id: String
@@ -26,6 +26,9 @@ public class GetWorkspaceConfigQuery: GraphQLQuery {
     public static var __selections: [ApolloAPI.Selection] { [
       .field("workspace", Workspace.self, arguments: ["id": .variable("id")]),
     ] }
+    public static var __fulfilledFragments: [any ApolloAPI.SelectionSet.Type] { [
+      GetWorkspaceConfigQuery.Data.self
+    ] }
 
     /// Get workspace by id
     public var workspace: Workspace { __data["workspace"] }
@@ -41,13 +44,19 @@ public class GetWorkspaceConfigQuery: GraphQLQuery {
       public static var __selections: [ApolloAPI.Selection] { [
         .field("__typename", String.self),
         .field("enableAi", Bool.self),
+        .field("enableSharing", Bool.self),
         .field("enableUrlPreview", Bool.self),
         .field("enableDocEmbedding", Bool.self),
         .field("inviteLink", InviteLink?.self),
       ] }
+      public static var __fulfilledFragments: [any ApolloAPI.SelectionSet.Type] { [
+        GetWorkspaceConfigQuery.Data.Workspace.self
+      ] }
 
       /// Enable AI
       public var enableAi: Bool { __data["enableAi"] }
+      /// Enable workspace sharing
+      public var enableSharing: Bool { __data["enableSharing"] }
       /// Enable url previous when sharing
       public var enableUrlPreview: Bool { __data["enableUrlPreview"] }
       /// Enable doc embedding
@@ -67,6 +76,9 @@ public class GetWorkspaceConfigQuery: GraphQLQuery {
           .field("__typename", String.self),
           .field("link", String.self),
           .field("expireTime", AffineGraphQL.DateTime.self),
+        ] }
+        public static var __fulfilledFragments: [any ApolloAPI.SelectionSet.Type] { [
+          GetWorkspaceConfigQuery.Data.Workspace.InviteLink.self
         ] }
 
         /// Invite link

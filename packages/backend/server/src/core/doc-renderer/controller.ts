@@ -1,3 +1,4 @@
+import { createHash } from 'node:crypto';
 import { readFileSync } from 'node:fs';
 import { join } from 'node:path';
 
@@ -5,11 +6,12 @@ import { Controller, Get, Logger, Req, Res } from '@nestjs/common';
 import type { Request, Response } from 'express';
 import isMobile from 'is-mobile';
 
-import { Config, metrics } from '../../base';
+import { Config, getRequestTrackerId, metrics } from '../../base';
 import { Models } from '../../models';
 import { htmlSanitize } from '../../native';
 import { Public } from '../auth';
 import { DocReader } from '../doc';
+import { WorkspacePolicyService } from '../permission';
 
 interface RenderOptions {
   title: string;
@@ -43,6 +45,12 @@ const staticPaths = new Set([
   'trash',
 ]);
 
+const markdownType = new Set([
+  'text/markdown',
+  'application/markdown',
+  'text/x-markdown',
+]);
+
 @Controller('/workspace')
 export class DocRendererController {
   private readonly logger = new Logger(DocRendererController.name);
@@ -52,12 +60,20 @@ export class DocRendererController {
   constructor(
     private readonly doc: DocReader,
     private readonly models: Models,
-    private readonly config: Config
+    private readonly config: Config,
+    private readonly policy: WorkspacePolicyService
   ) {
     this.webAssets = this.readHtmlAssets(join(env.projectRoot, 'static'));
     this.mobileAssets = this.readHtmlAssets(
       join(env.projectRoot, 'static/mobile')
     );
+  }
+
+  private buildVisitorId(req: Request, workspaceId: string, docId: string) {
+    const tracker = getRequestTrackerId(req);
+    return createHash('sha256')
+      .update(`${workspaceId}:${docId}:${tracker}`)
+      .digest('hex');
   }
 
   @Public()
@@ -73,16 +89,62 @@ export class DocRendererController {
 
     let opts: RenderOptions | null = null;
     // /workspace/:workspaceId/{:docId | staticPaths}
-    const [, , workspaceId, subPath, ...restPaths] = req.path.split('/');
+    const [, , workspaceId, sub, ...rest] = req.path.split('/');
+    const isWorkspace =
+      workspaceId && sub && !staticPaths.has(sub) && rest.length === 0;
+    const isDocPath = isWorkspace && workspaceId !== sub;
+
+    if (
+      isDocPath &&
+      req.accepts().some(t => markdownType.has(t.toLowerCase()))
+    ) {
+      try {
+        const canReadMarkdown = await this.policy.canReadSharedDoc(
+          workspaceId,
+          sub
+        );
+        if (!canReadMarkdown) {
+          res.status(404).end();
+          return;
+        }
+
+        const markdown = await this.doc.getDocMarkdown(workspaceId, sub, false);
+        if (markdown) {
+          res.setHeader('Content-Type', 'text/markdown; charset=utf-8');
+          res.send(markdown.markdown);
+          return;
+        }
+      } catch (e) {
+        this.logger.error('failed to render markdown page', e);
+      }
+
+      res.status(404).end();
+      return;
+    }
 
     // /:workspaceId/:docId
-    if (workspaceId && !staticPaths.has(subPath) && restPaths.length === 0) {
+    if (isWorkspace) {
       try {
-        opts =
-          workspaceId === subPath
-            ? await this.getWorkspaceContent(workspaceId)
-            : await this.getPageContent(workspaceId, subPath);
+        opts = isDocPath
+          ? await this.getPageContent(workspaceId, sub)
+          : await this.getWorkspaceContent(workspaceId);
         metrics.doc.counter('render').add(1);
+
+        if (opts && isDocPath) {
+          void this.models.workspaceAnalytics
+            .recordDocView({
+              workspaceId,
+              docId: sub,
+              visitorId: this.buildVisitorId(req, workspaceId, sub),
+              isGuest: true,
+            })
+            .catch(error => {
+              this.logger.warn(
+                `Failed to record shared page view: ${workspaceId}/${sub}`,
+                error as Error
+              );
+            });
+        }
       } catch (e) {
         this.logger.error('failed to render page', e);
       }
@@ -100,15 +162,7 @@ export class DocRendererController {
     workspaceId: string,
     docId: string
   ): Promise<RenderOptions | null> {
-    let allowUrlPreview = await this.models.doc.isPublic(workspaceId, docId);
-
-    if (!allowUrlPreview) {
-      // if page is private, but workspace url preview is on
-      allowUrlPreview =
-        await this.models.workspace.allowUrlPreview(workspaceId);
-    }
-
-    if (allowUrlPreview) {
+    if (await this.policy.canPreviewDoc(workspaceId, docId)) {
       return this.doc.getDocContent(workspaceId, docId);
     }
 
@@ -118,19 +172,18 @@ export class DocRendererController {
   private async getWorkspaceContent(
     workspaceId: string
   ): Promise<RenderOptions | null> {
-    const allowUrlPreview =
-      await this.models.workspace.allowUrlPreview(workspaceId);
+    const canPreviewWorkspace =
+      await this.policy.canPreviewWorkspace(workspaceId);
+    if (!canPreviewWorkspace) return null;
 
-    if (allowUrlPreview) {
-      const workspaceContent = await this.doc.getWorkspaceContent(workspaceId);
+    const workspaceContent = await this.doc.getWorkspaceContent(workspaceId);
 
-      if (workspaceContent) {
-        return {
-          title: workspaceContent.name,
-          summary: '',
-          avatar: workspaceContent.avatarUrl,
-        };
-      }
+    if (workspaceContent) {
+      return {
+        title: workspaceContent.name,
+        summary: '',
+        avatar: workspaceContent.avatarUrl,
+      };
     }
 
     return null;

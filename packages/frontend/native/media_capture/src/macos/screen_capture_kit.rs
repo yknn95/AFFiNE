@@ -3,8 +3,8 @@ use std::{
   ffi::c_void,
   ptr,
   sync::{
-    atomic::{AtomicPtr, Ordering},
     Arc, LazyLock, RwLock,
+    atomic::{AtomicPtr, Ordering},
   },
 };
 
@@ -14,11 +14,10 @@ use core_foundation::{
   string::{CFString, CFStringRef},
 };
 use coreaudio::sys::{
-  kAudioHardwarePropertyProcessObjectList, kAudioObjectPropertyElementMain,
+  AudioObjectAddPropertyListenerBlock, AudioObjectID, AudioObjectPropertyAddress,
+  AudioObjectRemovePropertyListenerBlock, kAudioHardwarePropertyProcessObjectList, kAudioObjectPropertyElementMain,
   kAudioObjectPropertyScopeGlobal, kAudioObjectSystemObject, kAudioProcessPropertyBundleID,
   kAudioProcessPropertyIsRunning, kAudioProcessPropertyIsRunningInput, kAudioProcessPropertyPID,
-  AudioObjectAddPropertyListenerBlock, AudioObjectID, AudioObjectPropertyAddress,
-  AudioObjectRemovePropertyListenerBlock,
 };
 use libc;
 use napi::{
@@ -27,15 +26,15 @@ use napi::{
 };
 use napi_derive::napi;
 use objc2::{
-  msg_send,
+  Encode, Encoding, msg_send,
   runtime::{AnyClass, AnyObject},
-  Encode, Encoding,
 };
 use objc2_foundation::NSString;
 use screencapturekit::shareable_content::SCShareableContent;
 use uuid::Uuid;
 
 use crate::{
+  audio_callback::AudioCallback,
   error::CoreAudioError,
   pid::{audio_process_list, get_process_property},
   tap_audio::{AggregateDeviceManager, AudioCaptureSession},
@@ -71,20 +70,16 @@ unsafe impl Encode for CGRect {
   const ENCODING: Encoding = Encoding::Struct("CGRect", &[<CGPoint>::ENCODING, <CGSize>::ENCODING]);
 }
 
-static RUNNING_APPLICATIONS: LazyLock<
-  RwLock<std::result::Result<Vec<AudioObjectID>, CoreAudioError>>,
-> = LazyLock::new(|| RwLock::new(audio_process_list()));
+static RUNNING_APPLICATIONS: LazyLock<RwLock<std::result::Result<Vec<AudioObjectID>, CoreAudioError>>> =
+  LazyLock::new(|| RwLock::new(audio_process_list()));
 
-type ApplicationStateChangedSubscriberMap =
-  HashMap<AudioObjectID, HashMap<Uuid, Arc<ThreadsafeFunction<(), ()>>>>;
+type ApplicationStateChangedSubscriberMap = HashMap<AudioObjectID, HashMap<Uuid, Arc<ThreadsafeFunction<(), ()>>>>;
 
-static APPLICATION_STATE_CHANGED_SUBSCRIBERS: LazyLock<
-  RwLock<ApplicationStateChangedSubscriberMap>,
-> = LazyLock::new(|| RwLock::new(HashMap::new()));
+static APPLICATION_STATE_CHANGED_SUBSCRIBERS: LazyLock<RwLock<ApplicationStateChangedSubscriberMap>> =
+  LazyLock::new(|| RwLock::new(HashMap::new()));
 
-static APPLICATION_STATE_CHANGED_LISTENER_BLOCKS: LazyLock<
-  RwLock<HashMap<AudioObjectID, AtomicPtr<c_void>>>,
-> = LazyLock::new(|| RwLock::new(HashMap::new()));
+static APPLICATION_STATE_CHANGED_LISTENER_BLOCKS: LazyLock<RwLock<HashMap<AudioObjectID, AtomicPtr<c_void>>>> =
+  LazyLock::new(|| RwLock::new(HashMap::new()));
 
 static NSRUNNING_APPLICATION_CLASS: LazyLock<Option<&'static AnyClass>> =
   LazyLock::new(|| AnyClass::get(c"NSRunningApplication"));
@@ -155,14 +150,12 @@ impl ApplicationInfo {
     }
 
     // If not available, try to get from the audio process property
-    if self.object_id > 0 {
-      if let Ok(bundle_id) =
-        get_process_property::<CFStringRef>(&self.object_id, kAudioProcessPropertyBundleID)
-      {
-        // Safely convert CFStringRef to Rust String
-        let cf_string = unsafe { CFString::wrap_under_get_rule(bundle_id) };
-        return cf_string.to_string();
-      }
+    if self.object_id > 0
+      && let Ok(bundle_id) = get_process_property::<CFStringRef>(&self.object_id, kAudioProcessPropertyBundleID)
+    {
+      // Safely convert CFStringRef to Rust String
+      let cf_string = unsafe { CFString::wrap_under_get_rule(bundle_id) };
+      return cf_string.to_string();
     }
 
     String::new()
@@ -281,8 +274,7 @@ impl ApplicationInfo {
         let _: () = msg_send![properties, setObject: compression_value, forKey: &*compression_key];
 
         // Get PNG data with properties
-        let png_data: *mut AnyObject =
-          msg_send![bitmap, representationUsingType: 4u64, properties: properties]; // 4 = PNG
+        let png_data: *mut AnyObject = msg_send![bitmap, representationUsingType: 4u64, properties: properties]; // 4 = PNG
 
         if png_data.is_null() {
           return Ok(Buffer::from(Vec::<u8>::new()));
@@ -338,10 +330,7 @@ impl ApplicationListChangedSubscriber {
     match result {
       Ok(status) => {
         if status != 0 {
-          return Err(Error::new(
-            Status::GenericFailure,
-            "Failed to remove property listener",
-          ));
+          return Err(Error::new(Status::GenericFailure, "Failed to remove property listener"));
         }
         Ok(())
       }
@@ -363,31 +352,31 @@ pub struct ApplicationStateChangedSubscriber {
 impl ApplicationStateChangedSubscriber {
   #[napi]
   pub fn unsubscribe(&self) {
-    if let Ok(mut lock) = APPLICATION_STATE_CHANGED_SUBSCRIBERS.write() {
-      if let Some(subscribers) = lock.get_mut(&self.object_id) {
-        subscribers.remove(&self.id);
-        if subscribers.is_empty() {
-          lock.remove(&self.object_id);
-          if let Some(listener_block) = APPLICATION_STATE_CHANGED_LISTENER_BLOCKS
-            .write()
-            .ok()
-            .as_mut()
-            .and_then(|map| map.remove(&self.object_id))
-          {
-            // Wrap in catch_unwind to prevent crashes during shutdown
-            let _ = std::panic::catch_unwind(|| unsafe {
-              AudioObjectRemovePropertyListenerBlock(
-                self.object_id,
-                &AudioObjectPropertyAddress {
-                  mSelector: kAudioProcessPropertyIsRunning,
-                  mScope: kAudioObjectPropertyScopeGlobal,
-                  mElement: kAudioObjectPropertyElementMain,
-                },
-                ptr::null_mut(),
-                listener_block.load(Ordering::Relaxed),
-              );
-            });
-          }
+    if let Ok(mut lock) = APPLICATION_STATE_CHANGED_SUBSCRIBERS.write()
+      && let Some(subscribers) = lock.get_mut(&self.object_id)
+    {
+      subscribers.remove(&self.id);
+      if subscribers.is_empty() {
+        lock.remove(&self.object_id);
+        if let Some(listener_block) = APPLICATION_STATE_CHANGED_LISTENER_BLOCKS
+          .write()
+          .ok()
+          .as_mut()
+          .and_then(|map| map.remove(&self.object_id))
+        {
+          // Wrap in catch_unwind to prevent crashes during shutdown
+          let _ = std::panic::catch_unwind(|| unsafe {
+            AudioObjectRemovePropertyListenerBlock(
+              self.object_id,
+              &AudioObjectPropertyAddress {
+                mSelector: kAudioProcessPropertyIsRunning,
+                mScope: kAudioObjectPropertyScopeGlobal,
+                mElement: kAudioObjectPropertyElementMain,
+              },
+              ptr::null_mut(),
+              listener_block.load(Ordering::Relaxed),
+            );
+          });
         }
       }
     }
@@ -402,9 +391,7 @@ pub struct ShareableContent {
 #[napi]
 impl ShareableContent {
   #[napi]
-  pub fn on_application_list_changed(
-    callback: ThreadsafeFunction<(), ()>,
-  ) -> Result<ApplicationListChangedSubscriber> {
+  pub fn on_application_list_changed(callback: ThreadsafeFunction<(), ()>) -> Result<ApplicationListChangedSubscriber> {
     let callback_arc = Arc::new(callback);
     let callback_clone = callback_arc.clone();
     let callback_block: RcBlock<dyn Fn(u32, *mut c_void)> =
@@ -442,10 +429,7 @@ impl ShareableContent {
       )
     };
     if status != 0 {
-      return Err(Error::new(
-        Status::GenericFailure,
-        "Failed to add property listener",
-      ));
+      return Err(Error::new(Status::GenericFailure, "Failed to add property listener"));
     }
     Ok(ApplicationListChangedSubscriber {
       listener_block: callback_block,
@@ -480,16 +464,15 @@ impl ShareableContent {
             )
           };
           for address in addresses {
-            if address.mSelector == kAudioProcessPropertyIsRunning {
-              if let Some(subscribers) = APPLICATION_STATE_CHANGED_SUBSCRIBERS
+            if address.mSelector == kAudioProcessPropertyIsRunning
+              && let Some(subscribers) = APPLICATION_STATE_CHANGED_SUBSCRIBERS
                 .read()
                 .ok()
                 .as_ref()
                 .and_then(|map| map.get(&object_id))
-              {
-                for callback in subscribers.values() {
-                  callback.call(Ok(()), ThreadsafeFunctionCallMode::NonBlocking);
-                }
+            {
+              for callback in subscribers.values() {
+                callback.call(Ok(()), ThreadsafeFunctionCallMode::NonBlocking);
               }
             }
           }
@@ -501,18 +484,10 @@ impl ShareableContent {
       };
       let listener_block = &*list_change as *const Block<dyn Fn(u32, *mut c_void)>;
       let status = unsafe {
-        AudioObjectAddPropertyListenerBlock(
-          object_id,
-          &address,
-          ptr::null_mut(),
-          listener_block.cast_mut().cast(),
-        )
+        AudioObjectAddPropertyListenerBlock(object_id, &address, ptr::null_mut(), listener_block.cast_mut().cast())
       };
       if status != 0 {
-        return Err(Error::new(
-          Status::GenericFailure,
-          "Failed to add property listener",
-        ));
+        return Err(Error::new(Status::GenericFailure, "Failed to add property listener"));
       }
       let subscribers = {
         let mut map = HashMap::new();
@@ -659,16 +634,16 @@ impl ShareableContent {
     }
 
     // Find the audio object ID for this process
-    if let Ok(app_list) = RUNNING_APPLICATIONS.read() {
-      if let Ok(app_list) = app_list.as_ref() {
-        for object_id in app_list {
-          let pid = get_process_property(object_id, kAudioProcessPropertyPID).unwrap_or(-1);
-          if pid == process_id as i32 {
-            // Check if the process is actively using input (microphone)
-            match get_process_property(object_id, kAudioProcessPropertyIsRunningInput) {
-              Ok(is_running) => return Ok(is_running),
-              Err(_) => continue,
-            }
+    if let Ok(app_list) = RUNNING_APPLICATIONS.read()
+      && let Ok(app_list) = app_list.as_ref()
+    {
+      for object_id in app_list {
+        let pid = get_process_property(object_id, kAudioProcessPropertyPID).unwrap_or(-1);
+        if pid == process_id as i32 {
+          // Check if the process is actively using input (microphone)
+          match get_process_property(object_id, kAudioProcessPropertyIsRunningInput) {
+            Ok(is_running) => return Ok(is_running),
+            Err(_) => continue,
           }
         }
       }
@@ -677,10 +652,9 @@ impl ShareableContent {
     Ok(false)
   }
 
-  #[napi]
-  pub fn tap_audio(
+  pub(crate) fn tap_audio_with_callback(
     process_id: u32,
-    audio_stream_callback: ThreadsafeFunction<napi::bindgen_prelude::Float32Array, ()>,
+    audio_stream_callback: AudioCallback,
   ) -> Result<AudioCaptureSession> {
     let app = ShareableContent::applications()?
       .into_iter()
@@ -694,13 +668,10 @@ impl ShareableContent {
         ));
       }
 
-      // Convert ThreadsafeFunction to Arc<ThreadsafeFunction>
-      let callback_arc = Arc::new(audio_stream_callback);
-
       // Use AggregateDeviceManager instead of AggregateDevice directly
       // This provides automatic default device change detection
       let mut device_manager = AggregateDeviceManager::new(&app)?;
-      device_manager.start_capture(callback_arc)?;
+      device_manager.start_capture(audio_stream_callback)?;
       let boxed_manager = Box::new(device_manager);
       Ok(AudioCaptureSession::new(boxed_manager))
     } else {
@@ -712,9 +683,16 @@ impl ShareableContent {
   }
 
   #[napi]
-  pub fn tap_global_audio(
-    excluded_processes: Option<Vec<&ApplicationInfo>>,
+  pub fn tap_audio(
+    process_id: u32,
     audio_stream_callback: ThreadsafeFunction<napi::bindgen_prelude::Float32Array, ()>,
+  ) -> Result<AudioCaptureSession> {
+    ShareableContent::tap_audio_with_callback(process_id, AudioCallback::Js(Arc::new(audio_stream_callback)))
+  }
+
+  pub(crate) fn tap_global_audio_with_callback(
+    excluded_processes: Option<Vec<&ApplicationInfo>>,
+    audio_stream_callback: AudioCallback,
   ) -> Result<AudioCaptureSession> {
     let excluded_object_ids = excluded_processes
       .unwrap_or_default()
@@ -722,13 +700,21 @@ impl ShareableContent {
       .map(|app| app.object_id)
       .collect::<Vec<_>>();
 
-    // Convert ThreadsafeFunction to Arc<ThreadsafeFunction>
-    let callback_arc = Arc::new(audio_stream_callback);
-
     // Use the new AggregateDeviceManager for automatic device adaptation
     let mut device_manager = AggregateDeviceManager::new_global(&excluded_object_ids)?;
-    device_manager.start_capture(callback_arc)?;
+    device_manager.start_capture(audio_stream_callback)?;
     let boxed_manager = Box::new(device_manager);
     Ok(AudioCaptureSession::new(boxed_manager))
+  }
+
+  #[napi]
+  pub fn tap_global_audio(
+    excluded_processes: Option<Vec<&ApplicationInfo>>,
+    audio_stream_callback: ThreadsafeFunction<napi::bindgen_prelude::Float32Array, ()>,
+  ) -> Result<AudioCaptureSession> {
+    ShareableContent::tap_global_audio_with_callback(
+      excluded_processes,
+      AudioCallback::Js(Arc::new(audio_stream_callback)),
+    )
   }
 }

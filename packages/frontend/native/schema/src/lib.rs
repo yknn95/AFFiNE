@@ -2,6 +2,7 @@ use std::borrow::Cow;
 
 use sqlx::migrate::{Migration, MigrationType, Migrator};
 
+pub mod import_validation;
 pub mod v1;
 
 type SimpleMigration = (
@@ -82,6 +83,18 @@ CREATE TABLE idx_snapshots (
   index_name TEXT PRIMARY KEY NOT NULL,
   data BLOB NOT NULL,
   created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP NOT NULL
+);
+"#,
+    None,
+  ),
+  // add indexer sync table
+  (
+    "add_indexer_sync",
+    r#"
+CREATE TABLE "indexer_sync" (
+  doc_id VARCHAR PRIMARY KEY NOT NULL,
+  indexed_clock TIMESTAMP NOT NULL DEFAULT 0,
+  indexer_version INTEGER NOT NULL DEFAULT 0
 );
  "#,
     None,

@@ -92,7 +92,6 @@ export async function addUserToWorkspace(
       data: {
         workspaceId: workspace.id,
         userId,
-        accepted: true,
         status: 'Accepted',
         type: permission,
       },
@@ -113,13 +112,6 @@ export async function createRandomUser(): Promise<{
     password: '123456',
   };
   const result = await runPrisma(async client => {
-    const featureId = await client.feature
-      .findFirst({
-        where: { name: 'free_plan_v1' },
-        select: { id: true },
-      })
-      .then(f => f!.id);
-
     await client.user.create({
       data: {
         ...user,
@@ -129,7 +121,6 @@ export async function createRandomUser(): Promise<{
           create: {
             reason: 'created by test case',
             activated: true,
-            featureId,
             name: 'free_plan_v1',
             type: 1,
           },
@@ -163,15 +154,14 @@ export async function cleanupWorkspace(workspaceId: string): Promise<void> {
 
 export async function switchDefaultChatModel(model: string) {
   await runPrisma(async client => {
-    const promptId = await client.aiPrompt
-      .findFirst({
-        where: { name: 'Chat With AFFiNE AI' },
-        select: { id: true },
-      })
-      .then(f => f!.id);
+    const prompt = await client.aiPrompt.findFirst({
+      where: { name: 'Chat With AFFiNE AI' },
+      select: { id: true },
+    });
+    if (!prompt) return;
 
     await client.aiPrompt.update({
-      where: { id: promptId },
+      where: { id: prompt.id },
       data: { model },
     });
   });
@@ -189,19 +179,6 @@ export async function createRandomAIUser(): Promise<{
     password: '123456',
   };
   const result = await runPrisma(async client => {
-    const freeFeatureId = await client.feature
-      .findFirst({
-        where: { name: 'free_plan_v1' },
-        select: { id: true },
-      })
-      .then(f => f!.id);
-    const aiFeatureId = await client.feature
-      .findFirst({
-        where: { name: 'unlimited_copilot' },
-        select: { id: true },
-      })
-      .then(f => f!.id);
-
     await client.user.create({
       data: {
         ...user,
@@ -212,14 +189,12 @@ export async function createRandomAIUser(): Promise<{
             {
               reason: 'created by test case',
               activated: true,
-              featureId: freeFeatureId,
               name: 'free_plan_v1',
               type: 1,
             },
             {
               reason: 'created by test case',
               activated: true,
-              featureId: aiFeatureId,
               name: 'unlimited_copilot',
               type: 0,
             },
@@ -304,6 +279,27 @@ export async function loginUserDirectly(
   }
 }
 
+async function dismissBlockingModal(page: Page) {
+  const modal = page.locator('modal-transition-container [data-modal="true"]');
+  if (
+    !(await modal
+      .first()
+      .isVisible()
+      .catch(() => false))
+  ) {
+    return;
+  }
+
+  const closeButton = page.getByTestId('modal-close-button').last();
+  if (await closeButton.isVisible().catch(() => false)) {
+    await closeButton.click({ timeout: 5000 });
+  } else {
+    await page.keyboard.press('Escape');
+  }
+
+  await expect(modal.first()).toBeHidden({ timeout: 10000 });
+}
+
 export async function enableCloudWorkspace(page: Page) {
   await clickSideBarSettingButton(page);
   await page.getByTestId('workspace-setting:preference').click();
@@ -312,6 +308,7 @@ export async function enableCloudWorkspace(page: Page) {
   // wait for upload and delete local workspace
   await page.waitForTimeout(2000);
   await waitForAllPagesLoad(page);
+  await dismissBlockingModal(page);
   await clickNewPageButton(page);
 }
 
@@ -327,6 +324,7 @@ export async function enableCloudWorkspaceFromShareButton(page: Page) {
   // wait for upload and delete local workspace
   await page.waitForTimeout(2000);
   await waitForEditorLoad(page);
+  await dismissBlockingModal(page);
   await clickNewPageButton(page);
 }
 

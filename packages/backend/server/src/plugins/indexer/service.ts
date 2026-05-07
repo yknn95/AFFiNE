@@ -14,6 +14,7 @@ import {
   AggregateQueryDSL,
   BaseQueryDSL,
   HighlightDSL,
+  ManticoresearchProvider,
   OperationOptions,
   SearchNode,
   SearchProvider,
@@ -130,6 +131,63 @@ export class IndexerService {
     }
   }
 
+  async rebuildManticoreIndexes() {
+    let searchProvider: SearchProvider | undefined;
+    try {
+      searchProvider = this.factory.get();
+    } catch (err) {
+      if (err instanceof SearchProviderNotFound) {
+        this.logger.debug('No search provider found, skip rebuilding tables');
+        return;
+      }
+      throw err;
+    }
+
+    if (!(searchProvider instanceof ManticoresearchProvider)) {
+      this.logger.debug(
+        `Search provider ${searchProvider.type} does not need manticore rebuild`
+      );
+      return;
+    }
+
+    const mappings = SearchTableMappingStrings[searchProvider.type];
+    for (const table of Object.keys(mappings) as SearchTable[]) {
+      await searchProvider.recreateTable(table, mappings[table]);
+    }
+
+    let lastWorkspaceSid = 0;
+    while (true) {
+      const workspaces = await this.models.workspace.list(
+        { sid: { gt: lastWorkspaceSid } },
+        { id: true, sid: true },
+        100
+      );
+      if (!workspaces.length) {
+        break;
+      }
+
+      for (const workspace of workspaces) {
+        await this.models.workspace.update(
+          workspace.id,
+          { indexed: false },
+          false
+        );
+        await this.queue.add(
+          'indexer.indexWorkspace',
+          {
+            workspaceId: workspace.id,
+          },
+          {
+            jobId: `indexWorkspace/${workspace.id}`,
+            priority: 100,
+          }
+        );
+      }
+
+      lastWorkspaceSid = workspaces[workspaces.length - 1].sid;
+    }
+  }
+
   async write<T extends SearchTable>(
     table: T,
     documents: UpsertTypeByTable<T>[],
@@ -210,14 +268,6 @@ export class IndexerService {
     docId: string,
     options?: OperationOptions
   ) {
-    const workspaceSnapshot = await this.models.doc.getSnapshot(
-      workspaceId,
-      workspaceId
-    );
-    if (!workspaceSnapshot) {
-      this.logger.debug(`workspace ${workspaceId} not found`);
-      return;
-    }
     const docSnapshot = await this.models.doc.getSnapshot(workspaceId, docId);
     if (!docSnapshot) {
       this.logger.debug(`doc ${workspaceId}/${docId} not found`);
@@ -227,64 +277,74 @@ export class IndexerService {
       this.logger.debug(`doc ${workspaceId}/${docId} is empty, skip indexing`);
       return;
     }
-    const result = await readAllBlocksFromDocSnapshot(docId, docSnapshot.blob);
-    if (!result) {
-      this.logger.warn(
-        `parse doc ${workspaceId}/${docId} failed, workspaceSnapshot size: ${workspaceSnapshot.blob.length}, docSnapshot size: ${docSnapshot.blob.length}`
+    const metadata = {
+      workspaceId,
+      docId,
+      docSnapshotSize: docSnapshot.blob.length,
+    };
+
+    try {
+      const result = await readAllBlocksFromDocSnapshot(
+        docId,
+        docSnapshot.blob
       );
-      return;
-    }
-    await this.write(
-      SearchTable.doc,
-      [
-        {
+      await this.write(
+        SearchTable.doc,
+        [
+          {
+            workspaceId,
+            docId,
+            title: result.title,
+            summary: result.summary,
+            // NOTE(@fengmk): journal is not supported yet
+            // journal: result.journal,
+            createdByUserId: docSnapshot.createdBy ?? '',
+            updatedByUserId: docSnapshot.updatedBy ?? '',
+            createdAt: docSnapshot.createdAt,
+            updatedAt: docSnapshot.updatedAt,
+          },
+        ],
+        options
+      );
+      await this.deleteBlocksByDocId(workspaceId, docId, options);
+      await this.write(
+        SearchTable.block,
+        result.blocks.map(block => ({
           workspaceId,
           docId,
-          title: result.title,
-          summary: result.summary,
-          // NOTE(@fengmk): journal is not supported yet
-          // journal: result.journal,
+          blockId: block.blockId,
+          content: block.content ?? '',
+          flavour: block.flavour,
+          blob: block.blob,
+          refDocId: block.refDocId,
+          ref: block.ref,
+          parentFlavour: block.parentFlavour,
+          parentBlockId: block.parentBlockId,
+          additional: block.additional
+            ? JSON.stringify(block.additional)
+            : undefined,
+          markdownPreview: undefined,
           createdByUserId: docSnapshot.createdBy ?? '',
           updatedByUserId: docSnapshot.updatedBy ?? '',
           createdAt: docSnapshot.createdAt,
           updatedAt: docSnapshot.updatedAt,
-        },
-      ],
-      options
-    );
-    await this.deleteBlocksByDocId(workspaceId, docId, options);
-    await this.write(
-      SearchTable.block,
-      result.blocks.map(block => ({
+        })),
+        options
+      );
+
+      await this.queue.add('copilot.embedding.updateDoc', {
         workspaceId,
         docId,
-        blockId: block.blockId,
-        content: block.content ?? '',
-        flavour: block.flavour,
-        blob: block.blob,
-        refDocId: block.refDocId,
-        ref: block.ref,
-        parentFlavour: block.parentFlavour,
-        parentBlockId: block.parentBlockId,
-        additional: block.additional
-          ? JSON.stringify(block.additional)
-          : undefined,
-        markdownPreview: undefined,
-        createdByUserId: docSnapshot.createdBy ?? '',
-        updatedByUserId: docSnapshot.updatedBy ?? '',
-        createdAt: docSnapshot.createdAt,
-        updatedAt: docSnapshot.updatedAt,
-      })),
-      options
-    );
-
-    await this.queue.add('copilot.embedding.updateDoc', {
-      workspaceId,
-      docId,
-    });
-    this.logger.log(
-      `synced doc ${workspaceId}/${docId} with ${result.blocks.length} blocks`
-    );
+      });
+      this.logger.verbose(
+        `synced doc ${workspaceId}/${docId} with ${result.blocks.length} blocks`
+      );
+    } catch (err) {
+      this.logger.warn(
+        `failed to parse ${workspaceId}/${docId}: ${err}`,
+        metadata
+      );
+    }
   }
 
   async deleteDoc(

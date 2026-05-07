@@ -106,16 +106,16 @@ export interface IndexerSync {
 }
 
 export class IndexerSyncImpl implements IndexerSync {
-  /**
-   * increase this number to re-index all docs
-   */
-  readonly INDEXER_VERSION = 2;
   private abort: AbortController | null = null;
   private readonly rootDocId = this.doc.spaceId;
   private readonly status = new IndexerSyncStatus(this.rootDocId);
 
   private readonly indexer: IndexerStorage;
   private readonly remote?: IndexerStorage;
+  private readonly pendingIndexedClocks = new Map<
+    string,
+    { docId: string; timestamp: Date; indexerVersion: number }
+  >();
 
   private lastRefreshed = Date.now();
 
@@ -266,7 +266,8 @@ export class IndexerSyncImpl implements IndexerSync {
     this.status.errorMessage = null;
     this.status.statusUpdatedSubject$.next(true);
 
-    console.log('indexer sync start');
+    const indexVersion = await this.indexer.indexVersion();
+    console.log('indexer sync start, version: ', indexVersion);
 
     const unsubscribe = this.doc.subscribeDocUpdate(update => {
       if (!this.status.rootDocReady) {
@@ -375,12 +376,13 @@ export class IndexerSyncImpl implements IndexerSync {
                 field: 'docId',
                 match: docId,
               });
+              this.pendingIndexedClocks.delete(docId);
               await this.indexerSync.clearDocIndexedClock(docId);
               this.status.docsInIndexer.delete(docId);
               this.status.statusUpdatedSubject$.next(docId);
             }
           }
-          await this.refreshIfNeed();
+          await this.refreshIfNeed(true);
           // #endregion
         } else {
           // #region crawl doc
@@ -397,12 +399,13 @@ export class IndexerSyncImpl implements IndexerSync {
           }
 
           const docIndexedClock =
-            await this.indexerSync.getDocIndexedClock(docId);
+            this.pendingIndexedClocks.get(docId) ??
+            (await this.indexerSync.getDocIndexedClock(docId));
           if (
             docIndexedClock &&
             docIndexedClock.timestamp.getTime() ===
               docClock.timestamp.getTime() &&
-            docIndexedClock.indexerVersion === this.INDEXER_VERSION
+            docIndexedClock.indexerVersion === indexVersion
           ) {
             // doc is already indexed, just skip
             continue;
@@ -463,13 +466,12 @@ export class IndexerSyncImpl implements IndexerSync {
             );
           }
 
-          await this.refreshIfNeed();
-
-          await this.indexerSync.setDocIndexedClock({
+          this.pendingIndexedClocks.set(docId, {
             docId,
             timestamp: docClock.timestamp,
-            indexerVersion: this.INDEXER_VERSION,
+            indexerVersion: indexVersion,
           });
+          await this.refreshIfNeed();
           // #endregion
         }
 
@@ -479,7 +481,7 @@ export class IndexerSyncImpl implements IndexerSync {
         this.status.completeJob();
       }
     } finally {
-      await this.refreshIfNeed();
+      await this.refreshIfNeed(true);
       unsubscribe();
     }
   }
@@ -487,15 +489,24 @@ export class IndexerSyncImpl implements IndexerSync {
   // ensure the indexer is refreshed according to recommendRefreshInterval
   // recommendRefreshInterval <= 0 means force refresh on each operation
   // recommendRefreshInterval > 0 means refresh if the last refresh is older than recommendRefreshInterval
-  private async refreshIfNeed(): Promise<void> {
+  private async refreshIfNeed(force = false): Promise<void> {
     const recommendRefreshInterval = this.indexer.recommendRefreshInterval ?? 0;
     const needRefresh =
       recommendRefreshInterval > 0 &&
       this.lastRefreshed + recommendRefreshInterval < Date.now();
     const forceRefresh = recommendRefreshInterval <= 0;
-    if (needRefresh || forceRefresh) {
+    if (force || needRefresh || forceRefresh) {
       await this.indexer.refreshIfNeed();
+      await this.flushPendingIndexedClocks();
       this.lastRefreshed = Date.now();
+    }
+  }
+
+  private async flushPendingIndexedClocks() {
+    if (this.pendingIndexedClocks.size === 0) return;
+    for (const [docId, clock] of this.pendingIndexedClocks) {
+      await this.indexerSync.setDocIndexedClock(clock);
+      this.pendingIndexedClocks.delete(docId);
     }
   }
 
@@ -709,7 +720,10 @@ class IndexerSyncStatus {
           indexing: this.jobs.length() + (this.currentJob ? 1 : 0),
           total: this.docsInRootDoc.size + 1,
           errorMessage: this.errorMessage,
-          completed: this.rootDocReady && this.jobs.length() === 0,
+          completed:
+            this.rootDocReady &&
+            this.jobs.length() === 0 &&
+            this.currentJob === null,
           batterySaveMode: this.batterySaveMode,
           paused: this.paused !== null,
         });
@@ -737,9 +751,10 @@ class IndexerSyncStatus {
             completed: true,
           });
         } else {
+          const indexing = this.jobs.has(docId) || this.currentJob === docId;
           subscribe.next({
-            indexing: this.jobs.has(docId),
-            completed: this.docsInIndexer.has(docId) && !this.jobs.has(docId),
+            indexing,
+            completed: this.docsInIndexer.has(docId) && !indexing,
           });
         }
       };

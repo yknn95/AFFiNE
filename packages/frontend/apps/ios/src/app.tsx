@@ -1,3 +1,4 @@
+import { notify } from '@affine/component';
 import { getStoreManager } from '@affine/core/blocksuite/manager/store';
 import { AffineContext } from '@affine/core/components/context';
 import { AppFallback } from '@affine/core/mobile/components/app-fallback';
@@ -17,6 +18,7 @@ import {
   SubscriptionService,
   ValidatorProvider,
 } from '@affine/core/modules/cloud';
+import { registerNativePreviewHandlers } from '@affine/core/modules/code-block-preview-renderer';
 import { DocsService } from '@affine/core/modules/doc';
 import { FeatureFlagService } from '@affine/core/modules/feature-flag';
 import { GlobalContextService } from '@affine/core/modules/global-context';
@@ -45,6 +47,7 @@ import {
 } from '@affine/graphql';
 import { I18n } from '@affine/i18n';
 import { StoreManagerClient } from '@affine/nbstore/worker/client';
+import { setTelemetryTransport } from '@affine/track';
 import { Container } from '@blocksuite/affine/global/di';
 import {
   docLinkBaseURLMiddleware,
@@ -70,10 +73,12 @@ import { Auth } from './plugins/auth';
 import { Hashcash } from './plugins/hashcash';
 import { NbStoreNativeDBApis } from './plugins/nbstore';
 import { PayWall } from './plugins/paywall';
+import { Preview } from './plugins/preview';
 import { writeEndpointToken } from './proxy';
 import { enableNavigationGesture$ } from './web-navigation-control';
 
 const storeManagerClient = createStoreManagerClient();
+setTelemetryTransport(storeManagerClient.telemetry);
 window.addEventListener('beforeunload', () => {
   storeManagerClient.dispose();
 });
@@ -212,6 +217,11 @@ framework.impl(NativePaywallProvider, {
 });
 
 const frameworkProvider = framework.provider();
+
+registerNativePreviewHandlers({
+  renderMermaidSvg: request => Preview.renderMermaidSvg(request),
+  renderTypstSvg: request => Preview.renderTypstSvg(request),
+});
 
 // ------ some apis for native ------
 (window as any).getCurrentServerBaseUrl = () => {
@@ -399,6 +409,24 @@ window.addEventListener('focus', () => {
 });
 frameworkProvider.get(LifecycleService).applicationStart();
 
+const getErrorMessage = (error: unknown, fallback: string) => {
+  if (typeof error === 'string' && error) {
+    return error;
+  }
+  if (error instanceof Error && error.message) {
+    return error.message;
+  }
+  return fallback;
+};
+
+const notifyAuthenticationError = (error: unknown, fallback: string) => {
+  console.error(fallback, error);
+  notify.error({
+    title: I18n['com.affine.auth.toast.title.failed'](),
+    message: getErrorMessage(error, fallback),
+  });
+};
+
 CapacitorApp.addListener('appUrlOpen', ({ url }) => {
   // try to close browser if it's open
   Browser.close().catch(e => console.error('Failed to close browser', e));
@@ -415,7 +443,10 @@ CapacitorApp.addListener('appUrlOpen', ({ url }) => {
       (method !== 'magic-link' && method !== 'oauth') ||
       !payload
     ) {
-      console.error('Invalid authentication url', url);
+      notifyAuthenticationError(
+        new Error('Invalid authentication url'),
+        'Invalid authentication url'
+      );
       return;
     }
 
@@ -426,23 +457,34 @@ CapacitorApp.addListener('appUrlOpen', ({ url }) => {
     if (serverBaseUrl) {
       const serversService = frameworkProvider.get(ServersService);
       const server = serversService.getServerByBaseUrl(serverBaseUrl);
-      if (server) {
-        authService = server.scope.get(AuthService);
+      if (!server) {
+        notifyAuthenticationError(
+          new Error(
+            `Authentication callback server not found: ${serverBaseUrl}`
+          ),
+          'Authentication callback server not found'
+        );
+        return;
       }
+      authService = server.scope.get(AuthService);
     }
 
     if (method === 'oauth') {
       authService
         .signInOauth(payload.code, payload.state, payload.provider)
-        .catch(console.error);
+        .catch(error =>
+          notifyAuthenticationError(error, 'Failed to sign in with OAuth')
+        );
     } else if (method === 'magic-link') {
       authService
         .signInMagicLink(payload.email, payload.token)
-        .catch(console.error);
+        .catch(error =>
+          notifyAuthenticationError(error, 'Failed to sign in with magic link')
+        );
     }
   }
 }).catch(e => {
-  console.error(e);
+  notifyAuthenticationError(e, 'Failed to handle authentication callback');
 });
 
 AppTrackingTransparency.requestPermission().catch(e => {

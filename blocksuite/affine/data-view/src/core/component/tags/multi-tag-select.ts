@@ -69,7 +69,19 @@ export type TagManagerOptions = {
   options: ReadonlySignal<SelectTag[]>;
   onOptionsChange: (options: SelectTag[]) => void;
   onComplete?: () => void;
+  initialDraftText?: string;
 };
+
+// parent elements that can consume tag draft
+const TABLE_CELL_HOST_SELECTOR =
+  'dv-table-view-cell-container, affine-database-virtual-cell-container';
+
+export function consumeTagDraftFromTableCellHost(
+  fromElement: Element
+): string | undefined {
+  const host = fromElement.closest(TABLE_CELL_HOST_SELECTOR) as any;
+  return host?.consumeTagDraft?.();
+}
 
 class TagManager {
   changeTag = (option: Partial<SelectTag>) => {
@@ -427,6 +439,15 @@ export class MultiTagSelect extends SignalWatcher(
     );
   }
 
+  override connectedCallback() {
+    super.connectedCallback();
+    const draft = this.initialDraftText;
+    if (draft != null && draft !== '') {
+      this.tagManager.text$.value = draft;
+      this.initialDraftText = undefined;
+    }
+  }
+
   protected override firstUpdated() {
     const disposables = this.disposables;
     this.classList.add(tagSelectContainerStyle);
@@ -471,6 +492,9 @@ export class MultiTagSelect extends SignalWatcher(
 
   @property({ attribute: false })
   accessor value!: ReadonlySignal<string[]>;
+
+  @property({ attribute: false })
+  accessor initialDraftText: string | undefined;
 }
 
 declare global {
@@ -481,8 +505,23 @@ declare global {
 
 const popMobileTagSelect = (target: PopupTarget, ops: TagSelectOptions) => {
   const tagManager = new TagManager(ops);
+  if (ops.initialDraftText) {
+    tagManager.text$.value = ops.initialDraftText;
+  }
   const onInput = (e: InputEvent) => {
     tagManager.text$.value = (e.target as HTMLInputElement).value;
+  };
+  const onKeydown = (e: KeyboardEvent) => {
+    e.stopPropagation();
+    const inputValue = (e.target as HTMLInputElement).value.trim();
+    if (e.key === 'Backspace' && inputValue === '') {
+      const values = tagManager.value$.value;
+      const lastId = values[values.length - 1];
+      if (lastId) {
+        e.preventDefault();
+        tagManager.deleteTag(lastId);
+      }
+    }
   };
   return popMenu(target, {
     options: {
@@ -511,11 +550,21 @@ const popMobileTagSelect = (target: PopupTarget, ops: TagSelectOptions) => {
                 });
                 return html` <div class="${tagContainerStyle}" style=${style}>
                   <div class="${tagTextStyle}">${option.value}</div>
+                  <div
+                    class="${tagDeleteIconStyle}"
+                    @click="${(e: MouseEvent) => {
+                      e.stopPropagation();
+                      tagManager.deleteTag(id);
+                    }}"
+                  >
+                    ${CloseIcon()}
+                  </div>
                 </div>`;
               })}
               <input
                 .value="${tagManager.text$.value}"
                 @input="${onInput}"
+                @keydown="${onKeydown}"
                 placeholder="Type here..."
                 type="text"
                 style="outline: none;border: none;flex:1;min-width: 10px"
@@ -582,6 +631,7 @@ export const popTagSelect = (target: PopupTarget, ops: TagSelectOptions) => {
   component.onChange = ops.onChange;
   component.options = ops.options;
   component.onOptionsChange = ops.onOptionsChange;
+  component.initialDraftText = ops.initialDraftText;
   component.onComplete = () => {
     ops.onComplete?.();
     remove();

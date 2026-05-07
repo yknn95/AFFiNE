@@ -5,6 +5,11 @@ import {
 import { collapseWhiteSpace } from 'collapse-white-space';
 import type { Element } from 'hast';
 
+import {
+  extractColorFromStyle,
+  resolveNearestSupportedColor,
+} from './color-utils.js';
+
 /**
  * Handle empty text nodes created by HTML parser for styling purposes.
  * These nodes typically contain only whitespace/newlines, for example:
@@ -173,6 +178,40 @@ export const htmlTextToDeltaMatcher = HtmlASTToDeltaExtension({
   },
 });
 
+export const htmlColorStyleElementToDeltaMatcher = HtmlASTToDeltaExtension({
+  name: 'color-style-element',
+  match: ast =>
+    isElement(ast) &&
+    ast.tagName === 'span' &&
+    typeof ast.properties?.style === 'string' &&
+    /color\s*:/i.test(ast.properties.style),
+  toDelta: (ast, context) => {
+    if (!isElement(ast)) {
+      return [];
+    }
+    const baseOptions = { ...context.options, trim: false };
+    // In preformatted contexts (e.g. code blocks) we don't keep inline colors.
+    if (baseOptions.pre) {
+      return ast.children.flatMap(child => context.toDelta(child, baseOptions));
+    }
+    const colorValue = extractColorFromStyle(
+      typeof ast.properties?.style === 'string' ? ast.properties.style : ''
+    );
+    const mappedColor = colorValue
+      ? resolveNearestSupportedColor(colorValue)
+      : null;
+    const deltas = ast.children.flatMap(child =>
+      context.toDelta(child, baseOptions).map(delta => {
+        if (mappedColor) {
+          delta.attributes = { ...delta.attributes, color: mappedColor };
+        }
+        return delta;
+      })
+    );
+    return deltas;
+  },
+});
+
 export const htmlTextLikeElementToDeltaMatcher = HtmlASTToDeltaExtension({
   name: 'text-like-element',
   match: ast => isTextLikeElement(ast),
@@ -281,9 +320,21 @@ export const htmlMarkElementToDeltaMatcher = HtmlASTToDeltaExtension({
     if (!isElement(ast)) {
       return [];
     }
+    const dataColor =
+      typeof ast.properties?.dataColor === 'string'
+        ? ast.properties.dataColor
+        : '';
+    const colorName =
+      dataColor &&
+      /^(red|orange|yellow|green|teal|blue|purple|grey)$/.test(dataColor)
+        ? dataColor
+        : 'yellow';
     return ast.children.flatMap(child =>
       context.toDelta(child, { trim: false }).map(delta => {
-        delta.attributes = { ...delta.attributes };
+        delta.attributes = {
+          ...delta.attributes,
+          background: `var(--affine-text-highlight-${colorName})`,
+        };
         return delta;
       })
     );
@@ -300,6 +351,7 @@ export const htmlBrElementToDeltaMatcher = HtmlASTToDeltaExtension({
 
 export const HtmlInlineToDeltaAdapterExtensions = [
   htmlTextToDeltaMatcher,
+  htmlColorStyleElementToDeltaMatcher,
   htmlTextLikeElementToDeltaMatcher,
   htmlStrongElementToDeltaMatcher,
   htmlItalicElementToDeltaMatcher,

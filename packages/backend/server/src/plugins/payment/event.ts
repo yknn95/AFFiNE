@@ -1,16 +1,18 @@
 import { Injectable } from '@nestjs/common';
 
 import { EventBus, OnEvent } from '../../base';
+import { WorkspacePolicyService } from '../../core/permission';
 import { WorkspaceService } from '../../core/workspaces';
 import { Models } from '../../models';
-import { SubscriptionPlan } from './types';
+import { SubscriptionPlan, SubscriptionRecurring } from './types';
 
 @Injectable()
 export class PaymentEventHandlers {
   constructor(
     private readonly workspace: WorkspaceService,
     private readonly models: Models,
-    private readonly event: EventBus
+    private readonly event: EventBus,
+    private readonly policy: WorkspacePolicyService
   ) {}
 
   @OnEvent('workspace.subscription.activated')
@@ -40,6 +42,7 @@ export class PaymentEventHandlers {
           // we only send emails when the team workspace is activated
           await this.workspace.sendTeamWorkspaceUpgradedEmail(workspaceId);
         }
+        await this.policy.reconcileWorkspaceQuotaState(workspaceId);
         break;
       }
       default:
@@ -54,7 +57,7 @@ export class PaymentEventHandlers {
   }: Events['workspace.subscription.canceled']) {
     switch (plan) {
       case SubscriptionPlan.Team:
-        await this.models.workspaceFeature.remove(workspaceId, 'team_plan_v1');
+        await this.policy.handleTeamPlanCanceled(workspaceId);
         break;
       default:
         break;
@@ -81,6 +84,7 @@ export class PaymentEventHandlers {
           recurring === 'lifetime' ? 'lifetime_pro_plan_v1' : 'pro_plan_v1',
           'subscription activated'
         );
+        await this.policy.reconcileOwnedWorkspaces(userId);
         break;
       default:
         break;
@@ -91,12 +95,24 @@ export class PaymentEventHandlers {
   async onUserSubscriptionCanceled({
     userId,
     plan,
+    recurring,
   }: Events['user.subscription.canceled']) {
     switch (plan) {
       case SubscriptionPlan.AI:
         await this.models.userFeature.remove(userId, 'unlimited_copilot');
         break;
       case SubscriptionPlan.Pro: {
+        // if user disputed a lifetime plan, we just switch them to free plan directly
+        if (recurring === SubscriptionRecurring.Lifetime) {
+          await this.models.userFeature.switchQuota(
+            userId,
+            'free_plan_v1',
+            'lifetime subscription canceled'
+          );
+          await this.policy.reconcileOwnedWorkspaces(userId);
+          break;
+        }
+
         // edge case: when user switch from recurring Pro plan to `Lifetime` plan,
         // a subscription canceled event will be triggered because `Lifetime` plan is not subscription based
         const isLifetimeUser = await this.models.userFeature.has(
@@ -110,6 +126,7 @@ export class PaymentEventHandlers {
             'free_plan_v1',
             'subscription canceled'
           );
+          await this.policy.reconcileOwnedWorkspaces(userId);
         }
         break;
       }

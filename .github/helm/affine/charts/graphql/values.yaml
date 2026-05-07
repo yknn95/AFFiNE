@@ -27,12 +27,22 @@ podSecurityContext:
   fsGroup: 2000
 
 resources:
+  limits:
+    cpu: '1'
+    memory: 4Gi
   requests:
-    cpu: '2'
+    cpu: '1'
     memory: 2Gi
 
 probe:
   initialDelaySeconds: 20
+  timeoutSeconds: 5
+  periodSeconds: 10
+  failureThreshold: 6
+  successThreshold: 1
+  liveness:
+    failureThreshold: 12
+  readiness: {}
 
 nodeSelector: {}
 tolerations: []

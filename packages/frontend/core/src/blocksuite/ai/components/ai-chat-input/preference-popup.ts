@@ -24,12 +24,18 @@ import {
   DoneIcon,
   LockIcon,
   ThinkingIcon,
-  WebIcon,
 } from '@blocksuite/icons/lit';
 import { ShadowlessElement } from '@blocksuite/std';
+import { autoPlacement, offset, shift } from '@floating-ui/dom';
 import { computed } from '@preact/signals-core';
 import { css, html } from 'lit';
 import { property } from 'lit/decorators.js';
+
+const modelSubMenuMiddleware = [
+  autoPlacement({ allowedPlacements: ['right-start', 'left-start'] }),
+  offset({ mainAxis: 4, crossAxis: 0 }),
+  shift({ crossAxis: true, padding: 8 }),
+];
 
 export class ChatInputPreference extends SignalWatcher(
   WithDisposable(ShadowlessElement)
@@ -101,19 +107,6 @@ export class ChatInputPreference extends SignalWatcher(
     | undefined;
   // --------- extended thinking props end ---------
 
-  // --------- search props start ---------
-  @property({ attribute: false })
-  accessor networkSearchVisible: boolean = false;
-
-  @property({ attribute: false })
-  accessor isNetworkActive: boolean = false;
-
-  @property({ attribute: false })
-  accessor onNetworkActiveChange:
-    | ((isNetworkActive: boolean) => void)
-    | undefined;
-  // --------- search props end ---------
-
   @property({ attribute: false })
   accessor serverService!: ServerService;
 
@@ -154,6 +147,7 @@ export class ChatInputPreference extends SignalWatcher(
       menu.subMenu({
         name: 'Model',
         prefix: AiOutlineIcon(),
+        middleware: modelSubMenuMiddleware,
         postfix: html`
           <span class="ai-active-model-name"> ${this.model.value?.name} </span>
         `,
@@ -206,31 +200,21 @@ export class ChatInputPreference extends SignalWatcher(
       })
     );
 
-    if (this.networkSearchVisible) {
-      searchItems.push(
-        menu.toggleSwitch({
-          name: 'Web Search',
-          prefix: WebIcon(),
-          on: this.isNetworkActive,
-          onChange: (value: boolean) => this.onNetworkActiveChange?.(value),
-          class: { 'preference-action': true },
-          testId: 'chat-network-search',
-        }),
-        menu.toggleSwitch({
-          name: 'Workspace All Docs',
-          prefix: CloudWorkspaceIcon(),
-          on:
-            !!this.toolsConfigService.config.value.searchWorkspace &&
-            !!this.toolsConfigService.config.value.readingDocs,
-          onChange: (value: boolean) =>
-            this.toolsConfigService.setConfig({
-              searchWorkspace: value,
-              readingDocs: value,
-            }),
-          class: { 'preference-action': true },
-        })
-      );
-    }
+    searchItems.push(
+      menu.toggleSwitch({
+        name: 'Workspace All Docs',
+        prefix: CloudWorkspaceIcon(),
+        on:
+          !!this.toolsConfigService.config.value.searchWorkspace &&
+          !!this.toolsConfigService.config.value.readingDocs,
+        onChange: (value: boolean) =>
+          this.toolsConfigService.setConfig({
+            searchWorkspace: value,
+            readingDocs: value,
+          }),
+        class: { 'preference-action': true },
+      })
+    );
 
     popMenu(popupTargetFromElement(element), {
       options: {

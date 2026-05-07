@@ -142,7 +142,6 @@ declare global {
     interface ChatOptions extends AITextActionOptions {
       sessionId?: string;
       isRootSession?: boolean;
-      webSearch?: boolean;
       reasoning?: boolean;
       modelId?: string;
       toolsConfig?: AIToolsConfig | undefined;
@@ -153,7 +152,6 @@ declare global {
         selectedMarkdown?: string;
         html?: string;
       };
-      postfix?: (text: string) => string;
     }
 
     interface TranslateOptions extends AITextActionOptions {
@@ -356,12 +354,6 @@ declare global {
         files?: ContextMatchedFileChunk[];
         docs?: ContextMatchedDocChunk[];
       }>;
-      applyDocUpdates: (
-        workspaceId: string,
-        docId: string,
-        op: string,
-        updates: string
-      ) => Promise<string>;
       addContextBlob: (options: {
         blobId: string;
         contextId: string;
@@ -412,6 +404,9 @@ declare global {
 
     interface AISessionService {
       createSession: (options: AICreateSessionOptions) => Promise<string>;
+      createSessionWithHistory: (
+        options: AICreateSessionOptions
+      ) => Promise<CopilotChatHistoryFragment | undefined>;
       getSession: (
         workspaceId: string,
         sessionId: string

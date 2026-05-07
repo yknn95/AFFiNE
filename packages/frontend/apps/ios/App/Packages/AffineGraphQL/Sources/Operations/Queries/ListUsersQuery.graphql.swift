@@ -7,7 +7,7 @@ public class ListUsersQuery: GraphQLQuery {
   public static let operationName: String = "listUsers"
   public static let operationDocument: ApolloAPI.OperationDocument = .init(
     definition: .init(
-      #"query listUsers($filter: ListUserInput!) { users(filter: $filter) { __typename id name email disabled features hasPassword emailVerified avatarUrl } usersCount }"#
+      #"query listUsers($filter: ListUserInput!) { users(filter: $filter) { __typename id name email disabled features hasPassword emailVerified avatarUrl } usersCount(filter: $filter) }"#
     ))
 
   public var filter: ListUserInput
@@ -25,7 +25,10 @@ public class ListUsersQuery: GraphQLQuery {
     public static var __parentType: any ApolloAPI.ParentType { AffineGraphQL.Objects.Query }
     public static var __selections: [ApolloAPI.Selection] { [
       .field("users", [User].self, arguments: ["filter": .variable("filter")]),
-      .field("usersCount", Int.self),
+      .field("usersCount", Int.self, arguments: ["filter": .variable("filter")]),
+    ] }
+    public static var __fulfilledFragments: [any ApolloAPI.SelectionSet.Type] { [
+      ListUsersQuery.Data.self
     ] }
 
     /// List registered users
@@ -51,6 +54,9 @@ public class ListUsersQuery: GraphQLQuery {
         .field("hasPassword", Bool?.self),
         .field("emailVerified", Bool.self),
         .field("avatarUrl", String?.self),
+      ] }
+      public static var __fulfilledFragments: [any ApolloAPI.SelectionSet.Type] { [
+        ListUsersQuery.Data.User.self
       ] }
 
       public var id: AffineGraphQL.ID { __data["id"] }

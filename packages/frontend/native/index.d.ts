@@ -36,16 +36,86 @@ export declare class ShareableContent {
   static tapGlobalAudio(excludedProcesses: Array<ApplicationInfo> | undefined | null, audioStreamCallback: ((err: Error | null, arg: Float32Array) => void)): AudioCaptureSession
 }
 
+export declare function abortRecording(id: string): Promise<void>
+
 export declare function decodeAudio(buf: Uint8Array, destSampleRate?: number | undefined | null, filename?: string | undefined | null, signal?: AbortSignal | undefined | null): Promise<Float32Array>
 
 /** Decode audio file into a Float32Array */
 export declare function decodeAudioSync(buf: Uint8Array, destSampleRate?: number | undefined | null, filename?: string | undefined | null): Float32Array
+
+export interface RecordingArtifact {
+  id: string
+  filepath: string
+  sampleRate: number
+  channels: number
+  durationMs: number
+  size: number
+  degraded: boolean
+  overflowCount: number
+}
+
+export interface RecordingSessionMeta {
+  id: string
+  filepath: string
+  sampleRate: number
+  channels: number
+  startedAt: number
+}
+
+export interface RecordingStartOptions {
+  appProcessId?: number
+  excludeProcessIds?: Array<number>
+  outputDir: string
+  format?: string
+  sampleRate?: number
+  channels?: number
+  id?: string
+}
+
+export declare function startRecording(opts: RecordingStartOptions): Promise<RecordingSessionMeta>
+
+export declare function stopRecording(id: string): Promise<RecordingArtifact>
+export interface MermaidRenderOptions {
+  theme?: string
+  fontFamily?: string
+  fontSize?: number
+}
+
+export interface MermaidRenderRequest {
+  code: string
+  options?: MermaidRenderOptions
+}
+
+export interface MermaidRenderResult {
+  svg: string
+}
+
 export declare function mintChallengeResponse(resource: string, bits?: number | undefined | null): Promise<string>
+
+export declare function renderMermaidSvg(request: MermaidRenderRequest): MermaidRenderResult
+
+export declare function renderTypstSvg(request: TypstRenderRequest): TypstRenderResult
+
+export interface TypstRenderOptions {
+  fontUrls?: Array<string>
+  fontDirs?: Array<string>
+}
+
+export interface TypstRenderRequest {
+  code: string
+  options?: TypstRenderOptions
+}
+
+export interface TypstRenderResult {
+  svg: string
+}
 
 export declare function verifyChallengeResponse(response: string, bits: number, resource: string): Promise<boolean>
 export declare class DocStorage {
   constructor(path: string)
   validate(): Promise<boolean>
+  validateImportSchema(): Promise<boolean>
+  vacuumInto(path: string): Promise<void>
   setSpaceId(spaceId: string): Promise<void>
 }
 
@@ -55,6 +125,7 @@ export declare class DocStoragePool {
   connect(universalId: string, path: string): Promise<void>
   disconnect(universalId: string): Promise<void>
   checkpoint(universalId: string): Promise<void>
+  vacuumInto(universalId: string, path: string): Promise<void>
   crawlDocData(universalId: string, docId: string): Promise<NativeCrawlResult>
   setSpaceId(universalId: string, spaceId: string): Promise<void>
   pushUpdate(universalId: string, docId: string, update: Uint8Array): Promise<Date>
@@ -65,6 +136,9 @@ export declare class DocStoragePool {
   deleteDoc(universalId: string, docId: string): Promise<void>
   getDocClocks(universalId: string, after?: Date | undefined | null): Promise<Array<DocClock>>
   getDocClock(universalId: string, docId: string): Promise<DocClock | null>
+  getDocIndexedClock(universalId: string, docId: string): Promise<DocIndexedClock | null>
+  setDocIndexedClock(universalId: string, docId: string, indexedClock: Date, indexerVersion: number): Promise<void>
+  clearDocIndexedClock(universalId: string, docId: string): Promise<void>
   getBlob(universalId: string, key: string): Promise<Blob | null>
   setBlob(universalId: string, blob: SetBlob): Promise<void>
   deleteBlob(universalId: string, key: string, permanently: boolean): Promise<void>
@@ -84,6 +158,7 @@ export declare class DocStoragePool {
   getBlobUploadedAt(universalId: string, peer: string, blobId: string): Promise<Date | null>
   ftsAddDocument(id: string, indexName: string, docId: string, text: string, index: boolean): Promise<void>
   ftsFlushIndex(id: string): Promise<void>
+  ftsIndexVersion(): Promise<number>
   ftsDeleteDocument(id: string, indexName: string, docId: string): Promise<void>
   ftsGetDocument(id: string, indexName: string, docId: string): Promise<string | null>
   ftsSearch(id: string, indexName: string, query: string): Promise<Array<NativeSearchHit>>
@@ -101,6 +176,12 @@ export interface Blob {
 export interface DocClock {
   docId: string
   timestamp: Date
+}
+
+export interface DocIndexedClock {
+  docId: string
+  timestamp: Date
+  indexerVersion: number
 }
 
 export interface DocRecord {
@@ -148,6 +229,7 @@ export interface NativeMatch {
 export interface NativeSearchHit {
   id: string
   score: number
+  terms: Array<string>
 }
 
 export interface SetBlob {
@@ -185,11 +267,13 @@ export declare class SqliteConnection {
   close(): Promise<void>
   get isClose(): boolean
   static validate(path: string): Promise<ValidationResult>
+  validateImportSchema(): Promise<boolean>
   migrateAddDocId(): Promise<void>
   /** * Flush the WAL file to the database file.
    * See https://www.sqlite.org/pragma.html#pragma_wal_checkpoint:~:text=PRAGMA%20schema.wal_checkpoint%3B
    */
   checkpoint(): Promise<void>
+  vacuumInto(path: string): Promise<void>
 }
 
 export interface BlobRow {

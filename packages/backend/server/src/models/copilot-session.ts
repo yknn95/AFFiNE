@@ -10,6 +10,11 @@ import {
   CopilotSessionNotFound,
 } from '../base';
 import { getTokenEncoder } from '../native';
+import type { PromptAttachment } from '../plugins/copilot/providers/types';
+import {
+  type ChatMessage as CopilotChatMessage,
+  ChatMessageSchema,
+} from '../plugins/copilot/types';
 import { BaseModel } from './base';
 
 export enum SessionType {
@@ -24,7 +29,7 @@ type ChatPrompt = {
   model: string;
 };
 
-type ChatAttachment = { attachment: string; mimeType: string } | string;
+type ChatAttachment = PromptAttachment;
 
 type ChatStreamObject = {
   type: 'text-delta' | 'reasoning' | 'tool-call' | 'tool-result';
@@ -33,10 +38,14 @@ type ChatStreamObject = {
   toolName?: string;
   args?: Record<string, any>;
   result?: any;
+  rawArgumentsText?: string;
+  argumentParseError?: string;
+  thought?: string;
 };
 
 type ChatMessage = {
   id?: string | undefined;
+  compatSubmissionId?: string | null;
   role: 'system' | 'assistant' | 'user';
   content: string;
   attachments?: ChatAttachment[] | null;
@@ -44,6 +53,19 @@ type ChatMessage = {
   streamObjects?: ChatStreamObject[] | null;
   createdAt: Date;
 };
+
+type StoredChatMessage = Prisma.AiSessionMessageGetPayload<{
+  select: {
+    id: true;
+    compatSubmissionId: true;
+    role: true;
+    content: true;
+    attachments: true;
+    streamObjects: true;
+    params: true;
+    createdAt: true;
+  };
+}>;
 
 type PureChatSession = {
   sessionId: string;
@@ -83,7 +105,10 @@ type UpdateChatSessionMessage = ChatSessionBaseState & {
 };
 
 export type UpdateChatSessionOptions = ChatSessionBaseState &
-  Pick<Partial<ChatSession>, 'docId' | 'pinned' | 'promptName' | 'title'>;
+  Pick<
+    Partial<ChatSession>,
+    'docId' | 'pinned' | 'promptName' | 'promptAction' | 'title'
+  > & { promptModel?: string };
 
 export type UpdateChatSession = ChatSessionBaseState & UpdateChatSessionOptions;
 
@@ -113,6 +138,225 @@ export type CleanupSessionOptions = Pick<
 
 @Injectable()
 export class CopilotSessionModel extends BaseModel {
+  private noActionPromptCondition(): Prisma.AiSessionWhereInput {
+    return {
+      OR: [{ promptAction: null }, { promptAction: '' }],
+    };
+  }
+
+  private async ensurePromptCompatRecord(prompt: ChatPrompt) {
+    await this.db.aiPrompt.upsert({
+      where: { name: prompt.name },
+      update: {},
+      create: {
+        name: prompt.name,
+        action: prompt.action,
+        model: prompt.model,
+        optionalModels: [],
+        config: {},
+      },
+    });
+  }
+
+  private sanitizeString<T extends string | null | undefined>(value: T): T {
+    if (typeof value !== 'string') {
+      return value;
+    }
+    return value.replaceAll('\0', '') as T;
+  }
+
+  private sanitizeJsonValue<T>(value: T): T {
+    if (typeof value === 'string') {
+      return this.sanitizeString(value) as T;
+    }
+    if (Array.isArray(value)) {
+      return value.map(v => this.sanitizeJsonValue(v)) as T;
+    }
+    if (
+      value &&
+      typeof value === 'object' &&
+      Object.getPrototypeOf(value) === Object.prototype
+    ) {
+      return Object.fromEntries(
+        Object.entries(value).map(([k, v]) => [k, this.sanitizeJsonValue(v)])
+      ) as T;
+    }
+    return value;
+  }
+
+  private sanitizeStreamObject(stream: ChatStreamObject): ChatStreamObject {
+    switch (stream.type) {
+      case 'text-delta':
+      case 'reasoning':
+        return {
+          ...stream,
+          textDelta: this.sanitizeString(stream.textDelta),
+        };
+      case 'tool-call':
+        return {
+          ...stream,
+          toolCallId: this.sanitizeString(stream.toolCallId) ?? '',
+          toolName: this.sanitizeString(stream.toolName) ?? '',
+          args: this.sanitizeJsonValue(stream.args),
+          rawArgumentsText: this.sanitizeString(stream.rawArgumentsText),
+          argumentParseError: this.sanitizeString(stream.argumentParseError),
+          thought: this.sanitizeString(stream.thought),
+        };
+      case 'tool-result':
+        return {
+          ...stream,
+          toolCallId: this.sanitizeString(stream.toolCallId) ?? '',
+          toolName: this.sanitizeString(stream.toolName) ?? '',
+          args: this.sanitizeJsonValue(stream.args),
+          result: this.sanitizeJsonValue(stream.result),
+          rawArgumentsText: this.sanitizeString(stream.rawArgumentsText),
+          argumentParseError: this.sanitizeString(stream.argumentParseError),
+        };
+    }
+  }
+
+  private sanitizeAttachments(
+    attachments?: ChatAttachment[] | null
+  ): ChatAttachment[] | undefined {
+    if (!attachments?.length) {
+      return undefined;
+    }
+
+    return attachments
+      .map(attachment => {
+        if (typeof attachment === 'string') {
+          return this.sanitizeString(attachment) ?? '';
+        }
+
+        if ('attachment' in attachment) {
+          return {
+            attachment:
+              this.sanitizeString(attachment.attachment) ??
+              attachment.attachment,
+            mimeType:
+              this.sanitizeString(attachment.mimeType) ?? attachment.mimeType,
+          };
+        }
+
+        switch (attachment.kind) {
+          case 'url':
+            return {
+              ...attachment,
+              url: this.sanitizeString(attachment.url) ?? attachment.url,
+              mimeType:
+                this.sanitizeString(attachment.mimeType) ?? attachment.mimeType,
+              fileName:
+                this.sanitizeString(attachment.fileName) ?? attachment.fileName,
+              providerHint: attachment.providerHint
+                ? {
+                    provider:
+                      this.sanitizeString(attachment.providerHint.provider) ??
+                      attachment.providerHint.provider,
+                    kind:
+                      this.sanitizeString(attachment.providerHint.kind) ??
+                      attachment.providerHint.kind,
+                  }
+                : undefined,
+            };
+          case 'data':
+          case 'bytes':
+            return {
+              ...attachment,
+              data: this.sanitizeString(attachment.data) ?? attachment.data,
+              mimeType:
+                this.sanitizeString(attachment.mimeType) ?? attachment.mimeType,
+              fileName:
+                this.sanitizeString(attachment.fileName) ?? attachment.fileName,
+              providerHint: attachment.providerHint
+                ? {
+                    provider:
+                      this.sanitizeString(attachment.providerHint.provider) ??
+                      attachment.providerHint.provider,
+                    kind:
+                      this.sanitizeString(attachment.providerHint.kind) ??
+                      attachment.providerHint.kind,
+                  }
+                : undefined,
+            };
+          case 'file_handle':
+            return {
+              ...attachment,
+              fileHandle:
+                this.sanitizeString(attachment.fileHandle) ??
+                attachment.fileHandle,
+              mimeType:
+                this.sanitizeString(attachment.mimeType) ?? attachment.mimeType,
+              fileName:
+                this.sanitizeString(attachment.fileName) ?? attachment.fileName,
+              providerHint: attachment.providerHint
+                ? {
+                    provider:
+                      this.sanitizeString(attachment.providerHint.provider) ??
+                      attachment.providerHint.provider,
+                    kind:
+                      this.sanitizeString(attachment.providerHint.kind) ??
+                      attachment.providerHint.kind,
+                  }
+                : undefined,
+            };
+        }
+
+        return attachment;
+      })
+      .filter(attachment => {
+        if (typeof attachment === 'string') {
+          return !!attachment;
+        }
+        if ('attachment' in attachment) {
+          return !!attachment.attachment && !!attachment.mimeType;
+        }
+
+        switch (attachment.kind) {
+          case 'url':
+            return !!attachment.url;
+          case 'data':
+          case 'bytes':
+            return !!attachment.data && !!attachment.mimeType;
+          case 'file_handle':
+            return !!attachment.fileHandle;
+        }
+
+        return false;
+      });
+  }
+
+  private sanitizeMessage(message: ChatMessage): ChatMessage {
+    return {
+      ...message,
+      compatSubmissionId: this.sanitizeString(message.compatSubmissionId),
+      content: this.sanitizeString(message.content) ?? '',
+      attachments: this.sanitizeAttachments(message.attachments),
+      params: this.sanitizeJsonValue(
+        omit(message.params, ['docs']) || undefined
+      ),
+      streamObjects: message.streamObjects?.map(o =>
+        this.sanitizeStreamObject(o)
+      ),
+    };
+  }
+
+  private toPublicMessage(message: StoredChatMessage): CopilotChatMessage {
+    const { compatSubmissionId: _compatSubmissionId, ...publicMessage } =
+      message;
+    return ChatMessageSchema.parse({
+      ...publicMessage,
+      attachments: publicMessage.attachments ?? undefined,
+      streamObjects: publicMessage.streamObjects ?? undefined,
+      params: publicMessage.params ?? undefined,
+    });
+  }
+
+  private isCountedUserMessage(
+    message: Pick<StoredChatMessage, 'role'>
+  ): boolean {
+    return message.role === AiPromptRole.user;
+  }
+
   getSessionType(session: Pick<ChatSession, 'docId' | 'pinned'>): SessionType {
     if (session.pinned) return SessionType.Pinned;
     if (!session.docId) return SessionType.Workspace;
@@ -137,13 +381,6 @@ export class CopilotSessionModel extends BaseModel {
     }
 
     return true;
-  }
-
-  // NOTE: just for test, remove it after copilot prompt model is ready
-  async createPrompt(name: string, model: string, action?: string) {
-    await this.db.aiPrompt.create({
-      data: { name, model, action: action ?? null },
-    });
   }
 
   @Transactional()
@@ -181,6 +418,7 @@ export class CopilotSessionModel extends BaseModel {
     reuseChat = false
   ): Promise<string> {
     const { prompt, ...rest } = state;
+    await this.ensurePromptCompatRecord(prompt);
     return await this.models.copilotSession.create(
       { ...rest, promptName: prompt.name, promptAction: prompt.action ?? null },
       reuseChat
@@ -237,7 +475,7 @@ export class CopilotSessionModel extends BaseModel {
         workspaceId: state.workspaceId,
         docId: state.docId,
         parentSessionId: null,
-        prompt: { action: { equals: null } },
+        ...this.noActionPromptCondition(),
         ...extraCondition,
       },
       select: { id: true, deletedAt: true },
@@ -287,21 +525,27 @@ export class CopilotSessionModel extends BaseModel {
     });
   }
 
+  @Transactional()
+  async getMeta(sessionId: string) {
+    return await this.getExists(sessionId, {
+      id: true,
+      userId: true,
+      workspaceId: true,
+      docId: true,
+      parentSessionId: true,
+      pinned: true,
+      title: true,
+      promptName: true,
+      tokenCost: true,
+      createdAt: true,
+      updatedAt: true,
+    });
+  }
+
   private getListConditions(
     options: ListSessionOptions
   ): Prisma.AiSessionWhereInput {
     const { userId, sessionId, workspaceId, docId, action, fork } = options;
-
-    function getNullCond<T>(
-      maybeBool: boolean | undefined,
-      wrap: (ret: { not: null } | null) => T = ret => ret as T
-    ): T | undefined {
-      return maybeBool === true
-        ? wrap({ not: null })
-        : maybeBool === false
-          ? wrap(null)
-          : undefined;
-    }
 
     function getEqCond<T>(maybeValue: T | undefined): T | undefined {
       return maybeValue !== undefined ? maybeValue : undefined;
@@ -315,8 +559,13 @@ export class CopilotSessionModel extends BaseModel {
         id: getEqCond(sessionId),
         deletedAt: null,
         pinned: getEqCond(options.pinned),
-        prompt: getNullCond(action, ret => ({ action: ret })),
-        parentSessionId: getNullCond(fork),
+        ...(action === false ? this.noActionPromptCondition() : {}),
+        ...(action === true ? { NOT: this.noActionPromptCondition() } : {}),
+        ...(fork === true
+          ? { parentSessionId: { not: null } }
+          : fork === false
+            ? { parentSessionId: null }
+            : {}),
       },
     ];
 
@@ -328,7 +577,7 @@ export class CopilotSessionModel extends BaseModel {
         workspaceId: workspaceId,
         docId: docId ?? null,
         id: getEqCond(sessionId),
-        prompt: { action: null },
+        ...this.noActionPromptCondition(),
         // should only find forked session
         parentSessionId: { not: null },
         deletedAt: null,
@@ -401,6 +650,7 @@ export class CopilotSessionModel extends BaseModel {
     internalCall = false
   ): Promise<string> {
     const { userId, sessionId, docId, promptName, pinned, title } = options;
+    const sanitizedTitle = this.sanitizeString(title);
     const session = await this.getExists(
       sessionId,
       {
@@ -409,7 +659,7 @@ export class CopilotSessionModel extends BaseModel {
         docId: true,
         parentSessionId: true,
         pinned: true,
-        prompt: true,
+        promptAction: true,
       },
       { userId }
     );
@@ -419,7 +669,7 @@ export class CopilotSessionModel extends BaseModel {
 
     // not allow to update action session
     if (!internalCall) {
-      if (session.prompt.action) {
+      if (session.promptAction) {
         throw new CopilotSessionInvalidInput(
           `Cannot update action: ${session.id}`
         );
@@ -430,12 +680,29 @@ export class CopilotSessionModel extends BaseModel {
       }
     }
 
+    let nextPromptAction: string | null | undefined;
     if (promptName) {
-      const prompt = await this.db.aiPrompt.findFirst({
-        where: { name: promptName },
-      });
-      // always not allow to update to action prompt
-      if (!prompt || prompt.action) {
+      if (options.promptModel) {
+        await this.ensurePromptCompatRecord({
+          name: promptName,
+          action: options.promptAction,
+          model: options.promptModel,
+        });
+      }
+      nextPromptAction = options.promptAction;
+      if (nextPromptAction === undefined) {
+        const prompt = await this.db.aiPrompt.findFirst({
+          where: { name: promptName },
+          select: { action: true },
+        });
+        if (!prompt) {
+          throw new CopilotSessionInvalidInput(
+            `Prompt ${promptName} not found or not available for session ${sessionId}`
+          );
+        }
+        nextPromptAction = prompt.action ?? null;
+      }
+      if (nextPromptAction) {
         throw new CopilotSessionInvalidInput(
           `Prompt ${promptName} not found or not available for session ${sessionId}`
         );
@@ -448,7 +715,13 @@ export class CopilotSessionModel extends BaseModel {
 
     await this.db.aiSession.update({
       where: { id: sessionId },
-      data: { docId, promptName, pinned, title },
+      data: {
+        docId,
+        promptName,
+        promptAction: nextPromptAction,
+        pinned,
+        title: sanitizedTitle,
+      },
     });
 
     return sessionId;
@@ -494,6 +767,48 @@ export class CopilotSessionModel extends BaseModel {
     });
   }
 
+  @Transactional()
+  async getMessage(sessionId: string, messageId: string) {
+    const message = await this.db.aiSessionMessage.findFirst({
+      where: { id: messageId, sessionId },
+      select: {
+        id: true,
+        compatSubmissionId: true,
+        role: true,
+        content: true,
+        attachments: true,
+        streamObjects: true,
+        params: true,
+        createdAt: true,
+      },
+    });
+
+    return message ? this.toPublicMessage(message) : null;
+  }
+
+  @Transactional()
+  async findMessageByCompatSubmissionId(
+    sessionId: string,
+    compatSubmissionId: string
+  ) {
+    const message = await this.db.aiSessionMessage.findFirst({
+      where: { sessionId, compatSubmissionId },
+      select: {
+        id: true,
+        compatSubmissionId: true,
+        role: true,
+        content: true,
+        attachments: true,
+        streamObjects: true,
+        params: true,
+        createdAt: true,
+      },
+      orderBy: { createdAt: 'asc' },
+    });
+
+    return message ? this.toPublicMessage(message) : null;
+  }
+
   private calculateTokenSize(messages: any[], model: string): number {
     const encoder = getTokenEncoder(model);
     const content = messages.map(m => m.content).join('');
@@ -509,19 +824,26 @@ export class CopilotSessionModel extends BaseModel {
     }
 
     if (messages.length) {
-      const tokenCost = this.calculateTokenSize(messages, state.prompt.model);
+      const sanitizedMessages = messages.map(m => this.sanitizeMessage(m));
+      const tokenCost = this.calculateTokenSize(
+        sanitizedMessages,
+        state.prompt.model
+      );
       await this.db.aiSessionMessage.createMany({
-        data: messages.map(m => ({
-          ...m,
+        data: sanitizedMessages.map(m => ({
+          compatSubmissionId: m.compatSubmissionId || undefined,
+          role: m.role,
+          content: m.content,
           attachments: m.attachments || undefined,
-          params: omit(m.params, ['docs']) || undefined,
+          params: m.params || undefined,
           streamObjects: m.streamObjects || undefined,
+          createdAt: m.createdAt,
           sessionId,
         })),
       });
 
       // only count message generated by user
-      const userMessages = messages.filter(m => m.role === 'user');
+      const userMessages = sanitizedMessages.filter(m => m.role === 'user');
       await this.db.aiSession.update({
         where: { id: sessionId },
         data: {
@@ -533,17 +855,119 @@ export class CopilotSessionModel extends BaseModel {
   }
 
   @Transactional()
+  async appendMessage(state: {
+    sessionId: string;
+    userId: string;
+    prompt: { model: string };
+    message: ChatMessage;
+  }) {
+    const haveSession = await this.has(state.sessionId, state.userId);
+    if (!haveSession) {
+      throw new CopilotSessionNotFound();
+    }
+
+    const message = this.sanitizeMessage(state.message);
+    const tokenCost = this.calculateTokenSize([message], state.prompt.model);
+
+    const created = await this.db.aiSessionMessage.create({
+      data: {
+        sessionId: state.sessionId,
+        compatSubmissionId: message.compatSubmissionId || undefined,
+        role: message.role,
+        content: message.content,
+        attachments: message.attachments || undefined,
+        params: message.params || undefined,
+        streamObjects: message.streamObjects || undefined,
+        createdAt: message.createdAt,
+      },
+      select: {
+        id: true,
+        compatSubmissionId: true,
+        role: true,
+        content: true,
+        attachments: true,
+        streamObjects: true,
+        params: true,
+        createdAt: true,
+      },
+    });
+
+    await this.db.aiSession.update({
+      where: { id: state.sessionId },
+      data: {
+        messageCost:
+          message.role === AiPromptRole.user ? { increment: 1 } : undefined,
+        tokenCost: { increment: tokenCost },
+      },
+    });
+
+    return this.toPublicMessage(created);
+  }
+
+  @Transactional()
+  async trimAfterMessage(
+    sessionId: string,
+    messageId: string,
+    removeTargetMessage = false
+  ) {
+    const session = await this.getExists(sessionId, {
+      id: true,
+    });
+    if (!session) {
+      throw new CopilotSessionNotFound();
+    }
+
+    const messages = await this.getMessages(
+      sessionId,
+      { id: true, role: true, content: true, params: true },
+      { createdAt: 'asc' }
+    );
+    const messageIndex = messages.findIndex(({ id }) => id === messageId);
+    if (messageIndex < 0) {
+      throw new CopilotSessionNotFound();
+    }
+
+    const ids = messages
+      .slice(messageIndex + (removeTargetMessage ? 0 : 1))
+      .map(({ id }) => id);
+
+    if (!ids.length) {
+      return;
+    }
+
+    await this.db.aiSessionMessage.deleteMany({ where: { id: { in: ids } } });
+
+    const remainingMessages = await this.getMessages(sessionId, {
+      role: true,
+    });
+    const userMessageCount = remainingMessages.filter(message =>
+      this.isCountedUserMessage(message)
+    ).length;
+
+    if (userMessageCount <= 1) {
+      await this.db.aiSession.update({
+        where: { id: sessionId },
+        data: { title: null },
+      });
+    }
+  }
+
+  @Transactional()
   async revertLatestMessage(
     sessionId: string,
     removeLatestUserMessage: boolean
   ) {
-    const id = await this.getExists(sessionId, { id: true }).then(
-      session => session?.id
-    );
-    if (!id) {
+    const session = await this.getExists(sessionId, {
+      id: true,
+    });
+    if (!session) {
       throw new CopilotSessionNotFound();
     }
-    const messages = await this.getMessages(id, { id: true, role: true });
+    const messages = await this.getMessages(session.id, {
+      id: true,
+      role: true,
+      content: true,
+    });
     const ids = messages
       .slice(
         messages.findLastIndex(({ role }) => role === AiPromptRole.user) +
@@ -555,14 +979,16 @@ export class CopilotSessionModel extends BaseModel {
       await this.db.aiSessionMessage.deleteMany({ where: { id: { in: ids } } });
 
       // clear the title if there only one round of conversation left
-      const remainingMessages = await this.getMessages(id, { role: true });
-      const userMessageCount = remainingMessages.filter(
-        m => m.role === AiPromptRole.user
+      const remainingMessages = await this.getMessages(session.id, {
+        role: true,
+      });
+      const userMessageCount = remainingMessages.filter(message =>
+        this.isCountedUserMessage(message)
       ).length;
 
       if (userMessageCount <= 1) {
         await this.db.aiSession.update({
-          where: { id },
+          where: { id: session.id },
           data: { title: null },
         });
       }
@@ -573,11 +999,32 @@ export class CopilotSessionModel extends BaseModel {
   async countUserMessages(userId: string): Promise<number> {
     const sessions = await this.db.aiSession.findMany({
       where: { userId },
-      select: { messageCost: true, prompt: { select: { action: true } } },
+      select: { messageCost: true, promptAction: true },
     });
-    return sessions
-      .map(({ messageCost, prompt: { action } }) => (action ? 1 : messageCost))
+    const regularMessageCost = sessions
+      .filter(({ promptAction }) => !promptAction)
+      .map(({ messageCost }) => messageCost)
       .reduce((prev, cost) => prev + cost, 0);
+    const [
+      actionRunCost,
+      legacyActionSessionCost,
+      transcriptSettlementCost,
+      byokQuotaExemptCost,
+    ] = await Promise.all([
+      this.models.copilotActionRun.countSucceededByUser(userId),
+      this.models.copilotActionRun.countLegacyPromptActionSessionsWithoutRun(
+        userId
+      ),
+      this.models.copilotTranscriptTask.countSettledByUser(userId),
+      this.models.copilotUsage.countQuotaExemptByokUsage(userId),
+    ]);
+    const quotaBackedCost =
+      regularMessageCost +
+      actionRunCost +
+      legacyActionSessionCost +
+      transcriptSettlementCost -
+      byokQuotaExemptCost;
+    return Math.max(0, quotaBackedCost);
   }
 
   async cleanupEmptySessions(earlyThen: Date) {
@@ -617,7 +1064,7 @@ export class CopilotSessionModel extends BaseModel {
           deletedAt: null,
           messages: { some: {} },
           // only generate titles for non-actions sessions
-          prompt: { action: null },
+          ...this.noActionPromptCondition(),
         },
         select: {
           id: true,

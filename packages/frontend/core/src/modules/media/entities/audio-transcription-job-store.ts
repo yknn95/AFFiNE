@@ -1,8 +1,8 @@
 import {
-  claimAudioTranscriptionMutation,
-  getAudioTranscriptionQuery,
-  retryAudioTranscriptionMutation,
-  submitAudioTranscriptionMutation,
+  getTranscriptTaskQuery,
+  retryTranscriptTaskMutation,
+  settleTranscriptTaskMutation,
+  submitTranscriptTaskMutation,
 } from '@affine/graphql';
 import { Entity } from '@toeverything/infra';
 
@@ -12,7 +12,10 @@ import type { WorkspaceService } from '../../workspace';
 
 export class AudioTranscriptionJobStore extends Entity<{
   readonly blobId: string;
-  readonly getAudioFiles: () => Promise<File[]>;
+  readonly getAudioTranscriptionInput: () => Promise<{
+    files: File[];
+    input?: Record<string, unknown>;
+  }>;
 }> {
   constructor(
     private readonly workspaceService: WorkspaceService,
@@ -36,46 +39,47 @@ export class AudioTranscriptionJobStore extends Entity<{
     return this.workspaceService.workspace.id;
   }
 
-  submitAudioTranscription = async () => {
+  submitTranscriptTask = async () => {
     const graphqlService = this.graphqlService;
     if (!graphqlService) {
       throw new Error('No graphql service available');
     }
-    const files = await this.props.getAudioFiles();
+    const { files, input } = await this.props.getAudioTranscriptionInput();
     const response = await graphqlService.gql({
       timeout: 0, // default 15s is too short for audio transcription
-      query: submitAudioTranscriptionMutation,
+      query: submitTranscriptTaskMutation,
       variables: {
         workspaceId: this.currentWorkspaceId,
         blobId: this.props.blobId,
         blobs: files,
+        input,
       },
     });
-    if (!response.submitAudioTranscription?.id) {
+    if (!response.submitTranscriptTask?.id) {
       throw new Error('Failed to submit audio transcription');
     }
-    return response.submitAudioTranscription;
+    return response.submitTranscriptTask;
   };
 
-  retryAudioTranscription = async (jobId: string) => {
+  retryTranscriptTask = async (taskId: string) => {
     const graphqlService = this.graphqlService;
     if (!graphqlService) {
       throw new Error('No graphql service available');
     }
     const response = await graphqlService.gql({
-      query: retryAudioTranscriptionMutation,
+      query: retryTranscriptTaskMutation,
       variables: {
-        jobId,
+        taskId,
         workspaceId: this.currentWorkspaceId,
       },
     });
-    if (!response.retryAudioTranscription) {
+    if (!response.retryTranscriptTask) {
       throw new Error('Failed to retry audio transcription');
     }
-    return response.retryAudioTranscription;
+    return response.retryTranscriptTask;
   };
 
-  getAudioTranscription = async (blobId: string, jobId?: string) => {
+  getTranscriptTask = async (blobId: string, taskId?: string) => {
     const graphqlService = this.graphqlService;
     if (!graphqlService) {
       throw new Error('No graphql service available');
@@ -85,32 +89,33 @@ export class AudioTranscriptionJobStore extends Entity<{
       throw new Error('No current workspace id');
     }
     const response = await graphqlService.gql({
-      query: getAudioTranscriptionQuery,
+      query: getTranscriptTaskQuery,
       variables: {
         workspaceId: currentWorkspaceId,
-        jobId,
+        taskId,
         blobId,
       },
     });
-    if (!response.currentUser?.copilot?.audioTranscription) {
+    if (!response.currentUser?.copilot?.transcriptTask) {
       return null;
     }
-    return response.currentUser.copilot.audioTranscription;
+    return response.currentUser.copilot.transcriptTask;
   };
-  claimAudioTranscription = async (jobId: string) => {
+  settleTranscriptTask = async (taskId: string) => {
     const graphqlService = this.graphqlService;
     if (!graphqlService) {
       throw new Error('No graphql service available');
     }
     const response = await graphqlService.gql({
-      query: claimAudioTranscriptionMutation,
+      query: settleTranscriptTaskMutation,
       variables: {
-        jobId,
+        taskId,
+        workspaceId: this.currentWorkspaceId,
       },
     });
-    if (!response.claimAudioTranscription) {
-      throw new Error('Failed to claim transcription result');
+    if (!response.settleTranscriptTask) {
+      throw new Error('Failed to settle transcription result');
     }
-    return response.claimAudioTranscription;
+    return response.settleTranscriptTask;
   };
 }
