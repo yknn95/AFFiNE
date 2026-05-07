@@ -124,7 +124,7 @@ jobs:
 
   build-server-native:
     name: Build Server native - ${{ matrix.targets.name }}
-    runs-on: ubuntu-latest
+    runs-on: ubuntu-22.04
     environment: ${{ inputs.build-type }}
     strategy:
       fail-fast: false
@@ -132,6 +132,10 @@ jobs:
         targets:
           - name: x86_64-unknown-linux-gnu
             file: server-native.x64.node
+          - name: aarch64-unknown-linux-gnu
+            file: server-native.arm64.node
+          - name: armv7-unknown-linux-gnueabihf
+            file: server-native.armv7.node
 
     steps:
       - uses: actions/checkout@v6
@@ -190,6 +194,13 @@ jobs:
         run: ls -alh ./packages/backend/native
       - name: Build Server
         run: yarn workspace @affine/server build
+      - name: Inspect server package
+        if: always()
+        run: |
+          pwd
+          ls -alh ./packages/backend/server || true
+          ls -alh ./packages/backend/server/dist || true
+          find ./packages/backend/server -maxdepth 2 -type f | sort || true
       - name: Upload server dist
         uses: actions/upload-artifact@v7
         with:
