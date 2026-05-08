@@ -43,7 +43,6 @@ import {
   workspaceWrapper,
 } from './index.css';
 import { InviteMembersButton } from './invite-members-button';
-import { AppSidebarJournalButton } from './journal-button';
 import { NotificationButton } from './notification-button';
 import { TemplateDocEntrance } from './template-doc-entrance';
 import { TrashButton } from './trash-button';
@@ -206,7 +205,6 @@ export const RootAppSidebar = memo((): ReactElement => {
           <AddPageButton />
         </div>
         <AllDocsButton />
-        <AppSidebarJournalButton />
         {sessionStatus === 'authenticated' && <NotificationButton />}
         <AIChatButton />
         <MenuItem
