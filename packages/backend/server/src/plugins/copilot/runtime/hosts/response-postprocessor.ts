@@ -1,4 +1,4 @@
-import { Injectable } from '@nestjs/common';
+import { Injectable, Logger } from '@nestjs/common';
 
 import { type Turn, turnFromChatMessage } from '../../core';
 import type { StreamObject } from '../../providers/types';
@@ -6,6 +6,8 @@ import { StreamObjectParser } from '../../providers/utils';
 
 @Injectable()
 export class ResponsePostprocessor {
+  private readonly logger = new Logger(ResponsePostprocessor.name);
+
   buildTextAssistantTurn(sessionId: string, content: string): Turn {
     return {
       conversationId: sessionId,
@@ -36,6 +38,9 @@ export class ResponsePostprocessor {
   }
 
   buildImageAssistantTurn(sessionId: string, attachments: string[]): Turn {
+    this.logger.log(
+      `[image-postprocess] sessionId=${sessionId} attachments=${attachments.length}`
+    );
     return {
       conversationId: sessionId,
       role: 'assistant',

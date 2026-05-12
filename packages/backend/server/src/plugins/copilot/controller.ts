@@ -258,9 +258,15 @@ export class CopilotController implements BeforeApplicationShutdown {
   ): Promise<Observable<ChatEvent>> {
     const info: any = { sessionId, params: query, throwInStream: false };
     try {
+      this.logger.log(
+        `[images-controller] incoming sessionId=${sessionId} userId=${user.id} queryKeys=${Object.keys(query).join(',')}`
+      );
       const { signal, onConnectionClosed } = getSignal(req);
       let endBeforePromiseResolve = false;
       onConnectionClosed(isAborted => {
+        this.logger.log(
+          `[images-controller] connectionClosed sessionId=${sessionId} aborted=${isAborted}`
+        );
         if (isAborted) {
           endBeforePromiseResolve = true;
         }
@@ -274,28 +280,43 @@ export class CopilotController implements BeforeApplicationShutdown {
         () => endBeforePromiseResolve
       );
       info.model = prepared.model;
+      this.logger.log(
+        `[images-controller] prepared sessionId=${sessionId} messageId=${prepared.messageId ?? 'n/a'} model=${prepared.model}`
+      );
       metrics.ai.counter('images_stream_calls').add(1, {
         model: prepared.model,
       });
       this.ongoingStreamCount$.next(this.ongoingStreamCount$.value + 1);
 
       const source$ = from(prepared.stream).pipe(
-        map(attachment =>
-          this.toAttachmentEvent(prepared.messageId, attachment)
-        ),
+        map(attachment => {
+          this.logger.log(
+            `[images-controller] streaming attachment sessionId=${sessionId} messageId=${prepared.messageId ?? 'n/a'} attachment=${attachment.slice(0, 160)}${attachment.length > 160 ? '...' : ''}`
+          );
+          return this.toAttachmentEvent(prepared.messageId, attachment);
+        }),
         catchError(e => {
           metrics.ai.counter('images_stream_errors').add(1, info);
           info.throwInStream = true;
+          this.logger.error(
+            `[images-controller] streamError sessionId=${sessionId} messageId=${prepared.messageId ?? 'n/a'} ${e instanceof Error ? e.message : String(e)}`
+          );
           return mapSseError(e, info);
         }),
-        finalize(() =>
-          this.ongoingStreamCount$.next(this.ongoingStreamCount$.value - 1)
-        )
+        finalize(() => {
+          this.logger.log(
+            `[images-controller] finalize sessionId=${sessionId} messageId=${prepared.messageId ?? 'n/a'}`
+          );
+          this.ongoingStreamCount$.next(this.ongoingStreamCount$.value - 1);
+        })
       );
 
       return this.mergePingStream(prepared.messageId || '', source$);
     } catch (err) {
       metrics.ai.counter('images_stream_errors').add(1, info);
+      this.logger.error(
+        `[images-controller] prepareError sessionId=${sessionId} ${err instanceof Error ? err.message : String(err)}`
+      );
       return mapSseError(err, info);
     }
   }

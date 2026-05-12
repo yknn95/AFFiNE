@@ -121,7 +121,22 @@ export class ChatContentImages extends WithDisposable(ShadowlessElement) {
         ${repeat(
           images,
           image => image,
-          image => html`<img src="${image}" />`
+          image =>
+            html`<img
+              src="${image}"
+              @load=${() =>
+                console.log('[ai-image-render] image loaded', {
+                  preview: image.slice(0, 200),
+                })}
+              @error=${(event: Event) =>
+                console.error('[ai-image-render] image failed', {
+                  preview: image.slice(0, 200),
+                  currentSrc:
+                    event.target instanceof HTMLImageElement
+                      ? event.target.currentSrc
+                      : null,
+                })}
+            />`
         )}
       </div>`;
     } else {
@@ -131,7 +146,21 @@ export class ChatContentImages extends WithDisposable(ShadowlessElement) {
           image => image,
           image =>
             html`<div class="image-container">
-              <img src="${image}" />
+              <img
+                src="${image}"
+                @load=${() =>
+                  console.log('[ai-image-render] image loaded', {
+                    preview: image.slice(0, 200),
+                  })}
+                @error=${(event: Event) =>
+                  console.error('[ai-image-render] image failed', {
+                    preview: image.slice(0, 200),
+                    currentSrc:
+                      event.target instanceof HTMLImageElement
+                        ? event.target.currentSrc
+                        : null,
+                  })}
+              />
             </div>`
         )}
       </div>`;

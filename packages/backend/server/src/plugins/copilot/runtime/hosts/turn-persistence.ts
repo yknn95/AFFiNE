@@ -1,4 +1,4 @@
-import { Injectable } from '@nestjs/common';
+import { Injectable, Logger } from '@nestjs/common';
 
 import type { Turn } from '../../core';
 import type { StreamObject } from '../../providers/types';
@@ -8,6 +8,8 @@ import { ResponsePostprocessor } from './response-postprocessor';
 
 @Injectable()
 export class TurnPersistence {
+  private readonly logger = new Logger(TurnPersistence.name);
+
   constructor(
     private readonly conversations: ConversationHost,
     private readonly postprocessor: ResponsePostprocessor
@@ -48,6 +50,14 @@ export class TurnPersistence {
     attachments: string[],
     wasAborted: boolean
   ) {
+    this.logger.log(
+      `[image-turn-persist] sessionId=${session.config.sessionId} workspaceId=${session.config.workspaceId ?? 'n/a'} attachments=${attachments.length} aborted=${wasAborted}`
+    );
+    attachments.forEach((attachment, index) => {
+      this.logger.log(
+        `[image-turn-persist] attachment[${index}]=${attachment.slice(0, 160)}${attachment.length > 160 ? '...' : ''}`
+      );
+    });
     return await this.conversations.persistAssistantTurn(
       session,
       this.postprocessor.buildImageAssistantTurn(

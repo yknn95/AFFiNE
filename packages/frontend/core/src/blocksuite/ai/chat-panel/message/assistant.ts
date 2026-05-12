@@ -136,6 +136,13 @@ export class ChatMessageAssistant extends WithDisposable(ShadowlessElement) {
     const { item } = this;
     if (!item.attachments) return nothing;
 
+    console.log('[ai-chat-assistant] renderImages', {
+      attachmentsCount: item.attachments.length,
+      attachmentsPreview: item.attachments.map(attachment =>
+        typeof attachment === 'string' ? attachment.slice(0, 200) : attachment
+      ),
+    });
+
     return html`<chat-content-images
       .images=${item.attachments}
     ></chat-content-images>`;
