@@ -27,6 +27,30 @@ export class ChatContentStreamObjects extends WithDisposable(
       border-radius: 8px;
       background-color: rgba(0, 0, 0, 0.05);
     }
+
+    .image-tool-result {
+      margin: 8px 0;
+      padding: 12px;
+      border-radius: 8px;
+      border: 0.5px solid var(--affine-v2-layer-insideBorder-border);
+      background: var(--affine-v2-layer-background-primary);
+    }
+
+    .image-tool-result-title {
+      font-size: 14px;
+      font-weight: 500;
+      line-height: 20px;
+      color: var(--affine-v2-text-primary);
+      margin-bottom: 8px;
+    }
+
+    .image-tool-result-content {
+      font-size: 12px;
+      line-height: 18px;
+      color: var(--affine-v2-text-secondary);
+      margin-bottom: 8px;
+      white-space: pre-wrap;
+    }
   `;
 
   @property({ attribute: false })
@@ -167,6 +191,27 @@ export class ChatContentStreamObjects extends WithDisposable(
       return nothing;
     }
 
+    console.log('[ai-stream-object] renderToolResult', {
+      toolName: streamObject.toolName,
+      toolCallId: streamObject.toolCallId,
+      args: streamObject.args,
+      result: streamObject.result,
+    });
+
+    const imageSources = extractImageSources(streamObject.result);
+    if (imageSources.length) {
+      const content = summarizeToolResult(streamObject.result);
+      return html`
+        <div class="image-tool-result">
+          <div class="image-tool-result-title">${streamObject.toolName}</div>
+          ${content
+            ? html`<div class="image-tool-result-content">${content}</div>`
+            : nothing}
+          <chat-content-images .images=${imageSources}></chat-content-images>
+        </div>
+      `;
+    }
+
     switch (streamObject.toolName) {
       case 'web_crawl_exa':
         return html`
@@ -278,6 +323,14 @@ export class ChatContentStreamObjects extends WithDisposable(
   }
 
   protected override render() {
+    console.log('[ai-stream-object] render', {
+      count: this.answer.length,
+      types: this.answer.map(item =>
+        item.type === 'tool-call' || item.type === 'tool-result'
+          ? `${item.type}:${item.toolName}`
+          : item.type
+      ),
+    });
     return html`<div>
       ${this.answer.map(data => {
         switch (data.type) {
@@ -299,4 +352,134 @@ export class ChatContentStreamObjects extends WithDisposable(
       })}
     </div>`;
   }
+}
+
+function extractImageSources(
+  value: unknown,
+  options: { depth?: number; seen?: WeakSet<object> } = {}
+): string[] {
+  const depth = options.depth ?? 0;
+  const seen = options.seen ?? new WeakSet<object>();
+  if (depth > 4 || value == null) {
+    return [];
+  }
+
+  if (typeof value === 'string') {
+    return isImageLikeString(value) ? [value] : [];
+  }
+
+  if (Array.isArray(value)) {
+    return dedupe(value.flatMap(item => extractImageSources(item, { depth: depth + 1, seen })));
+  }
+
+  if (typeof value !== 'object') {
+    return [];
+  }
+
+  if (seen.has(value)) {
+    return [];
+  }
+  seen.add(value);
+
+  const record = value as Record<string, unknown>;
+  const directUrl =
+    typeof record.url === 'string'
+      ? record.url
+      : typeof record.image_url === 'string'
+        ? record.image_url
+        : undefined;
+  const directBase64 =
+    typeof record.b64_json === 'string'
+      ? record.b64_json
+      : typeof record.data_base64 === 'string'
+        ? record.data_base64
+        : undefined;
+
+  const sources: string[] = [];
+  if (directUrl && isImageLikeString(directUrl)) {
+    sources.push(directUrl);
+  }
+  if (directBase64) {
+    sources.push(
+      `data:${resolveImageMimeType(record)};base64,${directBase64}`
+    );
+  }
+
+  const nestedKeys = [
+    'images',
+    'artifacts',
+    'attachments',
+    'data',
+    'result',
+    'output',
+    'content',
+  ] as const;
+  for (const key of nestedKeys) {
+    if (key in record) {
+      sources.push(
+        ...extractImageSources(record[key], { depth: depth + 1, seen })
+      );
+    }
+  }
+
+  return dedupe(sources);
+}
+
+function resolveImageMimeType(record: Record<string, unknown>) {
+  if (typeof record.media_type === 'string') {
+    return record.media_type;
+  }
+  if (typeof record.mimeType === 'string') {
+    return record.mimeType;
+  }
+  if (typeof record.type === 'string' && record.type.startsWith('image/')) {
+    return record.type;
+  }
+  if (typeof record.output_format === 'string') {
+    return outputFormatToMimeType(record.output_format);
+  }
+  return 'image/png';
+}
+
+function outputFormatToMimeType(format: string) {
+  const normalized = format.toLowerCase();
+  if (normalized === 'jpg') {
+    return 'image/jpeg';
+  }
+  return `image/${normalized}`;
+}
+
+function isImageLikeString(value: string) {
+  return (
+    value.startsWith('data:image/') ||
+    value.startsWith('http://') ||
+    value.startsWith('https://') ||
+    value.startsWith('blob:')
+  );
+}
+
+function summarizeToolResult(value: unknown) {
+  if (!value || typeof value !== 'object') {
+    return '';
+  }
+
+  const record = value as Record<string, unknown>;
+  const candidate = [
+    record.revised_prompt,
+    record.prompt,
+    record.description,
+    record.text,
+    record.content,
+    record.result,
+  ].find(item => typeof item === 'string');
+
+  if (typeof candidate !== 'string') {
+    return '';
+  }
+
+  return candidate.length > 240 ? `${candidate.slice(0, 240)}...` : candidate;
+}
+
+function dedupe(values: string[]) {
+  return Array.from(new Set(values));
 }

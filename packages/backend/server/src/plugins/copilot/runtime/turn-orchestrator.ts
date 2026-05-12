@@ -191,6 +191,14 @@ export class TurnOrchestrator {
       finalMessage,
       options
     )) {
+      this.logger.log(
+        `[object-stream] sessionId=${session.config.sessionId} type=${chunk.type}${'toolName' in chunk && typeof chunk.toolName === 'string' ? ` toolName=${chunk.toolName}` : ''}${'toolCallId' in chunk && typeof chunk.toolCallId === 'string' ? ` toolCallId=${chunk.toolCallId}` : ''}`
+      );
+      if (chunk.type === 'tool-result') {
+        this.logger.log(
+          `[object-stream] tool-result sessionId=${session.config.sessionId} payload=${truncateObjectPreview(chunk.result)}`
+        );
+      }
       chunks.push(chunk);
       yield chunk;
     }
@@ -292,5 +300,15 @@ export class TurnOrchestrator {
     }
     const num = Number.parseInt(String(value), 10);
     return Number.isNaN(num) ? undefined : num;
+  }
+}
+
+function truncateObjectPreview(value: unknown, max = 400) {
+  try {
+    const text =
+      typeof value === 'string' ? value : JSON.stringify(value, null, 0);
+    return text.length > max ? `${text.slice(0, max)}...` : text;
+  } catch {
+    return '[unserializable]';
   }
 }
