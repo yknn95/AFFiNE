@@ -1496,6 +1496,44 @@ test('CopilotProviderFactory should resolve legacy model ids through native regi
   t.is(provider.resolveModel('gpt-5-2025-08-07')?.id, 'gpt-5');
 });
 
+test('CopilotProviderFactory should allow gpt-5.5 through openai host aliasing', async t => {
+  const provider = createProvider();
+  const registryService = {
+    getRegistry: () =>
+      buildProviderRegistry({
+        profiles: [
+          {
+            id: 'openai-main',
+            type: CopilotProviderType.OpenAI,
+            priority: 1,
+            config: { apiKey: 'test-key' },
+          },
+        ],
+        defaults: {},
+      }),
+  };
+  const server = {
+    enableFeature: Sinon.stub(),
+    disableFeature: Sinon.stub(),
+  };
+  const access = {
+    resolveRouteAccess: Sinon.stub().resolves({
+      byokProfiles: [],
+      quotaBackedRoutesAvailable: true,
+    }),
+  };
+  const factory = new CopilotProviderFactory(
+    server as never,
+    registryService as never,
+    access as never
+  );
+  factory.register('openai-main', provider);
+
+  const resolvedProvider = await factory.getProviderByModel('gpt-5.5');
+  t.is(resolvedProvider, provider);
+  t.is(provider.resolveModel('gpt-5.5')?.id, 'gpt-5.5');
+});
+
 const BYOK_OPENAI_PROFILE: CopilotProviderProfile = {
   id: 'byok-aaaaaaaaaaaa-openai-server-key1',
   type: CopilotProviderType.OpenAI,

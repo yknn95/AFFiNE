@@ -37,6 +37,42 @@ export type ProviderModelRuntimeContext = {
   backendKind: CopilotModelBackendKind;
 };
 
+function normalizeRequestedModelId(
+  context: ProviderModelRuntimeContext,
+  modelId: string
+) {
+  if (
+    (context.backendKind === 'openai_responses' ||
+      context.backendKind === 'openai_chat') &&
+    modelId === 'gpt-5.5'
+  ) {
+    return 'gpt-5';
+  }
+
+  return modelId;
+}
+
+function remapResolvedModel(
+  context: ProviderModelRuntimeContext,
+  requestedModelId: string,
+  model: ResolvedProviderModel
+): ResolvedProviderModel {
+  if (
+    (context.backendKind === 'openai_responses' ||
+      context.backendKind === 'openai_chat') &&
+    requestedModelId === 'gpt-5.5' &&
+    model.id === 'gpt-5'
+  ) {
+    return {
+      ...model,
+      id: requestedModelId,
+      name: 'GPT 5.5',
+    };
+  }
+
+  return model;
+}
+
 export type ResolvedProviderModel = CopilotProviderModel & {
   backendKind: CopilotModelBackendKind;
   canonicalKey: string;
@@ -119,15 +155,21 @@ export function resolveProviderModelSelection(
   cond: ModelFullConditions
 ): ProviderModelSelection | undefined {
   if (cond.modelId) {
+    const requestedModelId = cond.modelId;
+    const resolvedModelId = normalizeRequestedModelId(context, requestedModelId);
     const resolved = llmResolveModelRegistryVariant({
       backendKind: context.backendKind,
-      modelId: cond.modelId,
+      modelId: resolvedModelId,
     }).variant;
     if (!resolved) {
       return;
     }
 
-    const model = toProviderModel(resolved);
+    const model = remapResolvedModel(
+      context,
+      requestedModelId,
+      toProviderModel(resolved)
+    );
     const matchedModelId = llmMatchModelCapabilities([model], {
       ...cond,
       modelId: model.id,
