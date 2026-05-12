@@ -1,4 +1,4 @@
-import { Injectable } from '@nestjs/common';
+import { Injectable, Logger } from '@nestjs/common';
 
 import { CopilotContextService } from '../context/service';
 import { type Turn } from '../core';
@@ -17,6 +17,8 @@ import { TurnPersistence } from './hosts/turn-persistence';
 
 @Injectable()
 export class TurnOrchestrator {
+  private readonly logger = new Logger(TurnOrchestrator.name);
+
   constructor(
     private readonly conversations: ConversationHost,
     private readonly context: CopilotContextService,
@@ -261,12 +263,18 @@ export class TurnOrchestrator {
       finalMessage,
       options
     )) {
+      this.logger.log(
+        `[image-stream] sessionId=${sessionId} workspaceId=${session.config.workspaceId} artifactKeys=${Object.keys(artifact).join(',')}`
+      );
       const handled = await this.imageResults.persistNativeArtifact(
         userId,
         session.config.workspaceId,
         artifact
       );
       if (handled) {
+        this.logger.log(
+          `[image-stream] sessionId=${sessionId} persistedAttachment=${handled.slice(0, 160)}${handled.length > 160 ? '...' : ''}`
+        );
         attachments.push(handled);
         yield handled;
       }

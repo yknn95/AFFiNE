@@ -1,12 +1,14 @@
 import { createHash } from 'node:crypto';
 
-import { Injectable } from '@nestjs/common';
+import { Injectable, Logger } from '@nestjs/common';
 
 import type { LlmImageResponse } from '../../../../native';
 import { CopilotStorage } from '../../storage';
 
 @Injectable()
 export class ImageResultHost {
+  private readonly logger = new Logger(ImageResultHost.name);
+
   constructor(private readonly storage: CopilotStorage) {}
 
   async persistRemoteLink(userId: string, workspaceId: string, link: string) {
@@ -19,6 +21,9 @@ export class ImageResultHost {
     artifact: LlmImageResponse['images'][number] & { mimeType?: string }
   ) {
     const encoded = artifact.data_base64 ?? artifact.b64_json;
+    this.logger.log(
+      `[image-persist] workspaceId=${workspaceId} hasUrl=${!!artifact.url} hasDataBase64=${!!artifact.data_base64} hasB64Json=${!!artifact.b64_json} mediaType=${artifact.media_type ?? artifact.mimeType ?? 'n/a'} outputFormat=${artifact.output_format ?? 'n/a'}`
+    );
     if (encoded) {
       const buffer = Buffer.from(encoded, 'base64');
       const filename = cryptoHash(buffer);
@@ -26,17 +31,26 @@ export class ImageResultHost {
       if (!mediaType) {
         return null;
       }
-      return await this.storage.put(
+      const stored = await this.storage.put(
         userId,
         workspaceId,
         filename,
         buffer,
         mediaType
       );
+      this.logger.log(
+        `[image-persist] storedBase64Artifact workspaceId=${workspaceId} mimeType=${mediaType} result=${truncateForLog(stored)}`
+      );
+      return stored;
     }
     if (artifact.url) {
-      return await this.persistRemoteLink(userId, workspaceId, artifact.url);
+      const stored = await this.persistRemoteLink(userId, workspaceId, artifact.url);
+      this.logger.log(
+        `[image-persist] storedRemoteArtifact workspaceId=${workspaceId} sourceUrl=${truncateForLog(artifact.url)} result=${truncateForLog(stored)}`
+      );
+      return stored;
     }
+    this.logger.warn('[image-persist] skipped artifact because no url/base64 payload found');
     return null;
   }
 }
@@ -72,4 +86,8 @@ function normalizeOutputFormatToMimeType(format: string) {
     default:
       return `image/${format.toLowerCase()}`;
   }
+}
+
+function truncateForLog(value: string, max = 160) {
+  return value.length > max ? `${value.slice(0, max)}...` : value;
 }

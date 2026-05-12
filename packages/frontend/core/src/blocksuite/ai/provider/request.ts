@@ -442,6 +442,13 @@ export function toImage({
         signal,
       })) {
         if (event.type === 'attachment') {
+          console.log('[ai-image-stream] attachment event', {
+            type: typeof event.data,
+            preview:
+              typeof event.data === 'string'
+                ? event.data.slice(0, 200)
+                : event.data,
+          });
           yield event.data;
         }
       }

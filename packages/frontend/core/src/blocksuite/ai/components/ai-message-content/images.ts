@@ -77,19 +77,33 @@ export class ChatContentImages extends WithDisposable(ShadowlessElement) {
   private resolveImageSrc(image: unknown) {
     if (typeof image === 'string') {
       if (!image.startsWith('{')) {
+        console.log('[ai-image-render] using string image src', {
+          preview: image.slice(0, 200),
+        });
         return image;
       }
       try {
         const parsed = JSON.parse(image) as { url?: unknown };
-        return typeof parsed.url === 'string' ? parsed.url : null;
+        const url = typeof parsed.url === 'string' ? parsed.url : null;
+        console.log('[ai-image-render] parsed json string image src', {
+          preview: url?.slice(0, 200) ?? null,
+        });
+        return url;
       } catch {
+        console.warn('[ai-image-render] failed to parse json image string', {
+          preview: image.slice(0, 200),
+        });
         return image;
       }
     }
     if (image && typeof image === 'object' && 'url' in image) {
       const url = (image as { url?: unknown }).url;
+      console.log('[ai-image-render] using object image src', {
+        preview: typeof url === 'string' ? url.slice(0, 200) : null,
+      });
       return typeof url === 'string' ? url : null;
     }
+    console.warn('[ai-image-render] unsupported image payload', image);
     return null;
   }
 
