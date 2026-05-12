@@ -35,8 +35,20 @@ export class PromptService {
     const hasGemini =
       !!providers.gemini?.apiKey || !!providers.geminiVertex?.project;
     const hasOpenAI = !!providers.openai?.apiKey;
+    const shouldOverride = !hasGemini && hasOpenAI;
 
-    if (hasGemini || !hasOpenAI) {
+    this.logger.log(
+      [
+        '[prompt-model-override]',
+        `name="${spec.name}"`,
+        `sourceModel="${spec.model}"`,
+        `hasOpenAI=${hasOpenAI}`,
+        `hasGemini=${hasGemini}`,
+        `override=${shouldOverride}`,
+      ].join(' ')
+    );
+
+    if (!shouldOverride) {
       return spec;
     }
 
