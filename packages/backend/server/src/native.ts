@@ -798,7 +798,9 @@ export type LlmImageResponse = {
   images: Array<{
     url?: string;
     data_base64?: string;
-    media_type: string;
+    b64_json?: string;
+    media_type?: string;
+    output_format?: string;
     width?: number;
     height?: number;
     provider_metadata?: unknown;

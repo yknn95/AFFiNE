@@ -18,10 +18,11 @@ export class ImageResultHost {
     workspaceId: string,
     artifact: LlmImageResponse['images'][number] & { mimeType?: string }
   ) {
-    if (artifact.data_base64) {
-      const buffer = Buffer.from(artifact.data_base64, 'base64');
+    const encoded = artifact.data_base64 ?? artifact.b64_json;
+    if (encoded) {
+      const buffer = Buffer.from(encoded, 'base64');
       const filename = cryptoHash(buffer);
-      const mediaType = artifact.media_type ?? artifact.mimeType;
+      const mediaType = resolveImageMimeType(artifact);
       if (!mediaType) {
         return null;
       }
@@ -42,4 +43,33 @@ export class ImageResultHost {
 
 function cryptoHash(buffer: Buffer) {
   return createHash('sha256').update(buffer).digest('base64url');
+}
+
+function resolveImageMimeType(
+  artifact: LlmImageResponse['images'][number] & { mimeType?: string }
+) {
+  if (artifact.media_type) {
+    return artifact.media_type;
+  }
+  if (artifact.mimeType) {
+    return artifact.mimeType;
+  }
+  if (artifact.output_format) {
+    return normalizeOutputFormatToMimeType(artifact.output_format);
+  }
+  return 'image/png';
+}
+
+function normalizeOutputFormatToMimeType(format: string) {
+  switch (format.toLowerCase()) {
+    case 'jpg':
+      return 'image/jpeg';
+    case 'png':
+    case 'jpeg':
+    case 'webp':
+    case 'gif':
+      return `image/${format.toLowerCase()}`;
+    default:
+      return `image/${format.toLowerCase()}`;
+  }
 }

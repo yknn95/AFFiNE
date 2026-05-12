@@ -182,7 +182,7 @@ export function projectActionEventToChatEvent(
       return {
         type: 'attachment',
         id: messageId,
-        data: data.attachment ?? data,
+        data: attachmentUrls(data.attachment)[0] ?? (data.attachment ?? data),
       };
     case 'error':
       return { type: 'error', id: messageId, data };

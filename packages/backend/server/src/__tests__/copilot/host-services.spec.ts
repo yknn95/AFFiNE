@@ -522,6 +522,29 @@ test('ImageResultHost should persist native base64 artifact with native MIME', a
   );
 });
 
+test('ImageResultHost should persist OpenAI b64_json artifact with inferred MIME', async t => {
+  const storage = {
+    put: Sinon.stub().resolves('data:image/png;base64,aW1n'),
+    handleRemoteLink: Sinon.stub(),
+  };
+  const host = new ImageResultHost(storage as any);
+
+  const persisted = await host.persistNativeArtifact('user-1', 'workspace-1', {
+    b64_json: 'aW1n',
+    output_format: 'png',
+  } as any);
+
+  t.is(persisted, 'data:image/png;base64,aW1n');
+  Sinon.assert.calledOnceWithMatch(
+    storage.put,
+    'user-1',
+    'workspace-1',
+    Sinon.match.string,
+    Buffer.from('aW1n', 'base64'),
+    'image/png'
+  );
+});
+
 test('action result projection should map final result to assistant turn', t => {
   const session = {
     config: { sessionId: 'session-1' },

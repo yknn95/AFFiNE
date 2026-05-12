@@ -74,15 +74,38 @@ export class ChatContentImages extends WithDisposable(ShadowlessElement) {
   @property({ attribute: false })
   accessor layout: 'row' | 'column' = 'row';
 
+  private resolveImageSrc(image: unknown) {
+    if (typeof image === 'string') {
+      if (!image.startsWith('{')) {
+        return image;
+      }
+      try {
+        const parsed = JSON.parse(image) as { url?: unknown };
+        return typeof parsed.url === 'string' ? parsed.url : null;
+      } catch {
+        return image;
+      }
+    }
+    if (image && typeof image === 'object' && 'url' in image) {
+      const url = (image as { url?: unknown }).url;
+      return typeof url === 'string' ? url : null;
+    }
+    return null;
+  }
+
   protected override render() {
-    if (this.images.length === 0) {
+    const images = this.images
+      .map(image => this.resolveImageSrc(image))
+      .filter((image): image is string => !!image);
+
+    if (images.length === 0) {
       return nothing;
     }
 
     if (this.layout === 'row') {
       return html`<div class="chat-content-images-row">
         ${repeat(
-          this.images,
+          images,
           image => image,
           image => html`<img src="${image}" />`
         )}
@@ -90,7 +113,7 @@ export class ChatContentImages extends WithDisposable(ShadowlessElement) {
     } else {
       return html`<div class="chat-content-images-column">
         ${repeat(
-          this.images,
+          images,
           image => image,
           image =>
             html`<div class="image-container">

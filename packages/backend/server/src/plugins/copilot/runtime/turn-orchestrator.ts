@@ -263,7 +263,7 @@ export class TurnOrchestrator {
     )) {
       const handled = await this.imageResults.persistNativeArtifact(
         userId,
-        sessionId,
+        session.config.workspaceId,
         artifact
       );
       if (handled) {
