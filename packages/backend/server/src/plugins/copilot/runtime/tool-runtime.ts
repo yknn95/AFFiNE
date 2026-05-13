@@ -1,4 +1,5 @@
 import { Injectable } from '@nestjs/common';
+import { ModuleRef } from '@nestjs/core';
 
 import { Config } from '../../../base';
 import { DocReader, DocWriter } from '../../../core/doc';
@@ -33,8 +34,11 @@ import {
   createDocUpdateTool,
   createExaCrawlTool,
   createExaSearchTool,
+  createImageGenerateTool,
   createSectionEditTool,
 } from '../tools';
+import { CapabilityRuntime } from './capability-runtime';
+import { ImageResultHost } from './hosts/image-result-host';
 import { PromptRuntime } from './prompt-runtime';
 import type { ToolLoopBackend } from './tool/bridge';
 import { createNativeToolLoopAdapter } from './tool/native-adapter';
@@ -54,7 +58,8 @@ export class ToolRuntime {
     private readonly docWriter: DocWriter,
     private readonly models: Models,
     private readonly promptRuntime: PromptRuntime,
-    private readonly indexerService: IndexerService
+    private readonly indexerService: IndexerService,
+    private readonly moduleRef: ModuleRef
   ) {}
 
   async getTools(
@@ -111,6 +116,18 @@ export class ToolRuntime {
         }
         case 'codeArtifact': {
           tools.code_artifact = createCodeArtifactTool(runPromptText);
+          break;
+        }
+        case 'imageGenerate': {
+          tools.image_generate = createImageGenerateTool(
+            () => this.moduleRef.get(CapabilityRuntime, { strict: false }),
+            () => this.moduleRef.get(ImageResultHost, { strict: false }),
+            {
+              userId: options.user,
+              workspaceId: options.workspace,
+              sessionId: options.session,
+            }
+          );
           break;
         }
         case 'conversationSummary': {

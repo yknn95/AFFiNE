@@ -49,16 +49,36 @@ export class PromptService {
     );
 
     if (!shouldOverride) {
-      return spec;
+      return this.withImageGenerateTool(spec, hasOpenAI);
     }
 
-    return {
+    return this.withImageGenerateTool(
+      {
       ...spec,
       model: 'gpt-5.5',
       optionalModels: ['gpt-5.5'],
       config: {
         ...spec.config,
         proModels: ['gpt-5.5'],
+      },
+      },
+      true
+    );
+  }
+
+  private withImageGenerateTool(spec: PromptSpec, enabled: boolean): PromptSpec {
+    if (!enabled) {
+      return spec;
+    }
+    const tools = spec.config?.tools ?? [];
+    if (tools.includes('imageGenerate')) {
+      return spec;
+    }
+    return {
+      ...spec,
+      config: {
+        ...spec.config,
+        tools: [...tools, 'imageGenerate'],
       },
     };
   }

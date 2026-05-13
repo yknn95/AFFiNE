@@ -77,6 +77,7 @@ export const PromptToolsSchema = z
   .enum([
     'blobRead',
     'codeArtifact',
+    'imageGenerate',
     'conversationSummary',
     // work with indexer
     'docRead',
