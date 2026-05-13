@@ -74,6 +74,33 @@ export class TurnOrchestrator {
       ...prepared.params,
       ...promptParams,
     });
+    this.logger.log(
+      [
+        '[prepare-chat-selection]',
+        `sessionId=${sessionId}`,
+        `responseMode=${selection.responseMode}`,
+        `modelId=${modelId ?? 'auto'}`,
+        `reasoning=${reasoning ? 'true' : 'false'}`,
+        `webSearch=${webSearch ? 'true' : 'false'}`,
+        `toolsConfig=${safeTurnPreview(toolsConfig)}`,
+        `latestUserTurn=${safeTurnPreview({
+          role: prepared.session.latestUserTurn?.role,
+          content: prepared.session.latestUserTurn?.content,
+          params: prepared.session.latestUserTurn?.params,
+          attachmentsCount:
+            prepared.session.latestUserTurn?.attachments?.length ?? 0,
+        })}`,
+        `promptParams=${safeTurnPreview(promptParams)}`,
+        `finalMessage=${safeTurnPreview(
+          finalMessage.map(message => ({
+            role: message.role,
+            content: message.content,
+            params: message.params,
+            attachmentsCount: message.attachments?.length ?? 0,
+          }))
+        )}`,
+      ].join(' ')
+    );
 
     return {
       prepared,
@@ -185,6 +212,16 @@ export class TurnOrchestrator {
     options: Record<string, unknown>,
     wasAborted: () => boolean
   ): AsyncIterableIterator<StreamObject> {
+    this.logger.log(
+      `[stream-object-start] sessionId=${session.config.sessionId} workspaceId=${session.config.workspaceId} model=${model} options=${safeTurnPreview(options)} finalMessage=${safeTurnPreview(
+        finalMessage.map(message => ({
+          role: message.role,
+          content: message.content,
+          params: message.params,
+          attachmentsCount: message.attachments?.length ?? 0,
+        }))
+      )}`
+    );
     const chunks: StreamObject[] = [];
     for await (const chunk of this.runtime.streamObject(
       { modelId: model },
@@ -206,6 +243,15 @@ export class TurnOrchestrator {
       session,
       chunks,
       wasAborted()
+    );
+    this.logger.log(
+      `[stream-object-finish] sessionId=${session.config.sessionId} chunkCount=${chunks.length} chunkTypes=${chunks
+        .map(chunk =>
+          'toolName' in chunk && typeof chunk.toolName === 'string'
+            ? `${chunk.type}:${chunk.toolName}`
+            : chunk.type
+        )
+        .join(',')}`
     );
   }
 
@@ -304,6 +350,16 @@ export class TurnOrchestrator {
 }
 
 function truncateObjectPreview(value: unknown, max = 400) {
+  try {
+    const text =
+      typeof value === 'string' ? value : JSON.stringify(value, null, 0);
+    return text.length > max ? `${text.slice(0, max)}...` : text;
+  } catch {
+    return '[unserializable]';
+  }
+}
+
+function safeTurnPreview(value: unknown, max = 900) {
   try {
     const text =
       typeof value === 'string' ? value : JSON.stringify(value, null, 0);

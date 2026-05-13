@@ -61,6 +61,16 @@ export const createImageGenerateTool = (
       const imageResults = getImageResults();
       const latestUserMessage = pickLatestUserMessage(options.messages);
       const attachments = latestUserMessage?.attachments;
+      logger.log(
+        `[image-generate] start sessionId=${sessionId ?? 'n/a'} workspaceId=${workspaceId ?? 'n/a'} userId=${userId ?? 'n/a'} prompt=${safeImagePreview(prompt)} size=${size ?? 'n/a'} quality=${quality ?? 'n/a'} count=${count ?? 1} sourceMessages=${safeImagePreview(
+          options.messages?.map(message => ({
+            role: message.role,
+            content: message.content,
+            params: message.params,
+            attachmentsCount: message.attachments?.length ?? 0,
+          }))
+        )}`
+      );
       const messages: PromptMessage[] = [
         {
           role: 'user',
@@ -87,6 +97,9 @@ export const createImageGenerateTool = (
           },
           { prefer: CopilotProviderType.OpenAI }
         )) {
+          logger.log(
+            `[image-generate] artifact prompt=${safeImagePreview(prompt)} payload=${safeImagePreview(artifact)}`
+          );
           const persisted =
             userId && workspaceId
               ? await imageResults.persistNativeArtifact(
@@ -123,9 +136,15 @@ export const createImageGenerateTool = (
         }
 
         if (!images.length) {
+          logger.warn(
+            `[image-generate] empty-result prompt=${safeImagePreview(prompt)}`
+          );
           return toolError('Image Generate Failed', 'No image was generated');
         }
 
+        logger.log(
+          `[image-generate] success prompt=${safeImagePreview(prompt)} images=${safeImagePreview(images)}`
+        );
         return {
           prompt,
           images,
@@ -137,3 +156,13 @@ export const createImageGenerateTool = (
     },
   });
 };
+
+function safeImagePreview(value: unknown, max = 600) {
+  try {
+    const text =
+      typeof value === 'string' ? value : JSON.stringify(value, null, 0);
+    return text.length > max ? `${text.slice(0, max)}...` : text;
+  } catch {
+    return '[unserializable]';
+  }
+}

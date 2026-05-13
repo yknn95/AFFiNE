@@ -480,7 +480,15 @@ export class NativeProviderAdapter {
     signal?: AbortSignal
   ): AsyncIterableIterator<StreamObject> {
     const execute = this.#fallbackImageTool?.execute;
-    const prompt = pickImageFallbackPrompt(messages);
+    const analysis = analyzeImageFallback(messages);
+    const prompt = analysis.prompt;
+    this.logger.log(
+      `[native-stream-object] image fallback analysis hasTool=${execute ? 'true' : 'false'} matched=${analysis.matched ? 'true' : 'false'} candidate=${truncateNativePreview(
+        analysis.candidate
+      )} reason=${analysis.reason} messages=${truncateNativePreview(
+        analysis.debugMessages
+      )}`
+    );
     if (!execute || !prompt) {
       return;
     }
@@ -539,28 +547,41 @@ function isToolErrorResult(
   );
 }
 
-function pickImageFallbackPrompt(messages?: PromptMessage[]) {
-  const latestUser = pickLatestUserMessage(messages);
-  if (!latestUser) {
-    return null;
-  }
-  const content = pickPromptContent(latestUser);
-  if (!content || !looksLikeImageGenerationRequest(content)) {
-    return null;
-  }
-  return content;
-}
+function analyzeImageFallback(messages?: PromptMessage[]) {
+  const userMessages = (messages ?? [])
+    .filter(message => message.role === 'user')
+    .map(message => ({
+      role: message.role,
+      content: message.content,
+      params: message.params,
+      attachmentsCount: message.attachments?.length ?? 0,
+      candidate: pickPromptContent(message),
+    }));
+  const candidates = userMessages
+    .map(message => message.candidate)
+    .filter((value): value is string => typeof value === 'string' && !!value.trim());
 
-function pickLatestUserMessage(messages?: PromptMessage[]) {
-  if (!messages?.length) {
-    return null;
-  }
-  for (let i = messages.length - 1; i >= 0; i--) {
-    if (messages[i]?.role === 'user') {
-      return messages[i];
+  for (let i = candidates.length - 1; i >= 0; i--) {
+    const candidate = candidates[i];
+    if (looksLikeImageGenerationRequest(candidate)) {
+      return {
+        matched: true,
+        prompt: candidate,
+        candidate,
+        reason: `matched_candidate_index=${i}`,
+        debugMessages: userMessages,
+      };
     }
   }
-  return null;
+
+  return {
+    matched: false,
+    prompt: null,
+    candidate: candidates[candidates.length - 1] ?? null,
+    reason:
+      candidates.length > 0 ? 'no_candidate_matched' : 'no_user_candidate',
+    debugMessages: userMessages,
+  };
 }
 
 function pickPromptContent(message: PromptMessage) {

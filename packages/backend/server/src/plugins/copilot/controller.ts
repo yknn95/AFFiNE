@@ -52,6 +52,16 @@ export interface ChatEvent {
 
 const PING_INTERVAL = 5000;
 
+function safePreview(value: unknown, max = 500) {
+  try {
+    const text =
+      typeof value === 'string' ? value : JSON.stringify(value, null, 0);
+    return text.length > max ? `${text.slice(0, max)}...` : text;
+  } catch {
+    return '[unserializable]';
+  }
+}
+
 @Controller('/api/copilot')
 export class CopilotController implements BeforeApplicationShutdown {
   private readonly logger = new Logger(CopilotController.name);
@@ -160,7 +170,7 @@ export class CopilotController implements BeforeApplicationShutdown {
 
     try {
       this.logger.log(
-        `[object-controller] incoming sessionId=${sessionId} userId=${user.id} queryKeys=${Object.keys(query).join(',')}`
+        `[object-controller] incoming sessionId=${sessionId} userId=${user.id} queryKeys=${Object.keys(query).join(',')} query=${safePreview(query)}`
       );
       const { signal, onConnectionClosed } = getSignal(req);
       let endBeforePromiseResolve = false;
@@ -183,7 +193,7 @@ export class CopilotController implements BeforeApplicationShutdown {
 
       info.model = prepared.model;
       this.logger.log(
-        `[object-controller] prepared sessionId=${sessionId} messageId=${prepared.messageId ?? 'n/a'} model=${prepared.model}`
+        `[object-controller] prepared sessionId=${sessionId} messageId=${prepared.messageId ?? 'n/a'} model=${prepared.model} finalMessage=${safePreview(info.finalMessage)}`
       );
       info.finalMessage = prepared.finalMessage.filter(
         m => m.role !== 'system'
