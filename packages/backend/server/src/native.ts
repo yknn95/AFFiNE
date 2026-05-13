@@ -1436,6 +1436,9 @@ export function llmDispatchToolLoopStream(
         pushFn(null);
         return;
       }
+      logger.log(
+        `[native-tool-loop] raw=${truncateNativeEventLog(eventJson, 2000)}`
+      );
       try {
         const event = parseLlmToolLoopStreamEvent(eventJson);
         logger.log(
@@ -1443,6 +1446,9 @@ export function llmDispatchToolLoopStream(
         );
         pushFn(event);
       } catch (error) {
+        logger.error(
+          `[native-tool-loop] parseError raw=${truncateNativeEventLog(eventJson, 2000)} message=${error instanceof Error ? error.message : String(error)}`
+        );
         pushFn({
           type: 'error',
           message:
@@ -1502,6 +1508,9 @@ export function llmDispatchToolLoopStreamRouted(
         pushFn(null);
         return;
       }
+      logger.log(
+        `[native-tool-loop-routed] raw=${truncateNativeEventLog(eventJson, 2000)}`
+      );
       try {
         const event = parseLlmToolLoopStreamEvent(eventJson);
         logger.log(
@@ -1509,6 +1518,9 @@ export function llmDispatchToolLoopStreamRouted(
         );
         pushFn(event);
       } catch (error) {
+        logger.error(
+          `[native-tool-loop-routed] parseError raw=${truncateNativeEventLog(eventJson, 2000)} message=${error instanceof Error ? error.message : String(error)}`
+        );
         pushFn({
           type: 'error',
           message:
@@ -1577,6 +1589,9 @@ export function llmDispatchToolLoopStreamPrepared(
         pushFn(null);
         return;
       }
+      logger.log(
+        `[native-tool-loop-prepared] raw=${truncateNativeEventLog(eventJson, 2000)}`
+      );
       try {
         const event = parseLlmToolLoopStreamEvent(eventJson);
         logger.log(
@@ -1584,6 +1599,9 @@ export function llmDispatchToolLoopStreamPrepared(
         );
         pushFn(event);
       } catch (error) {
+        logger.error(
+          `[native-tool-loop-prepared] parseError raw=${truncateNativeEventLog(eventJson, 2000)} message=${error instanceof Error ? error.message : String(error)}`
+        );
         pushFn({
           type: 'error',
           message:

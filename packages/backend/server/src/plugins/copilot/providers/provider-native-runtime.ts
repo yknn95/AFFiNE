@@ -1,3 +1,5 @@
+import { Logger } from '@nestjs/common';
+
 import type {
   LlmBackendConfig,
   LlmEmbeddingRequest,
@@ -34,6 +36,8 @@ import type {
   CopilotImageOptions,
   PromptMessage,
 } from './types';
+
+const logger = new Logger('PreparedNativeExecution');
 
 export type CreateToolAdapterOptions = {
   maxSteps?: number;
@@ -228,13 +232,17 @@ export async function buildPreparedNativeExecution(
   }: PreparedNativeRequestOptions
 ): Promise<PreparedNativeExecution> {
   const resolvedTools = tools ?? (await getTools(options, model));
+  const toolContracts = buildToolContracts(resolvedTools);
+  logger.log(
+    `[prepared-native] providerId=${providerId} model=${model} toolNames=${toolContracts.map(tool => tool.name).join(',') || 'none'} include=${include?.join(',') ?? 'none'} reasoning=${reasoning ? 'yes' : 'no'}`
+  );
   const resolvedMiddleware =
     middleware ?? getActiveProviderMiddleware(execution);
   const { request } = await buildNativeRequest({
     model,
     messages,
     options,
-    toolContracts: buildToolContracts(resolvedTools),
+    toolContracts,
     withAttachment,
     attachmentCapability,
     include,
