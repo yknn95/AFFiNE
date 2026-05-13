@@ -845,6 +845,19 @@ export class AIChatInput extends SignalWatcher(
         images?.map(image => readBlobAsURL(image))
       );
       const userInput = (markdown ? `${markdown}\n` : '') + text;
+      console.log('[ai-chat-send] composing request', {
+        where: this.trackOptions?.where,
+        control: this.trackOptions?.control,
+        sessionId: this.session?.sessionId,
+        docId: this.docId,
+        workspaceId: this.workspaceId,
+        text,
+        quote: this.chatContextValue.quote,
+        markdown,
+        userInput,
+        imagesCount: images?.length ?? 0,
+        attachmentUrlsCount: imageAttachments.length,
+      });
 
       // optimistic update messages
       await this._preUpdateMessages(userInput, imageAttachments);
@@ -884,6 +897,12 @@ export class AIChatInput extends SignalWatcher(
         reasoning: this._isReasoningActive,
         toolsConfig: this.aiToolsConfigService.config.value,
         modelId,
+      });
+      console.log('[ai-chat-send] stream created', {
+        where: this.trackOptions?.where,
+        control: this.trackOptions?.control,
+        sessionId,
+        input: userInput,
       });
 
       for await (const text of stream) {
