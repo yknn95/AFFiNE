@@ -7,6 +7,7 @@ import {
   CitationFootnoteFormatter,
   TextStreamParser,
 } from '../../providers/utils';
+import type { CopilotTool } from '../../tools';
 import type { CopilotToolSet } from '../../tools';
 import { projectRuntimeEventToStreamObject } from '../contracts/runtime-event-contract';
 import { createToolLoopBridge, type ToolLoopBackend } from './bridge';
@@ -25,6 +26,7 @@ type AttachmentFootnote = {
 export type NativeProviderAdapterOptions = {
   maxSteps?: number;
   nodeTextMiddleware?: NodeTextMiddleware[];
+  fallbackImageTool?: CopilotTool;
   onUsage?: (input: {
     providerId: string;
     model?: string;
@@ -114,6 +116,7 @@ export class NativeProviderAdapter {
   readonly #runtime: NativeRuntimeAdapter;
   readonly #enableCallout: boolean;
   readonly #enableCitationFootnote: boolean;
+  readonly #fallbackImageTool?: CopilotTool;
   readonly #onUsage?: NativeProviderAdapterOptions['onUsage'];
 
   constructor(
@@ -129,6 +132,7 @@ export class NativeProviderAdapter {
       enabledNodeTextMiddlewares.has('thinking_format');
     this.#enableCitationFootnote =
       enabledNodeTextMiddlewares.has('citation_footnote');
+    this.#fallbackImageTool = options.fallbackImageTool;
     this.#onUsage = options.onUsage;
   }
 
@@ -317,6 +321,7 @@ export class NativeProviderAdapter {
       model?: string;
       usage?: Extract<LlmToolLoopStreamEvent, { type: 'usage' }>['usage'];
     } = {};
+    let sawMeaningfulOutput = false;
 
     for await (const event of this.#runtime.streamEvents(
       request,
@@ -350,6 +355,7 @@ export class NativeProviderAdapter {
           break;
         }
         case 'text_delta': {
+          sawMeaningfulOutput = true;
           const textEvent = event as unknown as { text: string };
           this.logger.log(
             `[native-stream-object] text_delta preview=${truncateNativePreview(textEvent.text)}`
@@ -361,6 +367,7 @@ export class NativeProviderAdapter {
           break;
         }
         case 'reasoning_delta': {
+          sawMeaningfulOutput = true;
           const reasoningEvent = event as unknown as { text: string };
           this.logger.log(
             `[native-stream-object] reasoning_delta preview=${truncateNativePreview(reasoningEvent.text)}`
@@ -369,6 +376,7 @@ export class NativeProviderAdapter {
           break;
         }
         case 'tool_call': {
+          sawMeaningfulOutput = true;
           this.logger.log(
             `[native-stream-object] tool_call payload=${truncateNativePreview(event)}`
           );
@@ -380,6 +388,7 @@ export class NativeProviderAdapter {
           break;
         }
         case 'tool_result': {
+          sawMeaningfulOutput = true;
           const normalized = event as EnrichedToolResultEvent;
           this.logger.log(
             `[native-stream-object] tool_result payload=${truncateNativePreview(normalized.output)}`
@@ -396,6 +405,7 @@ export class NativeProviderAdapter {
           break;
         }
         case 'citation': {
+          sawMeaningfulOutput = true;
           this.logger.log(
             `[native-stream-object] citation payload=${truncateNativePreview(event)}`
           );
@@ -459,7 +469,125 @@ export class NativeProviderAdapter {
           break;
       }
     }
+
+    if (!sawMeaningfulOutput) {
+      yield* this.#streamImageFallback(messages, signal);
+    }
   }
+
+  async *#streamImageFallback(
+    messages?: PromptMessage[],
+    signal?: AbortSignal
+  ): AsyncIterableIterator<StreamObject> {
+    const execute = this.#fallbackImageTool?.execute;
+    const prompt = pickImageFallbackPrompt(messages);
+    if (!execute || !prompt) {
+      return;
+    }
+
+    const toolCallId = `fallback_image_generate_${Date.now().toString(36)}`;
+    this.logger.log(
+      `[native-stream-object] image fallback triggered prompt=${truncateNativePreview(prompt)}`
+    );
+    yield {
+      type: 'tool-call',
+      toolCallId,
+      toolName: 'image_generate',
+      args: { prompt, count: 1 },
+    };
+
+    const result = await execute(
+      { prompt, count: 1 },
+      {
+        signal,
+        messages,
+      }
+    );
+    if (isToolErrorResult(result)) {
+      this.logger.warn(
+        `[native-stream-object] image fallback failed name=${result.name} message=${result.message}`
+      );
+      yield {
+        type: 'text-delta',
+        textDelta: `\n${result.message}`,
+      };
+      return;
+    }
+
+    this.logger.log(
+      `[native-stream-object] image fallback result=${truncateNativePreview(result)}`
+    );
+    yield {
+      type: 'tool-result',
+      toolCallId,
+      toolName: 'image_generate',
+      args: { prompt, count: 1 },
+      result,
+    };
+  }
+}
+
+function isToolErrorResult(
+  value: unknown
+): value is { type: 'error'; name: string; message: string } {
+  return (
+    !!value &&
+    typeof value === 'object' &&
+    (value as { type?: unknown }).type === 'error' &&
+    typeof (value as { message?: unknown }).message === 'string' &&
+    typeof (value as { name?: unknown }).name === 'string'
+  );
+}
+
+function pickImageFallbackPrompt(messages?: PromptMessage[]) {
+  const latestUser = pickLatestUserMessage(messages);
+  if (!latestUser) {
+    return null;
+  }
+  const content = pickPromptContent(latestUser);
+  if (!content || !looksLikeImageGenerationRequest(content)) {
+    return null;
+  }
+  return content;
+}
+
+function pickLatestUserMessage(messages?: PromptMessage[]) {
+  if (!messages?.length) {
+    return null;
+  }
+  for (let i = messages.length - 1; i >= 0; i--) {
+    if (messages[i]?.role === 'user') {
+      return messages[i];
+    }
+  }
+  return null;
+}
+
+function pickPromptContent(message: PromptMessage) {
+  const paramContent =
+    message.params &&
+    typeof message.params === 'object' &&
+    typeof message.params.content === 'string'
+      ? message.params.content
+      : null;
+  return paramContent ?? message.content;
+}
+
+function looksLikeImageGenerationRequest(content: string) {
+  const text = content.trim();
+  if (!text) {
+    return false;
+  }
+
+  return (
+    /(生成|创建|做|画|绘制|出).{0,12}(一张|张|幅|个)?(图|图片|插画|海报|封面|壁纸|配图|头像|照片|logo)/u.test(
+      text
+    ) ||
+    /(来一张|来张|配张|生图|出图)/u.test(text) ||
+    /\b(draw|generate|create|make|render|design)\b[\s\S]{0,24}\b(image|picture|illustration|poster|cover|wallpaper|photo|logo|avatar)\b/i.test(
+      text
+    )
+  );
 }
 
 function truncateNativePreview(value: unknown, max = 600) {
@@ -479,6 +607,9 @@ export function createNativeToolLoopAdapter(
 ) {
   return new NativeProviderAdapter(
     createToolLoopBridge(backend, tools, options.maxSteps),
-    options
+    {
+      ...options,
+      fallbackImageTool: options.fallbackImageTool ?? tools.image_generate,
+    }
   );
 }
