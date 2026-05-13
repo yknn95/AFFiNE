@@ -30,6 +30,7 @@ import serverNativeModule, {
   type RequestedModelMatchResponse,
   type Tokenizer,
 } from '@affine/server-native';
+import { Logger } from '@nestjs/common';
 
 export type {
   CapabilityAttachmentContract,
