@@ -323,12 +323,18 @@ export class NativeProviderAdapter {
       signal,
       messages
     )) {
+      this.logger.log(
+        `[native-stream-object] event type=${event.type}${'name' in event && typeof event.name === 'string' ? ` name=${event.name}` : ''}${'call_id' in event && typeof event.call_id === 'string' ? ` callId=${event.call_id}` : ''}${'model' in event && typeof event.model === 'string' ? ` model=${event.model}` : ''}`
+      );
       switch (event.type) {
         case 'message_start': {
           const startEvent = event as Extract<
             LlmToolLoopStreamEvent,
             { type: 'message_start' }
           >;
+          this.logger.log(
+            `[native-stream-object] message_start model=${startEvent.model ?? 'n/a'}`
+          );
           usageState.model = startEvent.model;
           break;
         }
@@ -337,11 +343,17 @@ export class NativeProviderAdapter {
             LlmToolLoopStreamEvent,
             { type: 'usage' }
           >;
+          this.logger.log(
+            `[native-stream-object] usage promptTokens=${usageEvent.usage?.prompt_tokens ?? 'n/a'} completionTokens=${usageEvent.usage?.completion_tokens ?? 'n/a'} totalTokens=${usageEvent.usage?.total_tokens ?? 'n/a'}`
+          );
           usageState.usage = usageEvent.usage;
           break;
         }
         case 'text_delta': {
           const textEvent = event as unknown as { text: string };
+          this.logger.log(
+            `[native-stream-object] text_delta preview=${truncateNativePreview(textEvent.text)}`
+          );
           if (textEvent.text.includes('[^')) {
             hasFootnoteReference = true;
           }
@@ -350,10 +362,16 @@ export class NativeProviderAdapter {
         }
         case 'reasoning_delta': {
           const reasoningEvent = event as unknown as { text: string };
+          this.logger.log(
+            `[native-stream-object] reasoning_delta preview=${truncateNativePreview(reasoningEvent.text)}`
+          );
           yield { type: 'reasoning', textDelta: reasoningEvent.text };
           break;
         }
         case 'tool_call': {
+          this.logger.log(
+            `[native-stream-object] tool_call payload=${truncateNativePreview(event)}`
+          );
           const streamObject = projectRuntimeEventToStreamObject(
             event as LlmToolLoopStreamEvent
           );
@@ -363,6 +381,9 @@ export class NativeProviderAdapter {
         }
         case 'tool_result': {
           const normalized = event as EnrichedToolResultEvent;
+          this.logger.log(
+            `[native-stream-object] tool_result payload=${truncateNativePreview(normalized.output)}`
+          );
           const attachments = collectAttachmentFootnotes(normalized);
           attachments.forEach(attachment => {
             fallbackAttachmentFootnotes.set(attachment.blobId, attachment);
@@ -375,6 +396,9 @@ export class NativeProviderAdapter {
           break;
         }
         case 'citation': {
+          this.logger.log(
+            `[native-stream-object] citation payload=${truncateNativePreview(event)}`
+          );
           if (citationFormatter) {
             const citationEvent = event as unknown as {
               index: number;
@@ -393,6 +417,9 @@ export class NativeProviderAdapter {
             LlmToolLoopStreamEvent,
             { type: 'done' }
           >;
+          this.logger.log(
+            `[native-stream-object] done payload=${truncateNativePreview(doneEvent)}`
+          );
           usageState.usage = doneEvent.usage ?? usageState.usage;
           const citations = citationFormatter?.end() ?? '';
           if (citations) {
@@ -411,18 +438,37 @@ export class NativeProviderAdapter {
           break;
         }
         case 'provider_selected':
+          this.logger.log(
+            `[native-stream-object] provider_selected payload=${truncateNativePreview(event)}`
+          );
           await this.#recordUsageOnProviderSelected(event, usageState);
           break;
         case 'error':
+          this.logger.error(
+            `[native-stream-object] error payload=${truncateNativePreview(event)}`
+          );
           throw new Error(
             typeof event.message === 'string'
               ? event.message
               : 'native runtime stream error'
           );
         default:
+          this.logger.warn(
+            `[native-stream-object] unhandled event payload=${truncateNativePreview(event)}`
+          );
           break;
       }
     }
+  }
+}
+
+function truncateNativePreview(value: unknown, max = 600) {
+  try {
+    const text =
+      typeof value === 'string' ? value : JSON.stringify(value, null, 0);
+    return text.length > max ? `${text.slice(0, max)}...` : text;
+  } catch {
+    return '[unserializable]';
   }
 }
 
