@@ -76,6 +76,33 @@ function remapResolvedModel(
   return model;
 }
 
+function remapInferredResolvedModel(
+  context: ProviderModelRuntimeContext,
+  cond: ModelFullConditions,
+  model: ResolvedProviderModel
+): ResolvedProviderModel {
+  if (
+    context.backendKind === 'openai_responses' &&
+    cond.outputType === ModelOutputType.Image &&
+    model.id === 'gpt-image-1'
+  ) {
+    const remapped = llmResolveModelRegistryVariant({
+      backendKind: context.backendKind,
+      modelId: 'gpt-image-2',
+    }).variant;
+    if (remapped) {
+      logger.warn(
+        `[model-selection] remap-inferred-image-model backendKind=${context.backendKind} from=${model.id} to=gpt-image-2 cond=${safeModelPreview(
+          cond
+        )}`
+      );
+      return toProviderModel(remapped);
+    }
+  }
+
+  return model;
+}
+
 export type ResolvedProviderModel = CopilotProviderModel & {
   backendKind: CopilotModelBackendKind;
   canonicalKey: string;
@@ -212,7 +239,7 @@ export function resolveProviderModelSelection(
 
   return {
     kind: 'configured',
-    model: toProviderModel(resolved),
+    model: remapInferredResolvedModel(context, cond, toProviderModel(resolved)),
   };
 }
 
