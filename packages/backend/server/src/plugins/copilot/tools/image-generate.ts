@@ -62,7 +62,7 @@ export const createImageGenerateTool = (
       const latestUserMessage = pickLatestUserMessage(options.messages);
       const attachments = latestUserMessage?.attachments;
       logger.log(
-        `[image-generate] start sessionId=${sessionId ?? 'n/a'} workspaceId=${workspaceId ?? 'n/a'} userId=${userId ?? 'n/a'} prompt=${safeImagePreview(prompt)} size=${size ?? 'n/a'} quality=${quality ?? 'n/a'} count=${count ?? 1} sourceMessages=${safeImagePreview(
+        `[image-generate] start sessionId=${sessionId ?? 'n/a'} workspaceId=${workspaceId ?? 'n/a'} userId=${userId ?? 'n/a'} forcedModelId=gpt-image-2 prompt=${safeImagePreview(prompt)} size=${size ?? 'n/a'} quality=${quality ?? 'n/a'} count=${count ?? 1} sourceMessages=${safeImagePreview(
           options.messages?.map(message => ({
             role: message.role,
             content: message.content,
@@ -84,7 +84,7 @@ export const createImageGenerateTool = (
         let generated = 0;
 
         for await (const artifact of runtime.streamImageArtifacts(
-          {},
+          { modelId: 'gpt-image-2' },
           messages,
           {
             ...(typeof size === 'string' ? { size } : {}),
@@ -98,7 +98,7 @@ export const createImageGenerateTool = (
           { prefer: CopilotProviderType.OpenAI }
         )) {
           logger.log(
-            `[image-generate] artifact prompt=${safeImagePreview(prompt)} payload=${safeImagePreview(artifact)}`
+            `[image-generate] artifact prompt=${safeImagePreview(prompt)} modelId=gpt-image-2 payload=${safeImagePreview(artifact)}`
           );
           const persisted =
             userId && workspaceId
