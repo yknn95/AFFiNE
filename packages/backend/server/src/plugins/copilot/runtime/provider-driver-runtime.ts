@@ -3,6 +3,7 @@ import {
   CopilotProviderNotSupported,
   metrics,
 } from '../../../base';
+import { Logger } from '@nestjs/common';
 import {
   buildLlmEmbeddingRequest,
   buildLlmRerankRequest,
@@ -46,6 +47,7 @@ import { type RequiredStructuredOutputContract } from './contracts';
 import { buildNativeStructuredRequest } from './native-request-runtime';
 
 const DEFAULT_EMBEDDING_TASK_TYPE = 'RETRIEVAL_DOCUMENT';
+const logger = new Logger('ProviderDriverRuntime');
 
 type MetricLabels = Record<string, string | number | boolean | undefined>;
 type DriverMetricNames = {
@@ -300,6 +302,11 @@ async function prepareNativeExecutionBase<
 }): Promise<TPrepared | null> {
   const driver = resolveDriver();
   if (!driver) {
+    logger.warn(
+      `[prepare-native] no-driver outputType=${outputType} cond=${safeRuntimePreview(
+        cond
+      )}`
+    );
     return null;
   }
 
@@ -308,9 +315,21 @@ async function prepareNativeExecutionBase<
     cond: { ...cond, outputType },
     execution,
   });
+  logger.log(
+    `[prepare-native] checked outputType=${outputType} rawCond=${safeRuntimePreview(
+      cond
+    )} normalizedCond=${safeRuntimePreview(normalizedCond)} checkInput=${safeRuntimePreview(
+      checkInput
+    )}`
+  );
   const model = selectModel(normalizedCond, execution);
   const backendConfig = await driver.createBackendConfig(execution);
   const route = resolveProviderModelRoute(model, outputType);
+  logger.log(
+    `[prepare-native] resolved outputType=${outputType} modelId=${model.id} modelName=${model.name ?? 'n/a'} protocol=${route.protocol ?? 'n/a'} requestLayer=${route.requestLayer ?? 'n/a'} backendConfig=${safeRuntimePreview(
+      backendConfig
+    )}`
+  );
   if (!route.protocol) {
     throw new Error(`Missing native protocol for model ${model.id}`);
   }
@@ -324,6 +343,16 @@ async function prepareNativeExecutionBase<
         : { ...backendConfig, request_layer: route.requestLayer },
     protocol: route.protocol,
   });
+}
+
+function safeRuntimePreview(value: unknown, max = 900) {
+  try {
+    const text =
+      typeof value === 'string' ? value : JSON.stringify(value, null, 0);
+    return text.length > max ? `${text.slice(0, max)}...` : text;
+  } catch {
+    return '[unserializable]';
+  }
 }
 
 export async function runPreparedExecution<

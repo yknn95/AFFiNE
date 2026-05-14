@@ -1,3 +1,4 @@
+import { Logger } from '@nestjs/common';
 import { z } from 'zod';
 
 import { CopilotPromptInvalid } from '../../../base';
@@ -36,6 +37,8 @@ export type ProviderModelRuntimeContext = {
   type: CopilotProviderType;
   backendKind: CopilotModelBackendKind;
 };
+
+const logger = new Logger('ProviderModelRuntime');
 
 function normalizeRequestedModelId(
   context: ProviderModelRuntimeContext,
@@ -161,6 +164,11 @@ export function resolveProviderModelSelection(
       backendKind: context.backendKind,
       modelId: resolvedModelId,
     }).variant;
+    logger.log(
+      `[model-selection] explicit provider=${context.type} backendKind=${context.backendKind} requestedModelId=${requestedModelId} normalizedModelId=${resolvedModelId} cond=${safeModelPreview(
+        cond
+      )} resolvedVariant=${safeModelPreview(resolved)}`
+    );
     if (!resolved) {
       return;
     }
@@ -174,6 +182,11 @@ export function resolveProviderModelSelection(
       ...cond,
       modelId: model.id,
     });
+    logger.log(
+      `[model-selection] explicit-match provider=${context.type} backendKind=${context.backendKind} requestedModelId=${requestedModelId} remappedModelId=${model.id} matchedModelId=${matchedModelId ?? 'n/a'} capabilities=${safeModelPreview(
+        model.capabilities
+      )}`
+    );
     if (!matchedModelId) {
       return;
     }
@@ -188,6 +201,11 @@ export function resolveProviderModelSelection(
     backendKind: context.backendKind,
     cond,
   }).variant;
+  logger.log(
+    `[model-selection] inferred provider=${context.type} backendKind=${context.backendKind} cond=${safeModelPreview(
+      cond
+    )} resolvedVariant=${safeModelPreview(resolved)}`
+  );
   if (!resolved) {
     return;
   }
@@ -324,6 +342,11 @@ export function resolveProviderModelRoute(
 ) {
   const resolved = model as ResolvedProviderModel;
   const override = resolved.routeOverrides?.[outputType];
+  logger.log(
+    `[model-route] modelId=${resolved.id} outputType=${outputType} baseProtocol=${resolved.protocol ?? 'n/a'} baseRequestLayer=${resolved.requestLayer ?? 'n/a'} override=${safeModelPreview(
+      override
+    )}`
+  );
 
   return {
     protocol: override?.protocol ?? resolved.protocol,
@@ -424,4 +447,14 @@ export async function checkProviderParams(
   }
 
   return mergedCond;
+}
+
+function safeModelPreview(value: unknown, max = 900) {
+  try {
+    const text =
+      typeof value === 'string' ? value : JSON.stringify(value, null, 0);
+    return text.length > max ? `${text.slice(0, max)}...` : text;
+  } catch {
+    return '[unserializable]';
+  }
 }

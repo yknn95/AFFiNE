@@ -323,15 +323,33 @@ export function buildPreparedNativeImageExecution(
   const nativeMessages = messages.map(
     message => projectPromptMessageForNative(message).message
   );
+  logger.log(
+    `[prepared-image-native] providerId=${providerId} model=${model} protocol=${protocol} requestLayer=${backendConfig.request_layer ?? 'n/a'} backendConfig=${safePreparedPreview(
+      backendConfig
+    )} options=${safePreparedPreview(options)} messages=${safePreparedPreview(
+      messages.map(message => ({
+        role: message.role,
+        content: message.content,
+        params: message.params,
+        attachmentsCount: message.attachments?.length ?? 0,
+      }))
+    )}`
+  );
+  const request = buildLlmImageRequestFromMessages({
+    model,
+    protocol,
+    messages: nativeMessages,
+    options: projectImageRequestOptions(options),
+  });
+  logger.log(
+    `[prepared-image-native] request providerId=${providerId} model=${model} payload=${safePreparedPreview(
+      request
+    )}`
+  );
 
   return {
     route: buildPreparedRoute(providerId, protocol, backendConfig, model),
-    request: buildLlmImageRequestFromMessages({
-      model,
-      protocol,
-      messages: nativeMessages,
-      options: projectImageRequestOptions(options),
-    }),
+    request,
   };
 }
 
@@ -342,4 +360,14 @@ function projectImageRequestOptions(options: CopilotImageOptions = {}) {
     modelName: options.modelName,
     loras: options.loras,
   };
+}
+
+function safePreparedPreview(value: unknown, max = 900) {
+  try {
+    const text =
+      typeof value === 'string' ? value : JSON.stringify(value, null, 0);
+    return text.length > max ? `${text.slice(0, max)}...` : text;
+  } catch {
+    return '[unserializable]';
+  }
 }
