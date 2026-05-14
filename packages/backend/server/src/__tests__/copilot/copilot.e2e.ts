@@ -588,7 +588,7 @@ test('should be able to chat with api', async t => {
     t.is(
       array2sse(sse2array(ret3).filter(e => e.event !== 'event')),
       textToEventStream(
-        ['https://example.com/gpt-image-1.jpg'],
+        ['https://example.com/gpt-image-2.jpg'],
         messageId,
         'attachment'
       ),

@@ -590,7 +590,7 @@
   {
     "name": "Generate image",
     "action": "image",
-    "model": "gpt-image-1",
+    "model": "gpt-image-2",
     "messages": [
       {
         "role": "user",
@@ -601,7 +601,7 @@
   {
     "name": "Convert to Clay style",
     "action": "Convert to Clay style",
-    "model": "gpt-image-1",
+    "model": "gpt-image-2",
     "messages": [
       {
         "role": "user",
@@ -612,7 +612,7 @@
   {
     "name": "Convert to Sketch style",
     "action": "Convert to Sketch style",
-    "model": "gpt-image-1",
+    "model": "gpt-image-2",
     "messages": [
       {
         "role": "user",
@@ -623,7 +623,7 @@
   {
     "name": "Convert to Anime style",
     "action": "Convert to Anime style",
-    "model": "gpt-image-1",
+    "model": "gpt-image-2",
     "messages": [
       {
         "role": "user",
@@ -634,7 +634,7 @@
   {
     "name": "Convert to Pixel style",
     "action": "Convert to Pixel style",
-    "model": "gpt-image-1",
+    "model": "gpt-image-2",
     "messages": [
       {
         "role": "user",
@@ -645,7 +645,7 @@
   {
     "name": "Convert to sticker",
     "action": "Convert to sticker",
-    "model": "gpt-image-1",
+    "model": "gpt-image-2",
     "messages": [
       {
         "role": "user",
@@ -656,7 +656,7 @@
   {
     "name": "Upscale image",
     "action": "Upscale image",
-    "model": "gpt-image-1",
+    "model": "gpt-image-2",
     "messages": [
       {
         "role": "user",
@@ -667,7 +667,7 @@
   {
     "name": "Remove background",
     "action": "Remove background",
-    "model": "gpt-image-1",
+    "model": "gpt-image-2",
     "messages": [
       {
         "role": "user",
