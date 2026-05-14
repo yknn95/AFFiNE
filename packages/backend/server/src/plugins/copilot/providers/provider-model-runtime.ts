@@ -76,6 +76,29 @@ function remapResolvedModel(
   return model;
 }
 
+function synthesizeOpenAiImage2Model(
+  context: ProviderModelRuntimeContext,
+  model: ResolvedProviderModel
+): ResolvedProviderModel {
+  if (
+    context.backendKind === 'openai_responses' &&
+    model.id === 'gpt-image-1' &&
+    model.capabilities.some(cap => cap.output.includes(ModelOutputType.Image))
+  ) {
+    return {
+      ...model,
+      id: 'gpt-image-2',
+      name: model.name === 'gpt-image-1' ? 'gpt-image-2' : model.name,
+      canonicalKey:
+        model.canonicalKey === 'gpt-image-1'
+          ? 'gpt-image-2'
+          : model.canonicalKey,
+    };
+  }
+
+  return model;
+}
+
 function remapInferredResolvedModel(
   context: ProviderModelRuntimeContext,
   cond: ModelFullConditions,
@@ -86,18 +109,12 @@ function remapInferredResolvedModel(
     cond.outputType === ModelOutputType.Image &&
     model.id === 'gpt-image-1'
   ) {
-    const remapped = llmResolveModelRegistryVariant({
-      backendKind: context.backendKind,
-      modelId: 'gpt-image-2',
-    }).variant;
-    if (remapped) {
-      logger.warn(
-        `[model-selection] remap-inferred-image-model backendKind=${context.backendKind} from=${model.id} to=gpt-image-2 cond=${safeModelPreview(
-          cond
-        )}`
-      );
-      return toProviderModel(remapped);
-    }
+    logger.warn(
+      `[model-selection] remap-inferred-image-model backendKind=${context.backendKind} from=${model.id} to=gpt-image-2 cond=${safeModelPreview(
+        cond
+      )}`
+    );
+    return synthesizeOpenAiImage2Model(context, model);
   }
 
   return model;
@@ -205,13 +222,17 @@ export function resolveProviderModelSelection(
       requestedModelId,
       toProviderModel(resolved)
     );
-    const matchedModelId = llmMatchModelCapabilities([model], {
+    const normalizedModel =
+      requestedModelId === 'gpt-image-2'
+        ? synthesizeOpenAiImage2Model(context, model)
+        : model;
+    const matchedModelId = llmMatchModelCapabilities([normalizedModel], {
       ...cond,
-      modelId: model.id,
+      modelId: normalizedModel.id,
     });
     logger.log(
-      `[model-selection] explicit-match provider=${context.type} backendKind=${context.backendKind} requestedModelId=${requestedModelId} remappedModelId=${model.id} matchedModelId=${matchedModelId ?? 'n/a'} capabilities=${safeModelPreview(
-        model.capabilities
+      `[model-selection] explicit-match provider=${context.type} backendKind=${context.backendKind} requestedModelId=${requestedModelId} remappedModelId=${normalizedModel.id} matchedModelId=${matchedModelId ?? 'n/a'} capabilities=${safeModelPreview(
+        normalizedModel.capabilities
       )}`
     );
     if (!matchedModelId) {
@@ -220,7 +241,7 @@ export function resolveProviderModelSelection(
 
     return {
       kind: 'configured',
-      model,
+      model: normalizedModel,
     };
   }
 
