@@ -125,7 +125,7 @@ export class ChatContentImages extends WithDisposable(ShadowlessElement) {
   `;
 
   @property({ attribute: false })
-  accessor images: string[] = [];
+  accessor images: Array<string | { src: string; key?: string }> = [];
 
   @property({ attribute: false })
   accessor layout: 'row' | 'column' = 'row';
@@ -138,6 +138,11 @@ export class ChatContentImages extends WithDisposable(ShadowlessElement) {
     null;
 
   private resolveImageSrc(image: unknown) {
+    if (image && typeof image === 'object' && 'src' in image) {
+      const src = (image as { src?: unknown }).src;
+      return typeof src === 'string' ? src : null;
+    }
+
     if (typeof image === 'string') {
       if (!image.startsWith('{')) {
         console.log('[ai-image-render] using string image src', {
@@ -219,8 +224,25 @@ export class ChatContentImages extends WithDisposable(ShadowlessElement) {
 
   protected override render() {
     const images = this.images
-      .map(image => this.resolveImageSrc(image))
-      .filter((image): image is string => !!image);
+      .map((image, index) => {
+        const src = this.resolveImageSrc(image);
+        if (!src) {
+          return null;
+        }
+
+        const key =
+          image && typeof image === 'object' && 'key' in image
+            ? (image as { key?: unknown }).key
+            : undefined;
+
+        return {
+          src,
+          key: typeof key === 'string' ? key : `${index}:${src.slice(0, 64)}`,
+        };
+      })
+      .filter(
+        (image): image is { src: string; key: string } => image !== null
+      );
 
     if (images.length === 0) {
       return nothing;
@@ -228,14 +250,14 @@ export class ChatContentImages extends WithDisposable(ShadowlessElement) {
 
     if (this.layout === 'row') {
       return html`<div class="chat-content-images-row">
-        ${repeat(images, image => image, image => this.renderImage(image))}
+        ${repeat(images, image => image.key, image => this.renderImage(image.src))}
       </div>`;
     } else {
       return html`<div class="chat-content-images-column">
         ${repeat(
           images,
-          image => image,
-          image => this.renderImage(image)
+          image => image.key,
+          image => this.renderImage(image.src)
         )}
       </div>`;
     }

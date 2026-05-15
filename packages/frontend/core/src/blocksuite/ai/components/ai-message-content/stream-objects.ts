@@ -269,8 +269,17 @@ export class ChatContentStreamObjects extends WithDisposable(
       result: streamObject.result,
     });
 
-    const imageSources = extractImageSources(streamObject.result);
-    if (imageSources.length) {
+    const imageItems = extractImageItems(streamObject.result);
+    console.log('[ai-stream-object] extracted image items', {
+      toolName: streamObject.toolName,
+      toolCallId: streamObject.toolCallId,
+      count: imageItems.length,
+      items: imageItems.map(item => ({
+        key: item.key,
+        preview: item.src.slice(0, 120),
+      })),
+    });
+    if (imageItems.length) {
       const content = summarizeToolResult(streamObject.result);
       return html`
         <div class="image-tool-result">
@@ -280,7 +289,7 @@ export class ChatContentStreamObjects extends WithDisposable(
             : nothing}
           <div class="image-tool-result-hint">双击图片可放大预览</div>
           <chat-content-images
-            .images=${imageSources}
+            .images=${imageItems}
             .enablePreview=${true}
             .onInsertImage=${this.insertImageIntoDocument}
           ></chat-content-images>
@@ -430,22 +439,40 @@ export class ChatContentStreamObjects extends WithDisposable(
   }
 }
 
-function extractImageSources(
+type ExtractedImageItem = {
+  key: string;
+  src: string;
+};
+
+function extractImageItems(
   value: unknown,
-  options: { depth?: number; seen?: WeakSet<object> } = {}
-): string[] {
+  options: {
+    depth?: number;
+    seen?: WeakSet<object>;
+    path?: string;
+  } = {}
+): ExtractedImageItem[] {
   const depth = options.depth ?? 0;
   const seen = options.seen ?? new WeakSet<object>();
+  const path = options.path ?? 'root';
   if (depth > 4 || value == null) {
     return [];
   }
 
   if (typeof value === 'string') {
-    return isImageLikeString(value) ? [value] : [];
+    return isImageLikeString(value)
+      ? [{ key: `${path}:string`, src: value }]
+      : [];
   }
 
   if (Array.isArray(value)) {
-    return dedupe(value.flatMap(item => extractImageSources(item, { depth: depth + 1, seen })));
+    return value.flatMap((item, index) =>
+      extractImageItems(item, {
+        depth: depth + 1,
+        seen,
+        path: `${path}[${index}]`,
+      })
+    );
   }
 
   if (typeof value !== 'object') {
@@ -471,14 +498,16 @@ function extractImageSources(
         ? record.data_base64
         : undefined;
 
-  const sources: string[] = [];
   if (directUrl && isImageLikeString(directUrl)) {
-    sources.push(directUrl);
+    return [{ key: `${path}:url`, src: directUrl }];
   }
   if (directBase64) {
-    sources.push(
-      `data:${resolveImageMimeType(record)};base64,${directBase64}`
-    );
+    return [
+      {
+        key: `${path}:base64`,
+        src: `data:${resolveImageMimeType(record)};base64,${directBase64}`,
+      },
+    ];
   }
 
   const nestedKeys = [
@@ -490,15 +519,20 @@ function extractImageSources(
     'output',
     'content',
   ] as const;
+  const sources: ExtractedImageItem[] = [];
   for (const key of nestedKeys) {
     if (key in record) {
       sources.push(
-        ...extractImageSources(record[key], { depth: depth + 1, seen })
+        ...extractImageItems(record[key], {
+          depth: depth + 1,
+          seen,
+          path: `${path}.${key}`,
+        })
       );
     }
   }
 
-  return dedupe(sources);
+  return dedupeImageItems(sources);
 }
 
 function resolveImageMimeType(record: Record<string, unknown>) {
@@ -556,6 +590,14 @@ function summarizeToolResult(value: unknown) {
   return candidate.length > 240 ? `${candidate.slice(0, 240)}...` : candidate;
 }
 
-function dedupe(values: string[]) {
-  return Array.from(new Set(values));
+function dedupeImageItems(values: ExtractedImageItem[]) {
+  const seen = new Set<string>();
+  return values.filter(value => {
+    const identity = `${value.key}:${value.src}`;
+    if (seen.has(identity)) {
+      return false;
+    }
+    seen.add(identity);
+    return true;
+  });
 }
