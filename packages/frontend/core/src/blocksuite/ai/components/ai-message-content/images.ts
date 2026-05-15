@@ -5,6 +5,8 @@ import { css, html, nothing } from 'lit';
 import { property } from 'lit/decorators.js';
 import { repeat } from 'lit/directives/repeat.js';
 
+import { renderPreviewPanel } from '../ai-tools/artifacts-preview-panel';
+
 export class ChatContentImages extends WithDisposable(ShadowlessElement) {
   static override styles = css`
     .chat-content-images-row {
@@ -66,6 +68,60 @@ export class ChatContentImages extends WithDisposable(ShadowlessElement) {
       height: auto;
       image-rendering: pixelated;
     }
+
+    .image-item {
+      display: flex;
+      flex-direction: column;
+      gap: 8px;
+      flex-shrink: 0;
+    }
+
+    .image-container {
+      position: relative;
+      overflow: hidden;
+      border-radius: 8px;
+    }
+
+    .image-container.interactive {
+      cursor: zoom-in;
+    }
+
+    .image-actions {
+      display: flex;
+      justify-content: flex-end;
+    }
+
+    .image-action-button {
+      border: none;
+      border-radius: 8px;
+      padding: 6px 10px;
+      font-size: 12px;
+      line-height: 18px;
+      color: var(--affine-v2-text-primary);
+      background: var(--affine-v2-layer-background-secondary);
+      cursor: pointer;
+    }
+
+    .image-action-button:hover {
+      background: var(--affine-v2-layer-background-hoverOverlay);
+    }
+
+    .image-preview {
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      min-height: calc(100vh - 120px);
+      padding: 16px;
+      background: rgba(0, 0, 0, 0.04);
+    }
+
+    .image-preview img {
+      display: block;
+      max-width: 100%;
+      max-height: calc(100vh - 180px);
+      object-fit: contain;
+      border-radius: 12px;
+    }
   `;
 
   @property({ attribute: false })
@@ -73,6 +129,13 @@ export class ChatContentImages extends WithDisposable(ShadowlessElement) {
 
   @property({ attribute: false })
   accessor layout: 'row' | 'column' = 'row';
+
+  @property({ attribute: false })
+  accessor enablePreview = false;
+
+  @property({ attribute: false })
+  accessor onInsertImage: ((image: string) => void | Promise<void>) | null =
+    null;
 
   private resolveImageSrc(image: unknown) {
     if (typeof image === 'string') {
@@ -107,6 +170,53 @@ export class ChatContentImages extends WithDisposable(ShadowlessElement) {
     return null;
   }
 
+  private readonly openImagePreview = (image: string) => {
+    if (!this.enablePreview) {
+      return;
+    }
+
+    renderPreviewPanel(
+      this,
+      html`<div class="image-preview"><img src=${image} /></div>`
+    );
+  };
+
+  private renderImage(image: string) {
+    return html`<div class="image-item">
+      <div
+        class="image-container ${this.enablePreview ? 'interactive' : ''}"
+        @dblclick=${() => this.openImagePreview(image)}
+        title=${this.enablePreview ? '双击放大预览' : ''}
+      >
+        <img
+          src="${image}"
+          @load=${() =>
+            console.log('[ai-image-render] image loaded', {
+              preview: image.slice(0, 200),
+            })}
+          @error=${(event: Event) =>
+            console.error('[ai-image-render] image failed', {
+              preview: image.slice(0, 200),
+              currentSrc:
+                event.target instanceof HTMLImageElement
+                  ? event.target.currentSrc
+                  : null,
+            })}
+        />
+      </div>
+      ${this.onInsertImage
+        ? html`<div class="image-actions">
+            <button
+              class="image-action-button"
+              @click=${() => this.onInsertImage?.(image)}
+            >
+              插入到文档
+            </button>
+          </div>`
+        : nothing}
+    </div>`;
+  }
+
   protected override render() {
     const images = this.images
       .map(image => this.resolveImageSrc(image))
@@ -118,50 +228,14 @@ export class ChatContentImages extends WithDisposable(ShadowlessElement) {
 
     if (this.layout === 'row') {
       return html`<div class="chat-content-images-row">
-        ${repeat(
-          images,
-          image => image,
-          image =>
-            html`<img
-              src="${image}"
-              @load=${() =>
-                console.log('[ai-image-render] image loaded', {
-                  preview: image.slice(0, 200),
-                })}
-              @error=${(event: Event) =>
-                console.error('[ai-image-render] image failed', {
-                  preview: image.slice(0, 200),
-                  currentSrc:
-                    event.target instanceof HTMLImageElement
-                      ? event.target.currentSrc
-                      : null,
-                })}
-            />`
-        )}
+        ${repeat(images, image => image, image => this.renderImage(image))}
       </div>`;
     } else {
       return html`<div class="chat-content-images-column">
         ${repeat(
           images,
           image => image,
-          image =>
-            html`<div class="image-container">
-              <img
-                src="${image}"
-                @load=${() =>
-                  console.log('[ai-image-render] image loaded', {
-                    preview: image.slice(0, 200),
-                  })}
-                @error=${(event: Event) =>
-                  console.error('[ai-image-render] image failed', {
-                    preview: image.slice(0, 200),
-                    currentSrc:
-                      event.target instanceof HTMLImageElement
-                        ? event.target.currentSrc
-                        : null,
-                  })}
-              />
-            </div>`
+          image => this.renderImage(image)
         )}
       </div>`;
     }

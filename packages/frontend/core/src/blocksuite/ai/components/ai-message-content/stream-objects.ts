@@ -1,12 +1,16 @@
 import type { FeatureFlagService } from '@affine/core/modules/feature-flag';
 import type { PeekViewService } from '@affine/core/modules/peek-view';
+import { addSiblingImageBlocks, addImages } from '@blocksuite/affine/blocks/image';
 import { WithDisposable } from '@blocksuite/affine/global/lit';
 import type { ColorScheme } from '@blocksuite/affine/model';
+import { isInsidePageEditor } from '@blocksuite/affine/shared/utils';
 import {
   type BlockStdScope,
   type EditorHost,
   ShadowlessElement,
+  TextSelection,
 } from '@blocksuite/affine/std';
+import { GfxControllerIdentifier } from '@blocksuite/affine/std/gfx';
 import type { ExtensionType } from '@blocksuite/affine/store';
 import type { NotificationService } from '@blocksuite/affine-shared/services';
 import type { Signal } from '@preact/signals-core';
@@ -14,6 +18,9 @@ import { css, html, nothing } from 'lit';
 import { property } from 'lit/decorators.js';
 
 import type { AffineAIPanelState } from '../../widgets/ai-panel/type';
+import { getEdgelessCopilotWidget } from '../../utils/edgeless';
+import { fetchImageToFile } from '../../utils/image';
+import { getSelections } from '../../utils/selection-utils';
 import type { DocDisplayConfig } from '../ai-chat-chips';
 import type { StreamObject } from '../ai-chat-messages';
 
@@ -50,6 +57,13 @@ export class ChatContentStreamObjects extends WithDisposable(
       color: var(--affine-v2-text-secondary);
       margin-bottom: 8px;
       white-space: pre-wrap;
+    }
+
+    .image-tool-result-hint {
+      font-size: 12px;
+      line-height: 18px;
+      color: var(--affine-v2-text-tertiary);
+      margin-bottom: 8px;
     }
   `;
 
@@ -91,6 +105,63 @@ export class ChatContentStreamObjects extends WithDisposable(
 
   @property({ attribute: false })
   accessor onOpenDoc!: (docId: string, sessionId?: string) => void;
+
+  private getPageInsertionTarget() {
+    const host = this.host;
+    if (!host) {
+      return null;
+    }
+
+    const textSelection = host.selection.find(TextSelection);
+    const mode = textSelection ? 'flat' : 'highest';
+    const { selectedBlocks } = getSelections(host, mode);
+    if (selectedBlocks?.length) {
+      return selectedBlocks[selectedBlocks.length - 1]?.model ?? null;
+    }
+
+    const rootChildren = host.store.root?.children ?? [];
+    const blockChildren = rootChildren.filter(
+      child => child.flavour !== 'affine:surface'
+    );
+    return blockChildren[blockChildren.length - 1] ?? null;
+  }
+
+  private readonly insertImageIntoDocument = async (image: string) => {
+    const host = this.host;
+    if (!host) {
+      this.notificationService.toast('当前没有可插入的编辑器');
+      return;
+    }
+
+    const imageProxy = host.std.clipboard.configs.get('imageProxy');
+    const file = await fetchImageToFile(image, 'ai-generated-image', imageProxy);
+    if (!file) {
+      this.notificationService.toast('图片获取失败，无法插入');
+      return;
+    }
+
+    try {
+      if (isInsidePageEditor(host)) {
+        const targetModel = this.getPageInsertionTarget();
+        if (!targetModel) {
+          this.notificationService.toast('未找到可插入的位置');
+          return;
+        }
+        await addSiblingImageBlocks(host.std, [file], targetModel, 'after');
+      } else {
+        const edgelessCopilot = getEdgelessCopilotWidget(host);
+        const bounds = edgelessCopilot.determineInsertionBounds();
+        const gfx = host.std.get(GfxControllerIdentifier);
+        const [x, y] = gfx.viewport.toViewCoord(bounds.minX, bounds.minY);
+        await addImages(host.std, [file], { point: [x, y] });
+      }
+
+      this.notificationService.toast('已插入到当前文档');
+    } catch (error) {
+      console.error('[ai-stream-object] failed to insert generated image', error);
+      this.notificationService.toast('插入图片失败');
+    }
+  };
 
   private renderToolCall(streamObject: StreamObject) {
     if (streamObject.type !== 'tool-call') {
@@ -207,7 +278,12 @@ export class ChatContentStreamObjects extends WithDisposable(
           ${content
             ? html`<div class="image-tool-result-content">${content}</div>`
             : nothing}
-          <chat-content-images .images=${imageSources}></chat-content-images>
+          <div class="image-tool-result-hint">双击图片可放大预览</div>
+          <chat-content-images
+            .images=${imageSources}
+            .enablePreview=${true}
+            .onInsertImage=${this.insertImageIntoDocument}
+          ></chat-content-images>
         </div>
       `;
     }
