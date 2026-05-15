@@ -76,27 +76,34 @@ function remapResolvedModel(
   return model;
 }
 
-function synthesizeOpenAiImage2Model(
-  context: ProviderModelRuntimeContext,
-  model: ResolvedProviderModel
+function createOpenAiImage2Model(
+  context: ProviderModelRuntimeContext
 ): ResolvedProviderModel {
-  if (
-    context.backendKind === 'openai_responses' &&
-    model.id === 'gpt-image-1' &&
-    model.capabilities.some(cap => cap.output.includes(ModelOutputType.Image))
-  ) {
-    return {
-      ...model,
-      id: 'gpt-image-2',
-      name: model.name === 'gpt-image-1' ? 'gpt-image-2' : model.name,
-      canonicalKey:
-        model.canonicalKey === 'gpt-image-1'
-          ? 'gpt-image-2'
-          : model.canonicalKey,
-    };
-  }
-
-  return model;
+  return {
+    id: 'gpt-image-2',
+    name: 'gpt-image-2',
+    backendKind: context.backendKind,
+    canonicalKey: 'gpt-image-2',
+    protocol: 'openai_images',
+    requestLayer: 'openai_images',
+    capabilities: [
+      {
+        input: [ModelInputType.Text, ModelInputType.Image],
+        output: [ModelOutputType.Image],
+        attachments: {
+          kinds: ['image'],
+          sourceKinds: ['url', 'data'],
+          allowRemoteUrls: true,
+        },
+        structuredAttachments: {
+          kinds: ['image'],
+          sourceKinds: ['url', 'data'],
+          allowRemoteUrls: true,
+        },
+        defaultForOutputType: true,
+      },
+    ],
+  };
 }
 
 function remapInferredResolvedModel(
@@ -114,7 +121,7 @@ function remapInferredResolvedModel(
         cond
       )}`
     );
-    return synthesizeOpenAiImage2Model(context, model);
+    return createOpenAiImage2Model(context);
   }
 
   return model;
@@ -203,6 +210,29 @@ export function resolveProviderModelSelection(
 ): ProviderModelSelection | undefined {
   if (cond.modelId) {
     const requestedModelId = cond.modelId;
+    if (
+      context.backendKind === 'openai_responses' &&
+      requestedModelId === 'gpt-image-2'
+    ) {
+      const model = createOpenAiImage2Model(context);
+      const matchedModelId = llmMatchModelCapabilities([model], {
+        ...cond,
+        modelId: model.id,
+      });
+      logger.warn(
+        `[model-selection] explicit-force-image-model backendKind=${context.backendKind} requestedModelId=${requestedModelId} matchedModelId=${matchedModelId ?? 'n/a'} model=${safeModelPreview(
+          model
+        )}`
+      );
+      if (!matchedModelId) {
+        return;
+      }
+      return {
+        kind: 'configured',
+        model,
+      };
+    }
+
     const resolvedModelId = normalizeRequestedModelId(context, requestedModelId);
     const resolved = llmResolveModelRegistryVariant({
       backendKind: context.backendKind,
@@ -222,17 +252,13 @@ export function resolveProviderModelSelection(
       requestedModelId,
       toProviderModel(resolved)
     );
-    const normalizedModel =
-      requestedModelId === 'gpt-image-2'
-        ? synthesizeOpenAiImage2Model(context, model)
-        : model;
-    const matchedModelId = llmMatchModelCapabilities([normalizedModel], {
+    const matchedModelId = llmMatchModelCapabilities([model], {
       ...cond,
-      modelId: normalizedModel.id,
+      modelId: model.id,
     });
     logger.log(
-      `[model-selection] explicit-match provider=${context.type} backendKind=${context.backendKind} requestedModelId=${requestedModelId} remappedModelId=${normalizedModel.id} matchedModelId=${matchedModelId ?? 'n/a'} capabilities=${safeModelPreview(
-        normalizedModel.capabilities
+      `[model-selection] explicit-match provider=${context.type} backendKind=${context.backendKind} requestedModelId=${requestedModelId} remappedModelId=${model.id} matchedModelId=${matchedModelId ?? 'n/a'} capabilities=${safeModelPreview(
+        model.capabilities
       )}`
     );
     if (!matchedModelId) {
@@ -241,7 +267,7 @@ export function resolveProviderModelSelection(
 
     return {
       kind: 'configured',
-      model: normalizedModel,
+      model,
     };
   }
 
