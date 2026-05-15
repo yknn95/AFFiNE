@@ -6,6 +6,11 @@ export { AccountLoggedIn } from './events/account-logged-in';
 export { AccountLoggedOut } from './events/account-logged-out';
 export { AuthProvider } from './provider/auth';
 export { ValidatorProvider } from './provider/validator';
+export {
+  RealtimeLiveQuery,
+  type RealtimeLiveQueryEventResult,
+  type RealtimeLiveQueryOptions,
+} from './realtime/live-query';
 export { ServerScope } from './scopes/server';
 export { AccessTokenService } from './services/access-token';
 export { AuthService } from './services/auth';
@@ -19,6 +24,7 @@ export { InvitationService } from './services/invitation';
 export { InvoicesService } from './services/invoices';
 export type { PublicUserInfo } from './services/public-user';
 export { PublicUserService } from './services/public-user';
+export { RealtimeService } from './services/realtime';
 export { SelfhostGenerateLicenseService } from './services/selfhost-generate-license';
 export { SelfhostLicenseService } from './services/selfhost-license';
 export { ServerService } from './services/server';
@@ -41,6 +47,7 @@ import { type Framework } from '@toeverything/infra';
 
 import { GlobalCache, GlobalState } from '../storage/providers/global';
 import { GlobalStateService } from '../storage/services/global';
+import { GlobalContextService } from '../global-context';
 import { UrlService } from '../url';
 import { WorkspaceScope, WorkspaceService } from '../workspace';
 import { CloudDocMeta } from './entities/cloud-doc-meta';
@@ -69,6 +76,7 @@ import { FetchService } from './services/fetch';
 import { GraphQLService } from './services/graphql';
 import { InvoicesService } from './services/invoices';
 import { PublicUserService } from './services/public-user';
+import { RealtimeService } from './services/realtime';
 import { SelfhostGenerateLicenseService } from './services/selfhost-generate-license';
 import { SelfhostLicenseService } from './services/selfhost-license';
 import { ServerService } from './services/server';
@@ -100,6 +108,7 @@ import { DocCreatedByService } from './services/doc-created-by';
 import { DocUpdatedByService } from './services/doc-updated-by';
 import { DocCreatedByUpdatedBySyncService } from './services/doc-created-by-updated-by-sync';
 import { WorkspacePermissionService } from '../permissions';
+import { NbstoreService } from '../storage';
 import { DocScope, DocService, DocsService } from '../doc';
 import { DocCreatedByUpdatedBySyncStore } from './stores/doc-created-by-updated-by-sync';
 import { GlobalDialogService } from '../dialogs';
@@ -111,6 +120,11 @@ export function configureCloudModule(framework: Framework) {
 
   framework
     .service(ServersService, [ServerListStore, ServerConfigStore])
+    .service(RealtimeService, [
+      GlobalContextService,
+      ServersService,
+      NbstoreService,
+    ])
     .service(DefaultServerService, [ServersService])
     .store(ServerListStore, [GlobalStateService])
     .store(ServerConfigStore)

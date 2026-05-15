@@ -1296,6 +1296,7 @@ export const getWorkspaceEmbeddingStatusQuery = {
     embedded
   }
 }`,
+  deprecations: ["'queryWorkspaceEmbeddingStatus' is deprecated: Use realtime subscription \"workspace.embedding.progress.changed\" instead."],
 };
 
 export const queueWorkspaceEmbeddingMutation = {
@@ -1621,6 +1622,7 @@ export const getTranscriptTaskQuery = {
     }
   }
 }`,
+  deprecations: ["'transcriptTask' is deprecated: Use realtime subscription \"copilot.transcript.task.changed\" instead."],
 };
 
 export const retryTranscriptTaskMutation = {
@@ -2582,6 +2584,27 @@ ${licenseBodyFragment}`,
   file: true,
 };
 
+export const previewLicenseMutation = {
+  id: 'previewLicenseMutation' as const,
+  op: 'previewLicense',
+  query: `mutation previewLicense($license: Upload!) {
+  previewLicense(license: $license) {
+    id
+    workspaceId
+    plan
+    recurring
+    quantity
+    issuedAt
+    expiresAt
+    endAt
+    entity
+    issuer
+    valid
+  }
+}`,
+  file: true,
+};
+
 export const listNotificationsQuery = {
   id: 'listNotificationsQuery' as const,
   op: 'listNotifications',
@@ -2625,11 +2648,10 @@ export const notificationCountQuery = {
   op: 'notificationCount',
   query: `query notificationCount {
   currentUser {
-    notifications(pagination: {first: 1}) {
-      totalCount
-    }
+    notificationCount
   }
 }`,
+  deprecations: ["'notificationCount' is deprecated: Use realtime subscription \"notification.count.changed\" instead."],
 };
 
 export const pricesQuery = {
@@ -3104,10 +3126,6 @@ export const getWorkspaceConfigQuery = {
     enableSharing
     enableUrlPreview
     enableDocEmbedding
-    inviteLink {
-      link
-      expireTime
-    }
   }
 }`,
 };
@@ -3170,6 +3188,19 @@ export const acceptInviteByInviteIdMutation = {
   op: 'acceptInviteByInviteId',
   query: `mutation acceptInviteByInviteId($workspaceId: String!, $inviteId: String!) {
   acceptInviteById(workspaceId: $workspaceId, inviteId: $inviteId)
+}`,
+};
+
+export const getWorkspaceInviteLinkQuery = {
+  id: 'getWorkspaceInviteLinkQuery' as const,
+  op: 'getWorkspaceInviteLink',
+  query: `query getWorkspaceInviteLink($id: String!) {
+  workspace(id: $id) {
+    inviteLink {
+      link
+      expireTime
+    }
+  }
 }`,
 };
 
