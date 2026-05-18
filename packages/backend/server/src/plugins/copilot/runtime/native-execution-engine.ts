@@ -92,7 +92,7 @@ function shouldUseResponsesNativeImageBridge(
   }
 
   if (
-    !dispatch.routes.every(route => route.route.protocol === 'openai_responses')
+    !dispatch.routes.every(route => route.protocol === 'openai_responses')
   ) {
     return false;
   }
