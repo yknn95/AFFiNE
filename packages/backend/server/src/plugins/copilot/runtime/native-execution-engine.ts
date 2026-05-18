@@ -101,24 +101,6 @@ function shouldUseResponsesNativeImageBridge(
   return !!latestUserPrompt && looksLikeImageGenerationRequest(latestUserPrompt);
 }
 
-function stripToolsFromPreparedRequest<T extends { tools?: unknown; toolChoice?: unknown }>(
-  request: T
-): T {
-  const next = { ...request } as T & { tools?: unknown; toolChoice?: unknown };
-  delete next.tools;
-  next.toolChoice = 'none';
-  return next;
-}
-
-function buildResponsesNativeImagePreparedRoutes(
-  dispatch: NativeChatDispatchPlan
-) {
-  return dispatch.routes.map(route => ({
-    ...route,
-    request: stripToolsFromPreparedRequest(route.request),
-  }));
-}
-
 function extractTextResponse(response: LlmDispatchResponse) {
   return response.message.content
     .filter(part => part.type === 'text' || part.type === 'reasoning')
@@ -236,9 +218,11 @@ function createNativeChatAdapter(
   }
 
   if (options?.useResponsesNativeImageBridge) {
-    const preparedRoutes = buildResponsesNativeImagePreparedRoutes(dispatch);
+    const preparedRoutes = dispatch.routes;
     logger.log(
-      `[prepared-native-image-bridge] enabled routes=${preparedRoutes.length} model=${dispatch.prepared.route.model} strippedTools=true`
+      `[prepared-native-image-bridge] enabled routes=${preparedRoutes.length} model=${dispatch.prepared.route.model} preserveTools=true protocols=${preparedRoutes
+        .map(route => route.protocol)
+        .join(',')}`
     );
 
     const nativeDispatch = (
