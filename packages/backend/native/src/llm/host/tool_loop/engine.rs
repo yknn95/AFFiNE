@@ -73,26 +73,18 @@ fn emit_response_image_tool_result(
   callback: &ThreadsafeFunction<String, ()>,
   outcome: &RoundOutcome,
 ) -> std::result::Result<(), BackendError> {
-  let Ok(value) = serde_json::to_value(outcome) else {
-    println!("{RESPONSE_IMAGE_LOG_PREFIX} serialize_outcome failed");
-    return Ok(());
-  };
-  let images = extract_response_images(&value);
+  let outcome_debug = format!("{outcome:?}");
+  let images = extract_response_images_from_debug(&outcome_debug);
   if images.is_empty() {
     println!(
-      "{RESPONSE_IMAGE_LOG_PREFIX} no_images outcomeKeys={}",
-      summarize_top_level_keys(&value)
+      "{RESPONSE_IMAGE_LOG_PREFIX} no_images debugPreview={}",
+      truncate_for_log(&outcome_debug, 200)
     );
     return Ok(());
   }
 
-  let prompt = find_first_string(
-    &value,
-    &["revised_prompt", "prompt", "description", "text", "content"],
-  );
-  let call_id = find_first_string(&value, &["id"])
-    .filter(|id| id.starts_with("ig_"))
-    .unwrap_or_else(|| "response_image_generate".to_string());
+  let prompt = None::<String>;
+  let call_id = "response_image_generate".to_string();
   let event = json!({
     "type": "tool_result",
     "call_id": format!("responses_{call_id}"),
@@ -119,67 +111,60 @@ fn emit_response_image_tool_result(
   emit_tool_loop_event(callback, &event)
 }
 
-fn extract_response_images(value: &Value) -> Vec<Value> {
+fn extract_response_images_from_debug(text: &str) -> Vec<Value> {
   let mut images = Vec::new();
-  collect_response_images(value, &mut images);
+  let mut search_from = 0usize;
+  while let Some(type_index) = text[search_from..].find("image_generation_call") {
+    let absolute = search_from + type_index;
+    let tail = &text[absolute..];
+    let result = extract_debug_field(tail, "result");
+    let revised_prompt = extract_debug_field(tail, "revised_prompt");
+    let id = extract_debug_field(tail, "id");
+    if let Some(result) = result {
+      println!(
+        "{RESPONSE_IMAGE_LOG_PREFIX} found_call id={} revisedPrompt={} resultLength={}",
+        id.as_deref().unwrap_or("n/a"),
+        truncate_for_log(revised_prompt.as_deref().unwrap_or(""), 120),
+        result.len()
+      );
+      let mut image = serde_json::Map::new();
+      image.insert("b64_json".to_string(), Value::String(result));
+      image.insert(
+        "mimeType".to_string(),
+        Value::String("image/png".to_string()),
+      );
+      if let Some(revised_prompt) = revised_prompt {
+        image.insert(
+          "revised_prompt".to_string(),
+          Value::String(revised_prompt),
+        );
+      }
+      if let Some(id) = id {
+        image.insert("id".to_string(), Value::String(id));
+      }
+      images.push(Value::Object(image));
+    }
+    search_from = absolute + "image_generation_call".len();
+  }
   images
 }
 
-fn collect_response_images(value: &Value, images: &mut Vec<Value>) {
-  match value {
-    Value::Array(items) => {
-      for item in items {
-        collect_response_images(item, images);
-      }
-    }
-    Value::Object(record) => {
-      if record.get("type").and_then(Value::as_str) == Some("image_generation_call")
-        && record.get("status").and_then(Value::as_str) == Some("completed")
-        && let Some(result) = record.get("result").and_then(Value::as_str)
-      {
-        println!(
-          "{RESPONSE_IMAGE_LOG_PREFIX} found_call id={} revisedPrompt={} resultLength={}",
-          record.get("id").and_then(Value::as_str).unwrap_or("n/a"),
-          truncate_for_log(
-            record.get("revised_prompt").and_then(Value::as_str).unwrap_or(""),
-            120
-          ),
-          result.len()
-        );
-        let mut image = serde_json::Map::new();
-        image.insert("b64_json".to_string(), Value::String(result.to_string()));
-        image.insert(
-          "mimeType".to_string(),
-          Value::String("image/png".to_string()),
-        );
-        if let Some(revised_prompt) = record.get("revised_prompt").and_then(Value::as_str) {
-          image.insert(
-            "revised_prompt".to_string(),
-            Value::String(revised_prompt.to_string()),
-          );
-        }
-        if let Some(id) = record.get("id").and_then(Value::as_str) {
-          image.insert("id".to_string(), Value::String(id.to_string()));
-        }
-        images.push(Value::Object(image));
-      }
+fn extract_debug_field(text: &str, field: &str) -> Option<String> {
+  let needle = format!("{field}: ");
+  let index = text.find(&needle)?;
+  let tail = &text[index + needle.len()..];
 
-      for nested in record.values() {
-        collect_response_images(nested, images);
-      }
-    }
-    _ => {}
+  if let Some(rest) = tail.strip_prefix("Some(\"") {
+    let end = rest.find("\")")?;
+    return Some(rest[..end].to_string());
   }
-}
 
-fn summarize_top_level_keys(value: &Value) -> String {
-  match value {
-    Value::Object(record) => record.keys().cloned().collect::<Vec<_>>().join(","),
-    _ => value
-      .as_array()
-      .map(|items| format!("array(len={})", items.len()))
-      .unwrap_or_else(|| value.to_string()),
+  if let Some(rest) = tail.strip_prefix('"') {
+    let end = rest.find('"')?;
+    return Some(rest[..end].to_string());
   }
+
+  None
 }
 
 fn truncate_for_log(value: &str, max: usize) -> String {
@@ -187,23 +172,6 @@ fn truncate_for_log(value: &str, max: usize) -> String {
     format!("{}...", &value[..max])
   } else {
     value.to_string()
-  }
-}
-
-fn find_first_string(value: &Value, keys: &[&str]) -> Option<String> {
-  match value {
-    Value::Array(items) => items.iter().find_map(|item| find_first_string(item, keys)),
-    Value::Object(record) => {
-      for key in keys {
-        if let Some(found) = record.get(*key).and_then(Value::as_str) {
-          return Some(found.to_string());
-        }
-      }
-      record
-        .values()
-        .find_map(|nested| find_first_string(nested, keys))
-    }
-    _ => None,
   }
 }
 
