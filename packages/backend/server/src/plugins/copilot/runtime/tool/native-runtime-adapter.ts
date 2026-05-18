@@ -47,6 +47,24 @@ export class NativeRuntimeAdapter {
     messages?: PromptMessage[]
   ): AsyncIterableIterator<StreamObject> {
     for await (const event of this.streamEvents(request, signal, messages)) {
+      if (event.type === 'tool_result') {
+        const toolName =
+          typeof event.name === 'string' ? event.name : 'unknown';
+        const args =
+          event.arguments && typeof event.arguments === 'object'
+            ? (event.arguments as Record<string, unknown>)
+            : undefined;
+        if (
+          toolName === 'image_generate' &&
+          args?.source === 'responses_output'
+        ) {
+          console.log('[native-runtime-adapter] received responses image tool_result', {
+            callId:
+              typeof event.call_id === 'string' ? event.call_id : 'n/a',
+            outputPreview: JSON.stringify(event.output).slice(0, 500),
+          });
+        }
+      }
       if (event.type === 'error') {
         throw new Error(
           typeof event.message === 'string'

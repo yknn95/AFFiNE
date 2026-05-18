@@ -14,8 +14,9 @@ use napi::{
   bindgen_prelude::{CallbackContext, PromiseRaw, Unknown},
   threadsafe_function::{ThreadsafeFunction, ThreadsafeFunctionCallMode},
 };
+use serde::Serialize;
 
-use super::contract::{NativeToolCall, ToolLoopStreamEvent};
+use super::contract::NativeToolCall;
 use crate::llm::{backend_transport_error, host::callback_dispatch_failed_reason};
 
 type ToolCallbackResult = std::result::Result<RuntimeToolCallbackResponse, String>;
@@ -73,7 +74,7 @@ impl EventSink<BackendError> for NapiEventSink<'_> {
 
 pub(super) fn emit_tool_loop_event(
   callback: &ThreadsafeFunction<String, ()>,
-  event: &ToolLoopStreamEvent,
+  event: &impl Serialize,
 ) -> std::result::Result<(), BackendError> {
   let value = serde_json::to_string(event).unwrap_or_else(|error| {
     serde_json::json!({

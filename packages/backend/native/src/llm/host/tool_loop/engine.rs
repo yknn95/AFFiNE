@@ -13,6 +13,7 @@ use napi::{
   bindgen_prelude::PromiseRaw,
   threadsafe_function::{ThreadsafeFunction, ThreadsafeFunctionCallMode},
 };
+use serde_json::{Value, json};
 
 use super::{
   super::emit_provider_selected_event,
@@ -25,6 +26,8 @@ use crate::llm::{
 };
 
 pub(crate) type PreparedToolLoopRoute = (PreparedChatRoute, LlmMiddlewarePayload);
+
+const RESPONSE_IMAGE_LOG_PREFIX: &str = "[responses-image-bridge]";
 
 fn dispatch_prepared_round_with_fallback(
   routes: &[PreparedToolLoopRoute],
@@ -59,10 +62,149 @@ fn dispatch_prepared_round_with_fallback(
       emit_tool_loop_event(callback, loop_event)
     },
   )?;
+  emit_response_image_tool_result(callback, &outcome)?;
   if let Some(provider_id) = selected_provider_id {
     emit_provider_selected_event(callback, provider_id);
   }
   Ok(outcome)
+}
+
+fn emit_response_image_tool_result(
+  callback: &ThreadsafeFunction<String, ()>,
+  outcome: &RoundOutcome,
+) -> std::result::Result<(), BackendError> {
+  let Ok(value) = serde_json::to_value(outcome) else {
+    println!("{RESPONSE_IMAGE_LOG_PREFIX} serialize_outcome failed");
+    return Ok(());
+  };
+  let images = extract_response_images(&value);
+  if images.is_empty() {
+    println!(
+      "{RESPONSE_IMAGE_LOG_PREFIX} no_images outcomeKeys={}",
+      summarize_top_level_keys(&value)
+    );
+    return Ok(());
+  }
+
+  let prompt = find_first_string(
+    &value,
+    &["revised_prompt", "prompt", "description", "text", "content"],
+  );
+  let call_id = find_first_string(&value, &["id"])
+    .filter(|id| id.starts_with("ig_"))
+    .unwrap_or_else(|| "response_image_generate".to_string());
+  let event = json!({
+    "type": "tool_result",
+    "call_id": format!("responses_{call_id}"),
+    "name": "image_generate",
+    "arguments": {
+      "source": "responses_output",
+      "count": images.len(),
+    },
+    "output": {
+      "source": "responses_output",
+      "prompt": prompt,
+      "images": images,
+    },
+  });
+
+  println!(
+    "{RESPONSE_IMAGE_LOG_PREFIX} emit_tool_result callId={} imageCount={} promptPreview={} imagePreview={}",
+    format!("responses_{call_id}"),
+    images.len(),
+    truncate_for_log(prompt.as_deref().unwrap_or(""), 120),
+    truncate_for_log(&serde_json::to_string(&images).unwrap_or_default(), 200)
+  );
+
+  emit_tool_loop_event(callback, &event)
+}
+
+fn extract_response_images(value: &Value) -> Vec<Value> {
+  let mut images = Vec::new();
+  collect_response_images(value, &mut images);
+  images
+}
+
+fn collect_response_images(value: &Value, images: &mut Vec<Value>) {
+  match value {
+    Value::Array(items) => {
+      for item in items {
+        collect_response_images(item, images);
+      }
+    }
+    Value::Object(record) => {
+      if record.get("type").and_then(Value::as_str) == Some("image_generation_call")
+        && record.get("status").and_then(Value::as_str) == Some("completed")
+        && let Some(result) = record.get("result").and_then(Value::as_str)
+      {
+        println!(
+          "{RESPONSE_IMAGE_LOG_PREFIX} found_call id={} revisedPrompt={} resultLength={}",
+          record.get("id").and_then(Value::as_str).unwrap_or("n/a"),
+          truncate_for_log(
+            record.get("revised_prompt").and_then(Value::as_str).unwrap_or(""),
+            120
+          ),
+          result.len()
+        );
+        let mut image = serde_json::Map::new();
+        image.insert("b64_json".to_string(), Value::String(result.to_string()));
+        image.insert(
+          "mimeType".to_string(),
+          Value::String("image/png".to_string()),
+        );
+        if let Some(revised_prompt) = record.get("revised_prompt").and_then(Value::as_str) {
+          image.insert(
+            "revised_prompt".to_string(),
+            Value::String(revised_prompt.to_string()),
+          );
+        }
+        if let Some(id) = record.get("id").and_then(Value::as_str) {
+          image.insert("id".to_string(), Value::String(id.to_string()));
+        }
+        images.push(Value::Object(image));
+      }
+
+      for nested in record.values() {
+        collect_response_images(nested, images);
+      }
+    }
+    _ => {}
+  }
+}
+
+fn summarize_top_level_keys(value: &Value) -> String {
+  match value {
+    Value::Object(record) => record.keys().cloned().collect::<Vec<_>>().join(","),
+    _ => value
+      .as_array()
+      .map(|items| format!("array(len={})", items.len()))
+      .unwrap_or_else(|| value.to_string()),
+  }
+}
+
+fn truncate_for_log(value: &str, max: usize) -> String {
+  if value.len() > max {
+    format!("{}...", &value[..max])
+  } else {
+    value.to_string()
+  }
+}
+
+fn find_first_string(value: &Value, keys: &[&str]) -> Option<String> {
+  match value {
+    Value::Array(items) => items.iter().find_map(|item| find_first_string(item, keys)),
+    Value::Object(record) => {
+      for key in keys {
+        if let Some(found) = record.get(*key).and_then(Value::as_str) {
+          return Some(found.to_string());
+        }
+      }
+      record
+        .values()
+        .find_map(|nested| find_first_string(nested, keys))
+    }
+    _ => None,
+  }
 }
 
 fn prepare_tool_loop_route(

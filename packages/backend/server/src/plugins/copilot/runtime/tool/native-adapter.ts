@@ -388,11 +388,19 @@ export class NativeProviderAdapter {
           break;
         }
         case 'tool_result': {
-          sawMeaningfulOutput = true;
           const normalized = event as EnrichedToolResultEvent;
+          const isResponsesImageResult =
+            normalized.name === 'image_generate' &&
+            normalized.arguments?.source === 'responses_output';
+          sawMeaningfulOutput = true;
           this.logger.log(
-            `[native-stream-object] tool_result payload=${truncateNativePreview(normalized.output)}`
+            `[native-stream-object] tool_result payload=${truncateNativePreview(normalized.output)} source=${normalized.arguments?.source ?? 'n/a'} responsesImage=${isResponsesImageResult ? 'true' : 'false'}`
           );
+          if (isResponsesImageResult) {
+            this.logger.log(
+              `[native-stream-object] responses image tool_result detected; fallback will be suppressed`
+            );
+          }
           const attachments = collectAttachmentFootnotes(normalized);
           attachments.forEach(attachment => {
             fallbackAttachmentFootnotes.set(attachment.blobId, attachment);
@@ -471,7 +479,14 @@ export class NativeProviderAdapter {
     }
 
     if (!sawMeaningfulOutput) {
+      this.logger.log(
+        `[native-stream-object] no meaningful output detected; entering image fallback`
+      );
       yield* this.#streamImageFallback(messages, signal);
+    } else {
+      this.logger.log(
+        `[native-stream-object] meaningful output detected; image fallback suppressed`
+      );
     }
   }
 
