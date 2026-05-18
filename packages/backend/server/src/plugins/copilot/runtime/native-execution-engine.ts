@@ -25,6 +25,7 @@ import {
 import { mapNativeSemanticError } from './native-errors';
 import {
   createNativeToolLoopAdapter,
+  looksLikeImageGenerationRequest,
   NativeProviderAdapter,
   type NativeProviderAdapterOptions,
 } from './tool/native-adapter';
@@ -54,6 +55,68 @@ function resolveAbortSignal(
     'aborted' in signalOrOptions
     ? signalOrOptions
     : signalOrOptions?.signal;
+}
+
+function pickLatestUserPrompt(
+  plan: ExecutionPlanForKind<'streamObject'>
+): string | null {
+  const messages = plan.request.messages;
+  for (let i = messages.length - 1; i >= 0; i--) {
+    const message = messages[i];
+    if (message.role !== 'user') {
+      continue;
+    }
+    const candidate =
+      message.params &&
+      typeof message.params === 'object' &&
+      typeof message.params.content === 'string'
+        ? message.params.content
+        : message.content;
+    if (typeof candidate === 'string' && candidate.trim()) {
+      return candidate.trim();
+    }
+  }
+  return null;
+}
+
+function shouldUseResponsesNativeImageBridge(
+  plan: ExecutionPlan,
+  dispatch: NativeChatDispatchPlan
+) {
+  if (plan.request.kind !== 'streamObject') {
+    return false;
+  }
+
+  if (!dispatch.hasTools || !dispatch.prepared.tools.image_generate) {
+    return false;
+  }
+
+  if (
+    !dispatch.routes.every(route => route.route.protocol === 'openai_responses')
+  ) {
+    return false;
+  }
+
+  const latestUserPrompt = pickLatestUserPrompt(plan);
+  return !!latestUserPrompt && looksLikeImageGenerationRequest(latestUserPrompt);
+}
+
+function stripToolsFromPreparedRequest<T extends { tools?: unknown; toolChoice?: unknown }>(
+  request: T
+): T {
+  const next = { ...request } as T & { tools?: unknown; toolChoice?: unknown };
+  delete next.tools;
+  next.toolChoice = 'none';
+  return next;
+}
+
+function buildResponsesNativeImagePreparedRoutes(
+  dispatch: NativeChatDispatchPlan
+) {
+  return dispatch.routes.map(route => ({
+    ...route,
+    request: stripToolsFromPreparedRequest(route.request),
+  }));
 }
 
 function extractTextResponse(response: LlmDispatchResponse) {
@@ -157,9 +220,10 @@ function createNativeChatAdapter(
   dispatch: NativeChatDispatchPlan,
   options?: {
     onUsage?: NativeProviderAdapterOptions['onUsage'];
+    useResponsesNativeImageBridge?: boolean;
   }
 ) {
-  if (dispatch.hasTools) {
+  if (dispatch.hasTools && !options?.useResponsesNativeImageBridge) {
     return createNativeToolLoopAdapter(
       { preparedRoutes: dispatch.routes },
       dispatch.prepared.tools,
@@ -169,6 +233,28 @@ function createNativeChatAdapter(
         onUsage: options?.onUsage,
       }
     );
+  }
+
+  if (options?.useResponsesNativeImageBridge) {
+    const preparedRoutes = buildResponsesNativeImagePreparedRoutes(dispatch);
+    logger.log(
+      `[prepared-native-image-bridge] enabled routes=${preparedRoutes.length} model=${dispatch.prepared.route.model} strippedTools=true`
+    );
+
+    const nativeDispatch = (
+      _nativeRequest: typeof dispatch.prepared.request,
+      signalOrOptions?: AbortSignal | { signal?: AbortSignal }
+    ) =>
+      llmDispatchPlanStream({
+        preparedRoutes,
+        signal: resolveAbortSignal(signalOrOptions),
+      });
+
+    return new NativeProviderAdapter(nativeDispatch, {
+      nodeTextMiddleware: dispatch.prepared.postprocess?.nodeTextMiddleware,
+      fallbackImageTool: dispatch.prepared.tools.image_generate,
+      onUsage: options?.onUsage,
+    });
   }
 
   const nativeDispatch = (
@@ -264,6 +350,17 @@ async function* runChatStreamPlan(
   executionMetrics: CopilotExecutionMetrics | undefined,
   byok: ByokService
 ): AsyncIterableIterator<string | StreamObject> {
+  const useResponsesNativeImageBridge = shouldUseResponsesNativeImageBridge(
+    plan,
+    dispatch
+  );
+  if (useResponsesNativeImageBridge && plan.request.kind === 'streamObject') {
+    logger.log(
+      `[prepared-native-image-bridge] selecting raw prepared stream sessionId=${plan.request.options?.session ?? 'n/a'} model=${dispatch.prepared.route.model} prompt=${pickLatestUserPrompt(
+        plan
+      )}`
+    );
+  }
   const adapter = createNativeChatAdapter(dispatch, {
     onUsage: async usage => {
       await recordByokUsage(byok, plan, {
@@ -272,6 +369,7 @@ async function* runChatStreamPlan(
         usage: usage.usage,
       });
     },
+    useResponsesNativeImageBridge,
   });
   recordPreparedDispatch(executionMetrics, plan, dispatch.routes.length);
 

@@ -34,6 +34,14 @@ export type NativeProviderAdapterOptions = {
   }) => void | Promise<void>;
 };
 
+type ResponsesImageGenerationItem = {
+  id: string;
+  status?: string;
+  revised_prompt?: string;
+  result: string;
+  output_format?: string;
+};
+
 type NativeStreamDispatch = ConstructorParameters<
   typeof NativeRuntimeAdapter
 >[0];
@@ -322,6 +330,7 @@ export class NativeProviderAdapter {
       usage?: Extract<LlmToolLoopStreamEvent, { type: 'usage' }>['usage'];
     } = {};
     let sawMeaningfulOutput = false;
+    const emittedResponsesImageCallIds = new Set<string>();
 
     for await (const event of this.#runtime.streamEvents(
       request,
@@ -331,6 +340,34 @@ export class NativeProviderAdapter {
       this.logger.log(
         `[native-stream-object] event type=${event.type}${'name' in event && typeof event.name === 'string' ? ` name=${event.name}` : ''}${'call_id' in event && typeof event.call_id === 'string' ? ` callId=${event.call_id}` : ''}${'model' in event && typeof event.model === 'string' ? ` model=${event.model}` : ''}`
       );
+      const bridgedResponsesImages = extractResponsesImageToolResults(
+        event,
+        messages,
+        emittedResponsesImageCallIds
+      );
+      if (bridgedResponsesImages.length > 0) {
+        sawMeaningfulOutput = true;
+        this.logger.log(
+          `[native-stream-object] bridged responses image events count=${bridgedResponsesImages.length} sourceType=${event.type}`
+        );
+        for (const bridged of bridgedResponsesImages) {
+          if (bridged.type === 'tool-call') {
+            this.logger.log(
+              `[native-stream-object] responses image bridge tool_call toolCallId=${bridged.toolCallId} args=${truncateNativePreview(
+                bridged.args
+              )}`
+            );
+          } else {
+            this.logger.log(
+              `[native-stream-object] responses image bridge tool_result toolCallId=${bridged.toolCallId} result=${truncateNativePreview(
+                bridged.result
+              )}`
+            );
+          }
+          yield bridged;
+        }
+        continue;
+      }
       switch (event.type) {
         case 'message_start': {
           const startEvent = event as Extract<
@@ -460,6 +497,15 @@ export class NativeProviderAdapter {
             `[native-stream-object] provider_selected payload=${truncateNativePreview(event)}`
           );
           await this.#recordUsageOnProviderSelected(event, usageState);
+          break;
+        case 'response.created':
+        case 'response.output_item.added':
+        case 'response.output_text.delta':
+        case 'response.image_generation_call.partial_image':
+        case 'response.completed':
+          this.logger.log(
+            `[native-stream-object] raw responses event payload=${truncateNativePreview(event)}`
+          );
           break;
         case 'error':
           this.logger.error(
@@ -609,7 +655,7 @@ function pickPromptContent(message: PromptMessage) {
   return paramContent ?? message.content;
 }
 
-function looksLikeImageGenerationRequest(content: string) {
+export function looksLikeImageGenerationRequest(content: string) {
   const text = content.trim();
   if (!text) {
     return false;
@@ -624,6 +670,182 @@ function looksLikeImageGenerationRequest(content: string) {
       text
     )
   );
+}
+
+function extractResponsesImageToolResults(
+  event: { type: string; [key: string]: unknown },
+  messages: PromptMessage[] | undefined,
+  emittedCallIds: Set<string>
+): StreamObject[] {
+  const prompt = pickLatestImagePrompt(messages);
+  const imageItems =
+    event.type === 'response.output_item.done'
+      ? extractResponsesImageItemsFromOutputItemDone(event)
+      : event.type === 'response.completed'
+        ? extractResponsesImageItemsFromCompleted(event)
+        : [];
+
+  if (!imageItems.length) {
+    if (event.type === 'response.image_generation_call.partial_image') {
+      console.log('[native-stream-object] responses partial image event', {
+        preview: truncateNativePreview(event),
+      });
+    }
+    return [];
+  }
+
+  const bridged: StreamObject[] = [];
+  for (const item of imageItems) {
+    const toolCallId = `responses_image_generate_${item.id}`;
+    if (!emittedCallIds.has(toolCallId)) {
+      emittedCallIds.add(toolCallId);
+      bridged.push({
+        type: 'tool-call',
+        toolCallId,
+        toolName: 'image_generate',
+        args: {
+          source: 'responses_output',
+          count: 1,
+          ...(prompt ? { prompt } : {}),
+        },
+      });
+    }
+    bridged.push({
+      type: 'tool-result',
+      toolCallId,
+      toolName: 'image_generate',
+      args: {
+        source: 'responses_output',
+        count: 1,
+        ...(prompt ? { prompt } : {}),
+      },
+      result: {
+        source: 'responses_output',
+        ...(prompt ? { prompt } : {}),
+        ...(typeof item.revised_prompt === 'string'
+          ? { revised_prompt: item.revised_prompt }
+          : {}),
+        images: [
+          {
+            id: item.id,
+            b64_json: item.result,
+            mimeType: outputFormatToMimeType(item.output_format),
+            ...(typeof item.output_format === 'string'
+              ? { output_format: item.output_format }
+              : {}),
+            ...(typeof item.revised_prompt === 'string'
+              ? { revised_prompt: item.revised_prompt }
+              : {}),
+          },
+        ],
+      },
+    });
+  }
+
+  return bridged;
+}
+
+function extractResponsesImageItemsFromOutputItemDone(event: {
+  [key: string]: unknown;
+}) {
+  const item = event.item;
+  if (!item || typeof item !== 'object') {
+    return [];
+  }
+  return normalizeResponsesImageItems([item]);
+}
+
+function extractResponsesImageItemsFromCompleted(event: {
+  [key: string]: unknown;
+}) {
+  const response = event.response;
+  if (!response || typeof response !== 'object') {
+    return [];
+  }
+  const output = (response as Record<string, unknown>).output;
+  if (!Array.isArray(output)) {
+    return [];
+  }
+  return normalizeResponsesImageItems(output);
+}
+
+function normalizeResponsesImageItems(values: unknown[]) {
+  return values
+    .map(value => normalizeResponsesImageItem(value))
+    .filter((value): value is ResponsesImageGenerationItem => value !== null);
+}
+
+function normalizeResponsesImageItem(
+  value: unknown
+): ResponsesImageGenerationItem | null {
+  if (!value || typeof value !== 'object') {
+    return null;
+  }
+
+  const record = value as Record<string, unknown>;
+  if (record.type !== 'image_generation_call') {
+    return null;
+  }
+
+  const id =
+    typeof record.id === 'string' && record.id.trim()
+      ? record.id
+      : `inline_${hashPreview(JSON.stringify(record))}`;
+  const result =
+    typeof record.result === 'string' && record.result.trim()
+      ? record.result
+      : null;
+  if (!result) {
+    return null;
+  }
+
+  return {
+    id,
+    ...(typeof record.status === 'string' ? { status: record.status } : {}),
+    ...(typeof record.revised_prompt === 'string'
+      ? { revised_prompt: record.revised_prompt }
+      : {}),
+    ...(typeof record.output_format === 'string'
+      ? { output_format: record.output_format }
+      : {}),
+    result,
+  };
+}
+
+function pickLatestImagePrompt(messages?: PromptMessage[]) {
+  if (!messages?.length) {
+    return undefined;
+  }
+  for (let i = messages.length - 1; i >= 0; i--) {
+    const message = messages[i];
+    if (message.role !== 'user') {
+      continue;
+    }
+    const candidate = pickPromptContent(message)?.trim();
+    if (candidate) {
+      return candidate;
+    }
+  }
+  return undefined;
+}
+
+function outputFormatToMimeType(format: string | undefined) {
+  const normalized = format?.trim().toLowerCase();
+  if (!normalized) {
+    return 'image/png';
+  }
+  if (normalized === 'jpg') {
+    return 'image/jpeg';
+  }
+  return `image/${normalized}`;
+}
+
+function hashPreview(value: string) {
+  let hash = 0;
+  for (let i = 0; i < value.length; i++) {
+    hash = (hash * 31 + value.charCodeAt(i)) >>> 0;
+  }
+  return hash.toString(36);
 }
 
 function truncateNativePreview(value: unknown, max = 600) {
