@@ -227,9 +227,7 @@ export class ActionStreamHost {
     const artifact = attachment as LlmImageResponse['images'][number] & {
       url?: unknown;
       data_base64?: unknown;
-      b64_json?: unknown;
       media_type?: unknown;
-      output_format?: unknown;
       width?: unknown;
       height?: unknown;
       providerMetadata?: unknown;

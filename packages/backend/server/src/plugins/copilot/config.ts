@@ -251,21 +251,6 @@ defineModuleConfig('copilot', {
     },
     link: 'https://github.com/openai/openai-node',
   },
-  'providers.openai.apiKey': {
-    desc: 'The API key for the openai provider.',
-    default: '',
-    env: 'AFFINE_COPILOT_OPENAI_API_KEY',
-  },
-  'providers.openai.baseURL': {
-    desc: 'The base URL for the openai provider.',
-    default: 'https://api.openai.com/v1',
-    env: 'AFFINE_COPILOT_OPENAI_BASE_URL',
-  },
-  'providers.openai.oldApiStyle': {
-    desc: 'Whether to use the legacy OpenAI chat completions API style.',
-    default: false,
-    env: ['AFFINE_COPILOT_OPENAI_OLD_API_STYLE', 'boolean'],
-  },
   'providers.cloudflareWorkersAi': {
     desc: 'The config for the Cloudflare Workers AI provider.',
     default: {

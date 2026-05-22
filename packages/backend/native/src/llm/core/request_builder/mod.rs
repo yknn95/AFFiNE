@@ -435,7 +435,7 @@ mod tests {
   fn should_build_image_request_with_validation() {
     let request = build_image_request(
       serde_json::from_value::<ImageRequest>(json!({
-        "model": "gpt-image-2",
+        "model": "gpt-image-1",
         "prompt": "remove background",
         "operation": "edit",
         "images": [{
@@ -505,7 +505,7 @@ mod tests {
   fn should_reject_invalid_image_request() {
     let error = build_image_request(
       serde_json::from_value::<ImageRequest>(json!({
-        "model": "gpt-image-2",
+        "model": "gpt-image-1",
         "prompt": "edit",
         "operation": "edit",
         "images": []

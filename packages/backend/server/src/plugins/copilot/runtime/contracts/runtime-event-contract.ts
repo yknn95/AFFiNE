@@ -107,15 +107,6 @@ export function projectRuntimeEventToStreamObject(
       };
     }
     case 'tool_result': {
-      if (
-        event.name === 'image_generate' &&
-        event.arguments?.source === 'responses_output'
-      ) {
-        console.log('[runtime-event-contract] project responses image tool_result', {
-          callId: event.call_id,
-          outputPreview: JSON.stringify(event.output).slice(0, 500),
-        });
-      }
       return {
         type: 'tool-result',
         toolCallId: event.call_id,

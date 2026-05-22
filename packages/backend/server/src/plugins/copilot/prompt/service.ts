@@ -1,6 +1,5 @@
 import { Injectable, Logger } from '@nestjs/common';
 
-import { Config } from '../../../base';
 import type { PromptMessage, PromptParams } from '../providers/types';
 import {
   collectPromptMetadataNative,
@@ -16,71 +15,8 @@ import type { Prompt, PromptSpec, ResolvedPrompt } from './spec';
 @Injectable()
 export class PromptService {
   protected readonly logger = new Logger(PromptService.name);
-  constructor(private readonly config: Config) {
+  constructor() {
     this.logger.log('Using native built-in prompt catalog.');
-  }
-
-  private readonly chatWithAffineAIPromptName = 'Chat With AFFiNE AI';
-
-  private overrideBuiltInPromptSpec(spec: PromptSpec): PromptSpec {
-    if (spec.name !== this.chatWithAffineAIPromptName) {
-      return spec;
-    }
-
-    if (spec.model !== 'gemini-2.5-flash') {
-      return spec;
-    }
-
-    const providers = this.config.copilot.providers;
-    const hasGemini =
-      !!providers.gemini?.apiKey || !!providers.geminiVertex?.project;
-    const hasOpenAI = !!providers.openai?.apiKey;
-    const shouldOverride = !hasGemini && hasOpenAI;
-
-    this.logger.log(
-      [
-        '[prompt-model-override]',
-        `name="${spec.name}"`,
-        `sourceModel="${spec.model}"`,
-        `hasOpenAI=${hasOpenAI}`,
-        `hasGemini=${hasGemini}`,
-        `override=${shouldOverride}`,
-      ].join(' ')
-    );
-
-    if (!shouldOverride) {
-      return this.withImageGenerateTool(spec, hasOpenAI);
-    }
-
-    return this.withImageGenerateTool(
-      {
-      ...spec,
-      model: 'gpt-5.5',
-      optionalModels: ['gpt-5.5'],
-      config: {
-        ...spec.config,
-        proModels: ['gpt-5.5'],
-      },
-      },
-      true
-    );
-  }
-
-  private withImageGenerateTool(spec: PromptSpec, enabled: boolean): PromptSpec {
-    if (!enabled) {
-      return spec;
-    }
-    const tools = spec.config?.tools ?? [];
-    if (tools.includes('imageGenerate')) {
-      return spec;
-    }
-    return {
-      ...spec,
-      config: {
-        ...spec.config,
-        tools: [...tools, 'imageGenerate'],
-      },
-    };
   }
 
   async get(name: string): Promise<ResolvedPrompt | null> {
@@ -154,9 +90,7 @@ export class PromptService {
 
   protected lookupBuiltInPromptSpec(name: string): PromptSpec | null {
     const spec = getBuiltInPromptSpecNative(name);
-    return spec
-      ? this.overrideBuiltInPromptSpec(this.clonePromptSpec(spec))
-      : null;
+    return spec ? this.clonePromptSpec(spec) : null;
   }
 
   protected cloneMessages(messages: PromptMessage[]) {

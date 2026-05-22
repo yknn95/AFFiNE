@@ -193,14 +193,14 @@ mod tests {
       {
         "provider_id": "openai-primary",
         "protocol": "openai_images",
-        "model": "gpt-image-2",
+        "model": "gpt-image-1",
         "config": {
           "base_url": "https://api.openai.com",
           "auth_token": "test-key",
           "request_layer": "openai_images"
         },
         "request": {
-          "model": "gpt-image-2",
+          "model": "gpt-image-1",
           "prompt": "draw",
           "operation": "generate"
         }
@@ -208,7 +208,7 @@ mod tests {
     ]))
     .expect("prepared image route payload should deserialize");
 
-    assert_eq!(payload[0].model, "gpt-image-2");
+    assert_eq!(payload[0].model, "gpt-image-1");
     assert_eq!(payload[0].request.prompt, "draw");
   }
 }

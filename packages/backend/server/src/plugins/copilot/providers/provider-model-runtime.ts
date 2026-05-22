@@ -1,4 +1,3 @@
-import { Logger } from '@nestjs/common';
 import { z } from 'zod';
 
 import { CopilotPromptInvalid } from '../../../base';
@@ -37,95 +36,6 @@ export type ProviderModelRuntimeContext = {
   type: CopilotProviderType;
   backendKind: CopilotModelBackendKind;
 };
-
-const logger = new Logger('ProviderModelRuntime');
-
-function normalizeRequestedModelId(
-  context: ProviderModelRuntimeContext,
-  modelId: string
-) {
-  if (
-    (context.backendKind === 'openai_responses' ||
-      context.backendKind === 'openai_chat') &&
-    modelId === 'gpt-5.5'
-  ) {
-    return 'gpt-5';
-  }
-
-  return modelId;
-}
-
-function remapResolvedModel(
-  context: ProviderModelRuntimeContext,
-  requestedModelId: string,
-  model: ResolvedProviderModel
-): ResolvedProviderModel {
-  if (
-    (context.backendKind === 'openai_responses' ||
-      context.backendKind === 'openai_chat') &&
-    requestedModelId === 'gpt-5.5' &&
-    model.id === 'gpt-5'
-  ) {
-    return {
-      ...model,
-      id: requestedModelId,
-      name: 'GPT 5.5',
-    };
-  }
-
-  return model;
-}
-
-function createOpenAiImage2Model(
-  context: ProviderModelRuntimeContext
-): ResolvedProviderModel {
-  return {
-    id: 'gpt-image-2',
-    name: 'gpt-image-2',
-    backendKind: context.backendKind,
-    canonicalKey: 'gpt-image-2',
-    protocol: 'openai_images',
-    requestLayer: 'openai_images',
-    capabilities: [
-      {
-        input: [ModelInputType.Text, ModelInputType.Image],
-        output: [ModelOutputType.Image],
-        attachments: {
-          kinds: ['image'],
-          sourceKinds: ['url', 'data'],
-          allowRemoteUrls: true,
-        },
-        structuredAttachments: {
-          kinds: ['image'],
-          sourceKinds: ['url', 'data'],
-          allowRemoteUrls: true,
-        },
-        defaultForOutputType: true,
-      },
-    ],
-  };
-}
-
-function remapInferredResolvedModel(
-  context: ProviderModelRuntimeContext,
-  cond: ModelFullConditions,
-  model: ResolvedProviderModel
-): ResolvedProviderModel {
-  if (
-    context.backendKind === 'openai_responses' &&
-    cond.outputType === ModelOutputType.Image &&
-    model.id === 'gpt-image-1'
-  ) {
-    logger.warn(
-      `[model-selection] remap-inferred-image-model backendKind=${context.backendKind} from=${model.id} to=gpt-image-2 cond=${safeModelPreview(
-        cond
-      )}`
-    );
-    return createOpenAiImage2Model(context);
-  }
-
-  return model;
-}
 
 export type ResolvedProviderModel = CopilotProviderModel & {
   backendKind: CopilotModelBackendKind;
@@ -209,58 +119,19 @@ export function resolveProviderModelSelection(
   cond: ModelFullConditions
 ): ProviderModelSelection | undefined {
   if (cond.modelId) {
-    const requestedModelId = cond.modelId;
-    if (
-      context.backendKind === 'openai_responses' &&
-      requestedModelId === 'gpt-image-2'
-    ) {
-      const model = createOpenAiImage2Model(context);
-      const matchedModelId = llmMatchModelCapabilities([model], {
-        ...cond,
-        modelId: model.id,
-      });
-      logger.warn(
-        `[model-selection] explicit-force-image-model backendKind=${context.backendKind} requestedModelId=${requestedModelId} matchedModelId=${matchedModelId ?? 'n/a'} model=${safeModelPreview(
-          model
-        )}`
-      );
-      if (!matchedModelId) {
-        return;
-      }
-      return {
-        kind: 'configured',
-        model,
-      };
-    }
-
-    const resolvedModelId = normalizeRequestedModelId(context, requestedModelId);
     const resolved = llmResolveModelRegistryVariant({
       backendKind: context.backendKind,
-      modelId: resolvedModelId,
+      modelId: cond.modelId,
     }).variant;
-    logger.log(
-      `[model-selection] explicit provider=${context.type} backendKind=${context.backendKind} requestedModelId=${requestedModelId} normalizedModelId=${resolvedModelId} cond=${safeModelPreview(
-        cond
-      )} resolvedVariant=${safeModelPreview(resolved)}`
-    );
     if (!resolved) {
       return;
     }
 
-    const model = remapResolvedModel(
-      context,
-      requestedModelId,
-      toProviderModel(resolved)
-    );
+    const model = toProviderModel(resolved);
     const matchedModelId = llmMatchModelCapabilities([model], {
       ...cond,
       modelId: model.id,
     });
-    logger.log(
-      `[model-selection] explicit-match provider=${context.type} backendKind=${context.backendKind} requestedModelId=${requestedModelId} remappedModelId=${model.id} matchedModelId=${matchedModelId ?? 'n/a'} capabilities=${safeModelPreview(
-        model.capabilities
-      )}`
-    );
     if (!matchedModelId) {
       return;
     }
@@ -275,18 +146,13 @@ export function resolveProviderModelSelection(
     backendKind: context.backendKind,
     cond,
   }).variant;
-  logger.log(
-    `[model-selection] inferred provider=${context.type} backendKind=${context.backendKind} cond=${safeModelPreview(
-      cond
-    )} resolvedVariant=${safeModelPreview(resolved)}`
-  );
   if (!resolved) {
     return;
   }
 
   return {
     kind: 'configured',
-    model: remapInferredResolvedModel(context, cond, toProviderModel(resolved)),
+    model: toProviderModel(resolved),
   };
 }
 
@@ -416,11 +282,6 @@ export function resolveProviderModelRoute(
 ) {
   const resolved = model as ResolvedProviderModel;
   const override = resolved.routeOverrides?.[outputType];
-  logger.log(
-    `[model-route] modelId=${resolved.id} outputType=${outputType} baseProtocol=${resolved.protocol ?? 'n/a'} baseRequestLayer=${resolved.requestLayer ?? 'n/a'} override=${safeModelPreview(
-      override
-    )}`
-  );
 
   return {
     protocol: override?.protocol ?? resolved.protocol,
@@ -521,14 +382,4 @@ export async function checkProviderParams(
   }
 
   return mergedCond;
-}
-
-function safeModelPreview(value: unknown, max = 900) {
-  try {
-    const text =
-      typeof value === 'string' ? value : JSON.stringify(value, null, 0);
-    return text.length > max ? `${text.slice(0, max)}...` : text;
-  } catch {
-    return '[unserializable]';
-  }
 }

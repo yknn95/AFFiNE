@@ -522,29 +522,6 @@ test('ImageResultHost should persist native base64 artifact with native MIME', a
   );
 });
 
-test('ImageResultHost should persist OpenAI b64_json artifact with inferred MIME', async t => {
-  const storage = {
-    put: Sinon.stub().resolves('data:image/png;base64,aW1n'),
-    handleRemoteLink: Sinon.stub(),
-  };
-  const host = new ImageResultHost(storage as any);
-
-  const persisted = await host.persistNativeArtifact('user-1', 'workspace-1', {
-    b64_json: 'aW1n',
-    output_format: 'png',
-  } as any);
-
-  t.is(persisted, 'data:image/png;base64,aW1n');
-  Sinon.assert.calledOnceWithMatch(
-    storage.put,
-    'user-1',
-    'workspace-1',
-    Sinon.match.string,
-    Buffer.from('aW1n', 'base64'),
-    'image/png'
-  );
-});
-
 test('action result projection should map final result to assistant turn', t => {
   const session = {
     config: { sessionId: 'session-1' },
@@ -1399,11 +1376,11 @@ test('ActionRuntimeBridge should inject prepared image routes and persist attach
   };
   const plans = {
     buildImagePlan: async (model: { modelId?: string }) => {
-      t.deepEqual(model, { modelId: 'gpt-image-2' });
+      t.deepEqual(model, { modelId: 'gpt-image-1' });
       return {
         nativeDispatch: {
           image: {
-            routes: [{ provider: 'openai', modelId: 'gpt-image-2' }],
+            routes: [{ provider: 'openai', modelId: 'gpt-image-1' }],
           },
         },
       };
@@ -1423,7 +1400,7 @@ test('ActionRuntimeBridge should inject prepared image routes and persist attach
     actionVersion: 'v1',
     prepareImageRoutes: {
       stepId: 'generate-image',
-      modelId: 'gpt-image-2',
+      modelId: 'gpt-image-1',
       messages: [{ role: 'user', content: 'draw' }],
     },
     persistAttachment: async attachment => ({
@@ -1438,7 +1415,7 @@ test('ActionRuntimeBridge should inject prepared image routes and persist attach
     input: { preparedRoutes: Record<string, unknown> };
   };
   t.deepEqual(nativeInput.input.preparedRoutes['generate-image'], [
-    { provider: 'openai', modelId: 'gpt-image-2' },
+    { provider: 'openai', modelId: 'gpt-image-1' },
   ]);
   t.deepEqual(events[0].attachment, { url: 'affine://image-result' });
   t.like((completedRuns[0] as { input: Record<string, unknown> }).input, {
@@ -1667,7 +1644,7 @@ test('ActionStreamHost should prepare image action routes and persist native att
   };
   const prompts = {
     get: Sinon.stub().resolves({
-      model: 'gpt-image-2',
+      model: 'gpt-image-1',
       config: { quality: 'high' },
     }),
     finish: Sinon.stub().returns([{ role: 'user', content: 'make a sketch' }]),
@@ -1709,7 +1686,7 @@ test('ActionStreamHost should prepare image action routes and persist native att
   t.is(bridgeInputs[0].prepareStructuredRoutes, undefined);
   t.like(bridgeInputs[0].prepareImageRoutes, {
     stepId: 'generate-image',
-    modelId: 'gpt-image-2',
+    modelId: 'gpt-image-1',
     messages: [{ role: 'user', content: 'make a sketch' }],
   });
   t.like(bridgeInputs[0].prepareImageRoutes.options, {

@@ -13,7 +13,6 @@ use napi::{
   bindgen_prelude::PromiseRaw,
   threadsafe_function::{ThreadsafeFunction, ThreadsafeFunctionCallMode},
 };
-use serde_json::{Value, json};
 
 use super::{
   super::emit_provider_selected_event,
@@ -26,8 +25,6 @@ use crate::llm::{
 };
 
 pub(crate) type PreparedToolLoopRoute = (PreparedChatRoute, LlmMiddlewarePayload);
-
-const RESPONSE_IMAGE_LOG_PREFIX: &str = "[responses-image-bridge]";
 
 fn dispatch_prepared_round_with_fallback(
   routes: &[PreparedToolLoopRoute],
@@ -62,117 +59,10 @@ fn dispatch_prepared_round_with_fallback(
       emit_tool_loop_event(callback, loop_event)
     },
   )?;
-  emit_response_image_tool_result(callback, &outcome)?;
   if let Some(provider_id) = selected_provider_id {
     emit_provider_selected_event(callback, provider_id);
   }
   Ok(outcome)
-}
-
-fn emit_response_image_tool_result(
-  callback: &ThreadsafeFunction<String, ()>,
-  outcome: &RoundOutcome,
-) -> std::result::Result<(), BackendError> {
-  let outcome_debug = format!("{outcome:?}");
-  let images = extract_response_images_from_debug(&outcome_debug);
-  if images.is_empty() {
-    println!(
-      "{RESPONSE_IMAGE_LOG_PREFIX} no_images debugPreview={}",
-      truncate_for_log(&outcome_debug, 200)
-    );
-    return Ok(());
-  }
-
-  let prompt = None::<String>;
-  let call_id = "response_image_generate".to_string();
-  let event = json!({
-    "type": "tool_result",
-    "call_id": format!("responses_{call_id}"),
-    "name": "image_generate",
-    "arguments": {
-      "source": "responses_output",
-      "count": images.len(),
-    },
-    "output": {
-      "source": "responses_output",
-      "prompt": prompt,
-      "images": images,
-    },
-  });
-
-  println!(
-    "{RESPONSE_IMAGE_LOG_PREFIX} emit_tool_result callId={} imageCount={} promptPreview={} imagePreview={}",
-    format!("responses_{call_id}"),
-    images.len(),
-    truncate_for_log(prompt.as_deref().unwrap_or(""), 120),
-    truncate_for_log(&serde_json::to_string(&images).unwrap_or_default(), 200)
-  );
-
-  emit_tool_loop_event(callback, &event)
-}
-
-fn extract_response_images_from_debug(text: &str) -> Vec<Value> {
-  let mut images = Vec::new();
-  let mut search_from = 0usize;
-  while let Some(type_index) = text[search_from..].find("image_generation_call") {
-    let absolute = search_from + type_index;
-    let tail = &text[absolute..];
-    let result = extract_debug_field(tail, "result");
-    let revised_prompt = extract_debug_field(tail, "revised_prompt");
-    let id = extract_debug_field(tail, "id");
-    if let Some(result) = result {
-      println!(
-        "{RESPONSE_IMAGE_LOG_PREFIX} found_call id={} revisedPrompt={} resultLength={}",
-        id.as_deref().unwrap_or("n/a"),
-        truncate_for_log(revised_prompt.as_deref().unwrap_or(""), 120),
-        result.len()
-      );
-      let mut image = serde_json::Map::new();
-      image.insert("b64_json".to_string(), Value::String(result));
-      image.insert(
-        "mimeType".to_string(),
-        Value::String("image/png".to_string()),
-      );
-      if let Some(revised_prompt) = revised_prompt {
-        image.insert(
-          "revised_prompt".to_string(),
-          Value::String(revised_prompt),
-        );
-      }
-      if let Some(id) = id {
-        image.insert("id".to_string(), Value::String(id));
-      }
-      images.push(Value::Object(image));
-    }
-    search_from = absolute + "image_generation_call".len();
-  }
-  images
-}
-
-fn extract_debug_field(text: &str, field: &str) -> Option<String> {
-  let needle = format!("{field}: ");
-  let index = text.find(&needle)?;
-  let tail = &text[index + needle.len()..];
-
-  if let Some(rest) = tail.strip_prefix("Some(\"") {
-    let end = rest.find("\")")?;
-    return Some(rest[..end].to_string());
-  }
-
-  if let Some(rest) = tail.strip_prefix('"') {
-    let end = rest.find('"')?;
-    return Some(rest[..end].to_string());
-  }
-
-  None
-}
-
-fn truncate_for_log(value: &str, max: usize) -> String {
-  if value.len() > max {
-    format!("{}...", &value[..max])
-  } else {
-    value.to_string()
-  }
 }
 
 fn prepare_tool_loop_route(

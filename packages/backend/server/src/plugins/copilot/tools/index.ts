@@ -9,6 +9,5 @@ export * from './doc-write';
 export * from './error';
 export * from './exa-crawl';
 export * from './exa-search';
-export * from './image-generate';
 export * from './section-edit';
 export * from './tool';

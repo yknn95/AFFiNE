@@ -1292,7 +1292,7 @@ test('turn orchestrator should persist generated image links through image resul
   const capabilityPolicy = module.get(CapabilityPolicyHost);
   const session = {
     latestUserTurn: { attachments: ['https://example.com/source.png'] },
-    config: { sessionId: 'session-1', workspaceId: 'workspace-1' },
+    config: { sessionId: 'session-1' },
     finish: Sinon.stub().returns([
       {
         role: 'system',
@@ -1357,12 +1357,12 @@ test('turn orchestrator should persist generated image links through image resul
     [
       [
         'user-1',
-        'workspace-1',
+        'session-1',
         { url: 'https://remote.example/1.png', media_type: 'image/png' },
       ],
       [
         'user-1',
-        'workspace-1',
+        'session-1',
         { url: 'https://remote.example/2.png', media_type: 'image/png' },
       ],
     ]

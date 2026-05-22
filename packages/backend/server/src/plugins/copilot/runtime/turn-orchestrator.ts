@@ -1,4 +1,4 @@
-import { Injectable, Logger } from '@nestjs/common';
+import { Injectable } from '@nestjs/common';
 
 import { CopilotContextService } from '../context/service';
 import { type Turn } from '../core';
@@ -17,8 +17,6 @@ import { TurnPersistence } from './hosts/turn-persistence';
 
 @Injectable()
 export class TurnOrchestrator {
-  private readonly logger = new Logger(TurnOrchestrator.name);
-
   constructor(
     private readonly conversations: ConversationHost,
     private readonly context: CopilotContextService,
@@ -74,33 +72,6 @@ export class TurnOrchestrator {
       ...prepared.params,
       ...promptParams,
     });
-    this.logger.log(
-      [
-        '[prepare-chat-selection]',
-        `sessionId=${sessionId}`,
-        `responseMode=${selection.responseMode}`,
-        `modelId=${modelId ?? 'auto'}`,
-        `reasoning=${reasoning ? 'true' : 'false'}`,
-        `webSearch=${webSearch ? 'true' : 'false'}`,
-        `toolsConfig=${safeTurnPreview(toolsConfig)}`,
-        `latestUserTurn=${safeTurnPreview({
-          role: prepared.session.latestUserTurn?.role,
-          content: prepared.session.latestUserTurn?.content,
-          params: prepared.session.latestUserTurn?.params,
-          attachmentsCount:
-            prepared.session.latestUserTurn?.attachments?.length ?? 0,
-        })}`,
-        `promptParams=${safeTurnPreview(promptParams)}`,
-        `finalMessage=${safeTurnPreview(
-          finalMessage.map(message => ({
-            role: message.role,
-            content: message.content,
-            params: message.params,
-            attachmentsCount: message.attachments?.length ?? 0,
-          }))
-        )}`,
-      ].join(' ')
-    );
 
     return {
       prepared,
@@ -212,30 +183,12 @@ export class TurnOrchestrator {
     options: Record<string, unknown>,
     wasAborted: () => boolean
   ): AsyncIterableIterator<StreamObject> {
-    this.logger.log(
-      `[stream-object-start] sessionId=${session.config.sessionId} workspaceId=${session.config.workspaceId} model=${model} options=${safeTurnPreview(options)} finalMessage=${safeTurnPreview(
-        finalMessage.map(message => ({
-          role: message.role,
-          content: message.content,
-          params: message.params,
-          attachmentsCount: message.attachments?.length ?? 0,
-        }))
-      )}`
-    );
     const chunks: StreamObject[] = [];
     for await (const chunk of this.runtime.streamObject(
       { modelId: model },
       finalMessage,
       options
     )) {
-      this.logger.log(
-        `[object-stream] sessionId=${session.config.sessionId} type=${chunk.type}${'toolName' in chunk && typeof chunk.toolName === 'string' ? ` toolName=${chunk.toolName}` : ''}${'toolCallId' in chunk && typeof chunk.toolCallId === 'string' ? ` toolCallId=${chunk.toolCallId}` : ''}`
-      );
-      if (chunk.type === 'tool-result') {
-        this.logger.log(
-          `[object-stream] tool-result sessionId=${session.config.sessionId} payload=${truncateObjectPreview(chunk.result)}`
-        );
-      }
       chunks.push(chunk);
       yield chunk;
     }
@@ -243,15 +196,6 @@ export class TurnOrchestrator {
       session,
       chunks,
       wasAborted()
-    );
-    this.logger.log(
-      `[stream-object-finish] sessionId=${session.config.sessionId} chunkCount=${chunks.length} chunkTypes=${chunks
-        .map(chunk =>
-          'toolName' in chunk && typeof chunk.toolName === 'string'
-            ? `${chunk.type}:${chunk.toolName}`
-            : chunk.type
-        )
-        .join(',')}`
     );
   }
 
@@ -317,18 +261,12 @@ export class TurnOrchestrator {
       finalMessage,
       options
     )) {
-      this.logger.log(
-        `[image-stream] sessionId=${sessionId} workspaceId=${session.config.workspaceId} artifactKeys=${Object.keys(artifact).join(',')}`
-      );
       const handled = await this.imageResults.persistNativeArtifact(
         userId,
-        session.config.workspaceId,
+        sessionId,
         artifact
       );
       if (handled) {
-        this.logger.log(
-          `[image-stream] sessionId=${sessionId} persistedAttachment=${handled.slice(0, 160)}${handled.length > 160 ? '...' : ''}`
-        );
         attachments.push(handled);
         yield handled;
       }
@@ -346,25 +284,5 @@ export class TurnOrchestrator {
     }
     const num = Number.parseInt(String(value), 10);
     return Number.isNaN(num) ? undefined : num;
-  }
-}
-
-function truncateObjectPreview(value: unknown, max = 400) {
-  try {
-    const text =
-      typeof value === 'string' ? value : JSON.stringify(value, null, 0);
-    return text.length > max ? `${text.slice(0, max)}...` : text;
-  } catch {
-    return '[unserializable]';
-  }
-}
-
-function safeTurnPreview(value: unknown, max = 900) {
-  try {
-    const text =
-      typeof value === 'string' ? value : JSON.stringify(value, null, 0);
-    return text.length > max ? `${text.slice(0, max)}...` : text;
-  } catch {
-    return '[unserializable]';
   }
 }

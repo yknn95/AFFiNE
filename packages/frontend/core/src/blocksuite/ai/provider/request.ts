@@ -184,13 +184,6 @@ async function createMessage({
     content,
     params,
   };
-  console.log('[ai-request] createMessage input', {
-    sessionId,
-    content,
-    params,
-    attachmentsCount: attachments?.length ?? 0,
-    hasAttachments,
-  });
 
   if (hasAttachments) {
     const [stringAttachments, blobs] = partition(
@@ -238,21 +231,6 @@ export function textToText({
   if (stream) {
     return {
       [Symbol.asyncIterator]: async function* () {
-        console.log('[ai-request] textToText stream start', {
-          sessionId,
-          workspaceId,
-          content,
-          params,
-          retry,
-          endpoint,
-          actionId,
-          actionVersion,
-          runId,
-          reasoning,
-          modelId,
-          toolsConfig,
-          attachmentsCount: attachments?.length ?? 0,
-        });
         if (!retry) {
           messageId = await createMessage({
             client,
@@ -289,19 +267,6 @@ export function textToText({
           },
           endpoint
         );
-        console.log('[ai-request] chatTextStream open', {
-          sessionId,
-          messageId,
-          endpoint,
-          retry,
-          reasoning,
-          modelId,
-          toolsConfig,
-          actionId,
-          actionVersion,
-          runId,
-          byokLeaseId,
-        });
         AIProvider.LAST_ACTION_SESSIONID = sessionId;
 
         let onAbort: (() => void) | undefined;
@@ -477,13 +442,6 @@ export function toImage({
         signal,
       })) {
         if (event.type === 'attachment') {
-          console.log('[ai-image-stream] attachment event', {
-            type: typeof event.data,
-            preview:
-              typeof event.data === 'string'
-                ? event.data.slice(0, 200)
-                : event.data,
-          });
           yield event.data;
         }
       }

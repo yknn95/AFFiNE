@@ -30,7 +30,6 @@ import serverNativeModule, {
   type RequestedModelMatchResponse,
   type Tokenizer,
 } from '@affine/server-native';
-import { Logger } from '@nestjs/common';
 
 export type {
   CapabilityAttachmentContract,
@@ -799,9 +798,7 @@ export type LlmImageResponse = {
   images: Array<{
     url?: string;
     data_base64?: string;
-    b64_json?: string;
-    media_type?: string;
-    output_format?: string;
+    media_type: string;
     width?: number;
     height?: number;
     provider_metadata?: unknown;
@@ -1416,7 +1413,6 @@ export function llmDispatchToolLoopStream(
     throw new Error('native llm tool loop dispatch is not available');
   }
 
-  const logger = new Logger('NativeToolLoopStream');
   let adapter: NativeStreamAdapter<LlmToolLoopStreamEvent> | undefined;
   const buffer: (LlmToolLoopStreamEvent | null)[] = [];
   let pushFn = (event: LlmToolLoopStreamEvent | null) => {
@@ -1436,19 +1432,9 @@ export function llmDispatchToolLoopStream(
         pushFn(null);
         return;
       }
-      logger.log(
-        `[native-tool-loop] raw=${truncateNativeEventLog(eventJson, 2000)}`
-      );
       try {
-        const event = parseLlmToolLoopStreamEvent(eventJson);
-        logger.log(
-          `[native-tool-loop] event type=${event.type}${'name' in event && typeof event.name === 'string' ? ` name=${event.name}` : ''}${'call_id' in event && typeof event.call_id === 'string' ? ` callId=${event.call_id}` : ''}${'model' in event && typeof event.model === 'string' ? ` model=${event.model}` : ''} payload=${truncateNativeEventLog(event)}`
-        );
-        pushFn(event);
+        pushFn(parseLlmToolLoopStreamEvent(eventJson));
       } catch (error) {
-        logger.error(
-          `[native-tool-loop] parseError raw=${truncateNativeEventLog(eventJson, 2000)} message=${error instanceof Error ? error.message : String(error)}`
-        );
         pushFn({
           type: 'error',
           message:
@@ -1489,7 +1475,6 @@ export function llmDispatchToolLoopStreamRouted(
     throw new Error('native routed llm tool loop dispatch is not available');
   }
 
-  const logger = new Logger('NativeToolLoopStreamRouted');
   let adapter: NativeStreamAdapter<LlmToolLoopStreamEvent> | undefined;
   const buffer: (LlmToolLoopStreamEvent | null)[] = [];
   let pushFn = (event: LlmToolLoopStreamEvent | null) => {
@@ -1508,19 +1493,9 @@ export function llmDispatchToolLoopStreamRouted(
         pushFn(null);
         return;
       }
-      logger.log(
-        `[native-tool-loop-routed] raw=${truncateNativeEventLog(eventJson, 2000)}`
-      );
       try {
-        const event = parseLlmToolLoopStreamEvent(eventJson);
-        logger.log(
-          `[native-tool-loop-routed] event type=${event.type}${'name' in event && typeof event.name === 'string' ? ` name=${event.name}` : ''}${'call_id' in event && typeof event.call_id === 'string' ? ` callId=${event.call_id}` : ''}${'model' in event && typeof event.model === 'string' ? ` model=${event.model}` : ''} payload=${truncateNativeEventLog(event)}`
-        );
-        pushFn(event);
+        pushFn(parseLlmToolLoopStreamEvent(eventJson));
       } catch (error) {
-        logger.error(
-          `[native-tool-loop-routed] parseError raw=${truncateNativeEventLog(eventJson, 2000)} message=${error instanceof Error ? error.message : String(error)}`
-        );
         pushFn({
           type: 'error',
           message:
@@ -1571,7 +1546,6 @@ export function llmDispatchToolLoopStreamPrepared(
     throw new Error('native prepared llm tool loop dispatch is not available');
   }
 
-  const logger = new Logger('NativeToolLoopStreamPrepared');
   let adapter: NativeStreamAdapter<LlmToolLoopStreamEvent> | undefined;
   const buffer: (LlmToolLoopStreamEvent | null)[] = [];
   let pushFn = (event: LlmToolLoopStreamEvent | null) => {
@@ -1589,19 +1563,9 @@ export function llmDispatchToolLoopStreamPrepared(
         pushFn(null);
         return;
       }
-      logger.log(
-        `[native-tool-loop-prepared] raw=${truncateNativeEventLog(eventJson, 2000)}`
-      );
       try {
-        const event = parseLlmToolLoopStreamEvent(eventJson);
-        logger.log(
-          `[native-tool-loop-prepared] event type=${event.type}${'name' in event && typeof event.name === 'string' ? ` name=${event.name}` : ''}${'call_id' in event && typeof event.call_id === 'string' ? ` callId=${event.call_id}` : ''}${'model' in event && typeof event.model === 'string' ? ` model=${event.model}` : ''} payload=${truncateNativeEventLog(event)}`
-        );
-        pushFn(event);
+        pushFn(parseLlmToolLoopStreamEvent(eventJson));
       } catch (error) {
-        logger.error(
-          `[native-tool-loop-prepared] parseError raw=${truncateNativeEventLog(eventJson, 2000)} message=${error instanceof Error ? error.message : String(error)}`
-        );
         pushFn({
           type: 'error',
           message:
@@ -1629,16 +1593,6 @@ export function llmDispatchToolLoopStreamPrepared(
     adapter.push(event);
   }
   return adapter;
-}
-
-function truncateNativeEventLog(value: unknown, max = 600) {
-  try {
-    const text =
-      typeof value === 'string' ? value : JSON.stringify(value, null, 0);
-    return text.length > max ? `${text.slice(0, max)}...` : text;
-  } catch {
-    return '[unserializable]';
-  }
 }
 
 export {

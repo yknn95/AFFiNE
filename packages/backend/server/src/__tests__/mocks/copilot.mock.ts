@@ -453,7 +453,7 @@ export class MockCopilotProvider extends OpenAIProvider {
       return 'gpt-5-mini';
     }
     if (cond.modelId === 'test-image') {
-      return 'gpt-image-2';
+      return 'gpt-image-1';
     }
     return cond.modelId;
   }

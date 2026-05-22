@@ -324,7 +324,7 @@ function nativeRerankRequest(
 
 function nativeImageRequest(
   prompt: string,
-  model: string = 'gpt-image-2'
+  model: string = 'gpt-image-1'
 ): LlmImageRequest {
   return { model, prompt, operation: 'generate', images: [] };
 }
@@ -1496,44 +1496,6 @@ test('CopilotProviderFactory should resolve legacy model ids through native regi
   t.is(provider.resolveModel('gpt-5-2025-08-07')?.id, 'gpt-5');
 });
 
-test('CopilotProviderFactory should allow gpt-5.5 through openai host aliasing', async t => {
-  const provider = createProvider();
-  const registryService = {
-    getRegistry: () =>
-      buildProviderRegistry({
-        profiles: [
-          {
-            id: 'openai-main',
-            type: CopilotProviderType.OpenAI,
-            priority: 1,
-            config: { apiKey: 'test-key' },
-          },
-        ],
-        defaults: {},
-      }),
-  };
-  const server = {
-    enableFeature: Sinon.stub(),
-    disableFeature: Sinon.stub(),
-  };
-  const access = {
-    resolveRouteAccess: Sinon.stub().resolves({
-      byokProfiles: [],
-      quotaBackedRoutesAvailable: true,
-    }),
-  };
-  const factory = new CopilotProviderFactory(
-    server as never,
-    registryService as never,
-    access as never
-  );
-  factory.register('openai-main', provider);
-
-  const resolvedProvider = await factory.getProviderByModel('gpt-5.5');
-  t.is(resolvedProvider, provider);
-  t.is(provider.resolveModel('gpt-5.5')?.id, 'gpt-5.5');
-});
-
 const BYOK_OPENAI_PROFILE: CopilotProviderProfile = {
   id: 'byok-aaaaaaaaaaaa-openai-server-key1',
   type: CopilotProviderType.OpenAI,
@@ -1696,7 +1658,7 @@ test('CopilotProviderFactory should treat image preparation as image feature by 
   const { factory, byok } = createProviderFactoryWithByokRoutes();
 
   await factory.prepareImageRoutes(
-    { modelId: 'gpt-image-2', outputType: ModelOutputType.Image },
+    { modelId: 'gpt-image-1', outputType: ModelOutputType.Image },
     singleUserPromptMessages('draw a cat'),
     { workspace: 'workspace-1' }
   );
@@ -2742,13 +2704,13 @@ test('ExecutionPlanBuilder should build native prepared routes for structured, i
         provider,
         execution: { providerId: 'openai-default', profile: {} as any },
         profile: {} as any,
-        modelId: 'gpt-image-2',
+        modelId: 'gpt-image-1',
         preparedImage: {
           route: preparedRoute({
             providerId: 'openai-default',
             authToken: 'image-key',
             protocol: 'openai_images',
-            model: 'gpt-image-2',
+            model: 'gpt-image-1',
           }),
           request: nativeImageRequest('draw a cat'),
         },
@@ -2804,7 +2766,7 @@ test('ExecutionPlanBuilder should build native prepared routes for structured, i
     undefined,
     structuredContract(z.object({ ok: z.boolean() }))
   );
-  const imagePlan = await builder.buildImagePlan({ modelId: 'gpt-image-2' }, [
+  const imagePlan = await builder.buildImagePlan({ modelId: 'gpt-image-1' }, [
     userPrompt('draw a cat'),
   ]);
   const signal = new AbortController().signal;
@@ -3130,7 +3092,7 @@ test('NativeExecutionEngine should dispatch image plans through prepared native 
               providerId: 'openai-image',
               authToken: 'image-key',
               protocol: 'openai_images',
-              model: 'gpt-image-2',
+              model: 'gpt-image-1',
               request,
             }),
           ],
@@ -3139,7 +3101,7 @@ test('NativeExecutionEngine should dispatch image plans through prepared native 
               providerId: 'openai-image',
               authToken: 'image-key',
               protocol: 'openai_images',
-              model: 'gpt-image-2',
+              model: 'gpt-image-1',
             }),
             request,
           },
@@ -3147,7 +3109,7 @@ test('NativeExecutionEngine should dispatch image plans through prepared native 
       },
       request: {
         kind: 'image',
-        cond: { modelId: 'gpt-image-2' },
+        cond: { modelId: 'gpt-image-1' },
         messages: singleUserPromptMessages('draw a cat'),
         options: undefined,
       },
@@ -3263,7 +3225,7 @@ test('NativeExecutionEngine should reject image plans without native dispatch', 
       engine.executeImageArtifacts({
         request: {
           kind: 'image',
-          cond: { modelId: 'gpt-image-2' },
+          cond: { modelId: 'gpt-image-1' },
           messages: singleUserPromptMessages('draw a cat'),
           options: undefined,
         },
