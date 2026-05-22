@@ -1,3 +1,4 @@
+import { I18n } from '@affine/i18n';
 import { createLitPortal } from '@blocksuite/affine/components/portal';
 import { WithDisposable } from '@blocksuite/affine/global/lit';
 import { ThemeProvider } from '@blocksuite/affine/shared/services';
@@ -117,7 +118,7 @@ export class AIItemList extends WithDisposable(LitElement) {
       return html`
         ${group.name
           ? html`<div class="group-name">
-              ${group.name.toLocaleUpperCase()}
+              ${I18n.t(group.name).toLocaleUpperCase()}
             </div>`
           : nothing}
         ${repeat(

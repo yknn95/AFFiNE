@@ -5,6 +5,7 @@ import { CopilotProviderType } from '../providers/types';
 export enum ByokProvider {
   openai = 'openai',
   anthropic = 'anthropic',
+  deepseek = 'deepseek',
   gemini = 'gemini',
   fal = 'fal',
 }
@@ -38,6 +39,7 @@ export type ByokFeatureKind =
 export const BYOK_ALLOWED_PROVIDERS = [
   ByokProvider.openai,
   ByokProvider.anthropic,
+  ByokProvider.deepseek,
   ByokProvider.gemini,
   ByokProvider.fal,
 ] as const;
@@ -48,6 +50,8 @@ export function byokProviderToCopilotType(provider: ByokProvider) {
       return CopilotProviderType.OpenAI;
     case ByokProvider.anthropic:
       return CopilotProviderType.Anthropic;
+    case ByokProvider.deepseek:
+      return CopilotProviderType.DeepSeek;
     case ByokProvider.gemini:
       return CopilotProviderType.Gemini;
     case ByokProvider.fal:
@@ -61,6 +65,8 @@ export function copilotTypeToByokProvider(type: CopilotProviderType) {
       return ByokProvider.openai;
     case CopilotProviderType.Anthropic:
       return ByokProvider.anthropic;
+    case CopilotProviderType.DeepSeek:
+      return ByokProvider.deepseek;
     case CopilotProviderType.Gemini:
       return ByokProvider.gemini;
     case CopilotProviderType.FAL:

@@ -807,6 +807,28 @@ test('NativeProviderAdapter streamObject should map tool and text events', async
   t.snapshot(events);
 });
 
+test('NativeProviderAdapter streamObject should surface empty native responses', async t => {
+  const adapter = new NativeProviderAdapter(() =>
+    stream(() => [{ type: 'done', finish_reason: 'stop' }])
+  );
+
+  const events = await collectChunks(
+    adapter.streamObject({
+      model: 'gpt-5-mini',
+      stream: true,
+      messages: nativeMessages(nativeUserText('generate reference image')),
+    })
+  );
+
+  t.deepEqual(events, [
+    {
+      type: 'text-delta',
+      textDelta:
+        'The model completed without returning displayable content. Please try again or rephrase the request.',
+    },
+  ]);
+});
+
 test('NativeProviderAdapter streamObject should finalize usage with selected provider', async t => {
   const usageEvents: Array<{
     providerId: string;

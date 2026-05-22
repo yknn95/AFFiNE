@@ -108,6 +108,380 @@ export function useAFFiNEI18N(): {
       */
     Copy(): string;
     /**
+      * `AI image filter`
+      */
+    ["AI image filter"](): string;
+    /**
+      * `AI is generating...`
+      */
+    ["AI is generating..."](): string;
+    /**
+      * `AI outputs can be misleading or wrong`
+      */
+    ["AI outputs can be misleading or wrong"](): string;
+    /**
+      * `Action with above`
+      */
+    ["Action with above"](): string;
+    /**
+      * `An error occurred`
+      */
+    ["An error occurred"](): string;
+    /**
+      * `Anime style`
+      */
+    ["Anime style"](): string;
+    /**
+      * `Answer`
+      */
+    Answer(): string;
+    /**
+      * `Ask AI`
+      */
+    ["Ask AI"](): string;
+    /**
+      * `Brazilian Portuguese`
+      */
+    ["Brazilian Portuguese"](): string;
+    /**
+      * `Brainstorm ideas about this`
+      */
+    ["Brainstorm ideas about this"](): string;
+    /**
+      * `Brainstorm ideas with mind map`
+      */
+    ["Brainstorm ideas with mind map"](): string;
+    /**
+      * `Change tone to`
+      */
+    ["Change tone to"](): string;
+    /**
+      * `Check code error`
+      */
+    ["Check code error"](): string;
+    /**
+      * `Clay style`
+      */
+    ["Clay style"](): string;
+    /**
+      * `Clearer`
+      */
+    Clearer(): string;
+    /**
+      * `Continue in AI Chat`
+      */
+    ["Continue in AI Chat"](): string;
+    /**
+      * `Continue in chat`
+      */
+    ["Continue in chat"](): string;
+    /**
+      * `Continue writing`
+      */
+    ["Continue writing"](): string;
+    /**
+      * `Convert to sticker`
+      */
+    ["Convert to sticker"](): string;
+    /**
+      * `Create new note`
+      */
+    ["Create new note"](): string;
+    /**
+      * `Critical`
+      */
+    Critical(): string;
+    /**
+      * `AI is generating content. Do you want to stop generating?`
+      */
+    ["AI is generating content. Do you want to stop generating?"](): string;
+    /**
+      * `Discard`
+      */
+    Discard(): string;
+    /**
+      * `Discard the AI result`
+      */
+    ["Discard the AI result"](): string;
+    /**
+      * `Do you want to discard the results the AI just generated?`
+      */
+    ["Do you want to discard the results the AI just generated?"](): string;
+    /**
+      * `English`
+      */
+    English(): string;
+    /**
+      * `Expand from this mind map node`
+      */
+    ["Expand from this mind map node"](): string;
+    /**
+      * `Explain selection`
+      */
+    ["Explain selection"](): string;
+    /**
+      * `Explain this code`
+      */
+    ["Explain this code"](): string;
+    /**
+      * `Explain this image`
+      */
+    ["Explain this image"](): string;
+    /**
+      * `Find actions`
+      */
+    ["Find actions"](): string;
+    /**
+      * `Fix grammar`
+      */
+    ["Fix grammar"](): string;
+    /**
+      * `Fix spelling`
+      */
+    ["Fix spelling"](): string;
+    /**
+      * `French`
+      */
+    French(): string;
+    /**
+      * `Friendly`
+      */
+    Friendly(): string;
+    /**
+      * `Generate a caption`
+      */
+    ["Generate a caption"](): string;
+    /**
+      * `Generate an image`
+      */
+    ["Generate an image"](): string;
+    /**
+      * `Generate headings`
+      */
+    ["Generate headings"](): string;
+    /**
+      * `Generate outline`
+      */
+    ["Generate outline"](): string;
+    /**
+      * `Generate presentation`
+      */
+    ["Generate presentation"](): string;
+    /**
+      * `German`
+      */
+    German(): string;
+    /**
+      * `Humorous`
+      */
+    Humorous(): string;
+    /**
+      * `Image processing`
+      */
+    ["Image processing"](): string;
+    /**
+      * `Improve writing`
+      */
+    ["Improve writing"](): string;
+    /**
+      * `Informal`
+      */
+    Informal(): string;
+    /**
+      * `Insert above`
+      */
+    ["Insert above"](): string;
+    /**
+      * `Insert below`
+      */
+    ["Insert below"](): string;
+    /**
+      * `Italian`
+      */
+    Italian(): string;
+    /**
+      * `Japanese`
+      */
+    Japanese(): string;
+    /**
+      * `Korean`
+      */
+    Korean(): string;
+    /**
+      * `Login`
+      */
+    Login(): string;
+    /**
+      * `Make it longer`
+      */
+    ["Make it longer"](): string;
+    /**
+      * `Make it real`
+      */
+    ["Make it real"](): string;
+    /**
+      * `Make it shorter`
+      */
+    ["Make it shorter"](): string;
+    /**
+      * `Others`
+      */
+    Others(): string;
+    /**
+      * `Pixel style`
+      */
+    ["Pixel style"](): string;
+    /**
+      * `Please try again later. If this issue persists, please let us know at`
+      */
+    ["Please try again later. If this issue persists, please let us know at"](): string;
+    /**
+      * `Professional`
+      */
+    Professional(): string;
+    /**
+      * `Regenerate`
+      */
+    Regenerate(): string;
+    /**
+      * `Regenerate mind map`
+      */
+    ["Regenerate mind map"](): string;
+    /**
+      * `Remove background`
+      */
+    ["Remove background"](): string;
+    /**
+      * `Replace`
+      */
+    Replace(): string;
+    /**
+      * `Replace selection`
+      */
+    ["Replace selection"](): string;
+    /**
+      * `Response`
+      */
+    Response(): string;
+    /**
+      * `Retry`
+      */
+    Retry(): string;
+    /**
+      * `Russian`
+      */
+    Russian(): string;
+    /**
+      * `Send to AI`
+      */
+    ["Send to AI"](): string;
+    /**
+      * `Simplified Chinese`
+      */
+    ["Simplified Chinese"](): string;
+    /**
+      * `Sketch style`
+      */
+    ["Sketch style"](): string;
+    /**
+      * `Spanish`
+      */
+    Spanish(): string;
+    /**
+      * `Stop`
+      */
+    Stop(): string;
+    /**
+      * `Stop generating`
+      */
+    ["Stop generating"](): string;
+    /**
+      * `Summarize`
+      */
+    Summarize(): string;
+    /**
+      * `Traditional Chinese`
+      */
+    ["Traditional Chinese"](): string;
+    /**
+      * `Translate to`
+      */
+    ["Translate to"](): string;
+    /**
+      * `Upgrade`
+      */
+    Upgrade(): string;
+    /**
+      * `Use as caption`
+      */
+    ["Use as caption"](): string;
+    /**
+      * `What are your thoughts?`
+      */
+    ["What are your thoughts?"](): string;
+    /**
+      * `Write a blog post about this`
+      */
+    ["Write a blog post about this"](): string;
+    /**
+      * `Write a poem about this`
+      */
+    ["Write a poem about this"](): string;
+    /**
+      * `Write a tweet about this`
+      */
+    ["Write a tweet about this"](): string;
+    /**
+      * `Write an article about this`
+      */
+    ["Write an article about this"](): string;
+    /**
+      * `You've reached the current usage cap for AFFiNE AI. You can subscribe to AFFiNE AI(with free 7-day-trial) to continue the AI experience!`
+      */
+    ["You've reached the current usage cap for AFFiNE AI. You can subscribe to AFFiNE AI(with free 7-day-trial) to continue the AI experience!"](): string;
+    /**
+      * `You need to login to AFFiNE Cloud to continue using AFFiNE AI.`
+      */
+    ["You need to login to AFFiNE Cloud to continue using AFFiNE AI."](): string;
+    /**
+      * `{{name}} from above`
+      */
+    ["{{name}} from above"](options: {
+        readonly name: string;
+    }): string;
+    /**
+      * `draft from text`
+      */
+    ["draft from text"](): string;
+    /**
+      * `edit text`
+      */
+    ["edit text"](): string;
+    /**
+      * `generate from text`
+      */
+    ["generate from text"](): string;
+    /**
+      * `Others`
+      */
+    others(): string;
+    /**
+      * `review code`
+      */
+    ["review code"](): string;
+    /**
+      * `review image`
+      */
+    ["review image"](): string;
+    /**
+      * `review text`
+      */
+    ["review text"](): string;
+    /**
+      * `touch up image`
+      */
+    ["touch up image"](): string;
+    /**
       * `Create`
       */
     Create(): string;
@@ -425,10 +799,6 @@ export function useAFFiNEI18N(): {
       * `Rename`
       */
     Rename(): string;
-    /**
-      * `Retry`
-      */
-    Retry(): string;
     /**
       * `Save`
       */
@@ -7855,10 +8225,6 @@ export function useAFFiNEI18N(): {
       * `Light`
       */
     light(): string;
-    /**
-      * `Others`
-      */
-    others(): string;
     /**
       * `System`
       */

@@ -13,11 +13,17 @@ export function disposeWorkspaceByokStorage() {
   byokStorage.dispose();
 }
 
-const allowedProviders = new Set(['openai', 'anthropic', 'gemini', 'fal']);
+const allowedProviders = new Set([
+  'openai',
+  'anthropic',
+  'deepseek',
+  'gemini',
+  'fal',
+]);
 
 type WorkspaceByokKey = {
   id: string;
-  provider: 'openai' | 'anthropic' | 'gemini' | 'fal';
+  provider: 'openai' | 'anthropic' | 'deepseek' | 'gemini' | 'fal';
   name: string;
   description?: string | null;
   apiKey: string;

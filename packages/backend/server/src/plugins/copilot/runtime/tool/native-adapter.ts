@@ -2,6 +2,7 @@ import { Logger } from '@nestjs/common';
 
 import type { LlmRequest, LlmToolLoopStreamEvent } from '../../../../native';
 import type { NodeTextMiddleware } from '../../config';
+import { SYNTHETIC_EMPTY_RESPONSE_CONTENT } from '../../core';
 import type { PromptMessage, StreamObject } from '../../providers/types';
 import {
   CitationFootnoteFormatter,
@@ -313,6 +314,7 @@ export class NativeProviderAdapter {
       : null;
     const fallbackAttachmentFootnotes = new Map<string, AttachmentFootnote>();
     let hasFootnoteReference = false;
+    let hasStreamObject = false;
     const usageState: {
       model?: string;
       usage?: Extract<LlmToolLoopStreamEvent, { type: 'usage' }>['usage'];
@@ -345,11 +347,17 @@ export class NativeProviderAdapter {
           if (textEvent.text.includes('[^')) {
             hasFootnoteReference = true;
           }
+          if (textEvent.text.length > 0) {
+            hasStreamObject = true;
+          }
           yield { type: 'text-delta', textDelta: textEvent.text };
           break;
         }
         case 'reasoning_delta': {
           const reasoningEvent = event as unknown as { text: string };
+          if (reasoningEvent.text.length > 0) {
+            hasStreamObject = true;
+          }
           yield { type: 'reasoning', textDelta: reasoningEvent.text };
           break;
         }
@@ -358,6 +366,7 @@ export class NativeProviderAdapter {
             event as LlmToolLoopStreamEvent
           );
           if (!streamObject) break;
+          hasStreamObject = true;
           yield streamObject;
           break;
         }
@@ -371,6 +380,7 @@ export class NativeProviderAdapter {
             event as LlmToolLoopStreamEvent
           );
           if (!streamObject) break;
+          hasStreamObject = true;
           yield streamObject;
           break;
         }
@@ -397,9 +407,11 @@ export class NativeProviderAdapter {
           const citations = citationFormatter?.end() ?? '';
           if (citations) {
             hasFootnoteReference = true;
+            hasStreamObject = true;
             yield { type: 'text-delta', textDelta: `\n${citations}` };
           }
           if (!citations && fallbackAttachmentFootnotes.size > 0) {
+            hasStreamObject = true;
             yield {
               type: 'text-delta',
               textDelta: formatAttachmentFootnotes(
@@ -422,6 +434,13 @@ export class NativeProviderAdapter {
         default:
           break;
       }
+    }
+
+    if (!hasStreamObject) {
+      yield {
+        type: 'text-delta',
+        textDelta: SYNTHETIC_EMPTY_RESPONSE_CONTENT,
+      };
     }
   }
 }

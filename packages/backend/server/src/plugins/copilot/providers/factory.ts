@@ -168,6 +168,28 @@ export class CopilotProviderFactory {
     );
   }
 
+  private mergeRoutes(routes: ResolvedCopilotProvider[]) {
+    const seen = new Set<string>();
+    const merged: ResolvedCopilotProvider[] = [];
+    for (const route of routes) {
+      const key = `${route.providerId}:${route.modelId ?? ''}`;
+      if (seen.has(key)) {
+        continue;
+      }
+      seen.add(key);
+      merged.push(route);
+    }
+    return merged;
+  }
+
+  private shouldPreferQuotaBackedImageRoute(cond: ModelFullConditions) {
+    return (
+      cond.outputType === ModelOutputType.Image &&
+      typeof cond.modelId === 'string' &&
+      cond.modelId.startsWith('gpt-image-')
+    );
+  }
+
   private async prepareResolvedRoutes(
     routes: ResolvedCopilotProvider[],
     prepare: (
@@ -211,15 +233,14 @@ export class CopilotProviderFactory {
       cond,
       filter
     );
-    const resolved = byokRoutes.length
-      ? byokRoutes
-      : quotaBackedRoutesAvailable
-        ? await this.resolveRoutesFromRegistry(
-            quotaBackedRegistry,
-            cond,
-            filter
-          )
-        : [];
+    const quotaBackedRoutes = quotaBackedRoutesAvailable
+      ? await this.resolveRoutesFromRegistry(quotaBackedRegistry, cond, filter)
+      : [];
+    const resolved = this.shouldPreferQuotaBackedImageRoute(cond)
+      ? this.mergeRoutes([...quotaBackedRoutes, ...byokRoutes])
+      : byokRoutes.length
+        ? byokRoutes
+        : quotaBackedRoutes;
     for (const route of resolved) {
       this.logger.debug(
         `Copilot provider candidate found: ${route.provider.type} (${route.providerId})`
@@ -261,6 +282,9 @@ export class CopilotProviderFactory {
         filter.prefer
       ),
     });
+    this.logger.debug(
+      `Copilot provider route candidates for model ${cond.modelId ?? '<auto>'}: ${route.candidateProviderIds.join(', ') || '<none>'}`
+    );
 
     const resolved: ResolvedCopilotProvider[] = [];
     for (const providerId of route.candidateProviderIds) {
@@ -268,7 +292,12 @@ export class CopilotProviderFactory {
       const provider = profile
         ? this.getProviderByProfile(providerId, profile)
         : undefined;
-      if (!provider || !profile) continue;
+      if (!provider || !profile) {
+        this.logger.debug(
+          `Copilot provider candidate skipped: ${providerId} is not registered`
+        );
+        continue;
+      }
 
       const normalizedCond = this.normalizeCond(registry, providerId, cond);
       if (
@@ -276,12 +305,20 @@ export class CopilotProviderFactory {
         profile.models?.length &&
         !profile.models.includes(normalizedCond.modelId)
       ) {
+        this.logger.debug(
+          `Copilot provider candidate skipped: ${providerId} does not allow model ${normalizedCond.modelId}`
+        );
         continue;
       }
 
       const execution = { providerId, profile };
       const matched = await provider.match(normalizedCond, execution);
-      if (!matched) continue;
+      if (!matched) {
+        this.logger.debug(
+          `Copilot provider candidate skipped: ${providerId} did not match model conditions`
+        );
+        continue;
+      }
 
       resolved.push({
         providerId,

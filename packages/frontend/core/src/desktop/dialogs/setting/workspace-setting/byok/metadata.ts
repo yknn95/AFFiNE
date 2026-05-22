@@ -14,6 +14,7 @@ export function byokT(
 export const providerLabels: Record<ByokProvider, string> = {
   [ByokProvider.openai]: 'OpenAI',
   [ByokProvider.anthropic]: 'Anthropic',
+  [ByokProvider.deepseek]: 'DeepSeek',
   [ByokProvider.gemini]: 'Gemini',
   [ByokProvider.fal]: 'FAL',
 };
@@ -28,6 +29,8 @@ export function capabilitiesFor(provider: ByokProvider, storage: ByokStorage) {
   switch (provider) {
     case ByokProvider.openai:
       return ['Text', 'Image input', 'Actions', 'Image generate'];
+    case ByokProvider.deepseek:
+      return ['Text'];
     case ByokProvider.anthropic:
       return ['Text', 'Image input'];
     case ByokProvider.gemini:
@@ -74,6 +77,7 @@ export const capabilityRows = [
     providers: [
       ByokProvider.openai,
       ByokProvider.anthropic,
+      ByokProvider.deepseek,
       ByokProvider.gemini,
     ],
     coverageCapabilities: ['Text'],

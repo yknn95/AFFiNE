@@ -1,4 +1,9 @@
-import { Injectable, Type } from '@nestjs/common';
+import {
+  Injectable,
+  Logger,
+  OnApplicationBootstrap,
+  Type,
+} from '@nestjs/common';
 import { ModuleRef } from '@nestjs/core';
 
 import { OnEvent } from '../../../base';
@@ -9,7 +14,9 @@ import { CopilotProviders } from './provider-tokens';
 import { CopilotProviderRegistryService } from './registry-service';
 
 @Injectable()
-export class CopilotProviderLifecycleService {
+export class CopilotProviderLifecycleService implements OnApplicationBootstrap {
+  private readonly logger = new Logger(CopilotProviderLifecycleService.name);
+
   private readonly registeredByProvider = new WeakMap<
     CopilotProvider,
     Set<string>
@@ -53,11 +60,17 @@ export class CopilotProviderLifecycleService {
 
       const execution: CopilotProviderExecution = { providerId, profile };
       if (!provider.configured(execution)) {
+        this.logger.debug(
+          `Copilot provider [${provider.type}] skipped for [${providerId}]: not configured.`
+        );
         this.factory.unregister(providerId, provider);
         continue;
       }
 
       configuredIds.add(providerId);
+      this.logger.debug(
+        `Copilot provider [${provider.type}] registering profile [${providerId}].`
+      );
       this.factory.register(providerId, provider);
     }
 
@@ -74,6 +87,10 @@ export class CopilotProviderLifecycleService {
     for (const provider of this.getProviders()) {
       await this.syncProvider(provider);
     }
+  }
+
+  async onApplicationBootstrap() {
+    await this.syncProviders();
   }
 
   @OnEvent('config.init')

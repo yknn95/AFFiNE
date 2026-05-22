@@ -23,7 +23,12 @@ import {
 import { CopilotAccessPolicy } from './access';
 import { ConversationPolicy } from './conversation/policy';
 import { ConversationStore } from './conversation/store';
-import { type Conversation, promptMessageFromTurn, type Turn } from './core';
+import {
+  type Conversation,
+  promptMessageFromTurn,
+  SYNTHETIC_EMPTY_RESPONSE_CONTENT,
+  type Turn,
+} from './core';
 import type { ResolvedPrompt } from './prompt';
 import { PromptService } from './prompt/service';
 import { type PromptMessage, type PromptParams } from './providers/types';
@@ -138,7 +143,13 @@ export class ChatSession implements AsyncDisposable {
   finish(params: PromptParams): PromptMessage[] {
     return this.renderPromptSession(
       this.state.prompt,
-      this.state.turns.map(turn => promptMessageFromTurn(turn)),
+      this.state.turns
+        .filter(
+          turn =>
+            turn.role !== AiPromptRole.assistant ||
+            turn.content !== SYNTHETIC_EMPTY_RESPONSE_CONTENT
+        )
+        .map(turn => promptMessageFromTurn(turn)),
       params,
       this.maxTokenSize,
       this.state.sessionId

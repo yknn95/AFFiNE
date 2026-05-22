@@ -10,6 +10,7 @@ import {
   type LlmToolCallbackRequest,
   type LlmToolCallbackResponse,
   type LlmToolLoopStreamEvent,
+  llmDispatchToolLoopStreamPrepared,
   llmValidateContract,
 } from '../../native';
 import {
@@ -353,6 +354,69 @@ test('createNativeToolLoopBridge should preserve native callback and stream ABI'
     events.map(event => event.type),
     ['tool_call', 'tool_result', 'text_delta', 'done']
   );
+});
+
+test('llmDispatchToolLoopStreamPrepared should preserve native dispatch error events', async t => {
+  const original = (serverNativeModule as any)
+    .llmDispatchToolLoopStreamPrepared;
+  (serverNativeModule as any).llmDispatchToolLoopStreamPrepared = (
+    _routesJson: string,
+    _maxSteps: number,
+    callback: (error: Error | null, eventJson: string) => void
+  ) => {
+    callback(
+      null,
+      JSON.stringify({
+        type: 'error',
+        code: 'dispatch_error',
+        message: 'http transport error: Peer disconnected',
+      })
+    );
+    callback(null, '__AFFINE_LLM_STREAM_END__');
+
+    return { abort() {} };
+  };
+  t.teardown(() => {
+    (serverNativeModule as any).llmDispatchToolLoopStreamPrepared = original;
+  });
+
+  const events: LlmToolLoopStreamEvent[] = [];
+  for await (const event of llmDispatchToolLoopStreamPrepared(
+    [
+      {
+        provider_id: 'openai-primary',
+        protocol: 'openai_chat',
+        backend_config: {
+          base_url: 'https://api.openai.com',
+          auth_token: 'test-key',
+        },
+        request: {
+          model: 'gpt-5-mini',
+          stream: true,
+          messages: [
+            {
+              role: 'user',
+              content: [{ type: 'text', text: 'hello' }],
+            },
+          ],
+        },
+      },
+    ],
+    async () => {
+      throw new Error('unexpected tool callback');
+    },
+    4
+  )) {
+    events.push(event);
+  }
+
+  t.deepEqual(events, [
+    {
+      type: 'error',
+      code: 'dispatch_error',
+      message: 'http transport error: Peer disconnected',
+    },
+  ]);
 });
 
 test('doc_read should return specific sync errors for unavailable docs', async t => {

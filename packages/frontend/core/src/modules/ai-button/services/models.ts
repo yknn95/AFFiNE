@@ -10,6 +10,7 @@ import type { GraphQLService, SubscriptionService } from '../../cloud';
 import type { GlobalStateService } from '../../storage';
 
 const AI_MODEL_ID_KEY = 'AIModelId';
+const UNLOCKED_CUSTOM_MODELS = new Set(['gpt-5.5', 'deepseek-v4-pro']);
 
 export interface AIModel {
   name: string;
@@ -94,7 +95,9 @@ export class AIModelService extends Service {
           id: model.id,
           version,
           category,
-          isPro: proModels.some(proModel => proModel.id === model.id),
+          isPro:
+            !UNLOCKED_CUSTOM_MODELS.has(model.id) &&
+            proModels.some(proModel => proModel.id === model.id),
           isDefault: model.id === defaultModel,
         };
       });

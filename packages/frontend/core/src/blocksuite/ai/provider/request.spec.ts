@@ -38,6 +38,7 @@ vi.mock('@affine/graphql', () => ({
   ByokProvider: {
     openai: 'openai',
     anthropic: 'anthropic',
+    deepseek: 'deepseek',
     gemini: 'gemini',
     fal: 'fal',
   },

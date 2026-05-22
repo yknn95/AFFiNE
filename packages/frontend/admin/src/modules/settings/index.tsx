@@ -179,8 +179,8 @@ const AdminPanel = ({
                           ALL_CONFIG_DESCRIPTORS[module][field];
                         props = {
                           field: `${module}/${field}`,
-                          desc: descriptor.desc,
-                          type: descriptor.type,
+                          desc: descriptor?.desc,
+                          type: descriptor?.type,
                           options: [],
                           defaultValue: get(sourceConfig, field),
                           onChange: onUpdate,

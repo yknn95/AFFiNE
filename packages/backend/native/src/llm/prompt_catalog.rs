@@ -354,4 +354,77 @@ mod tests {
       Some(11)
     );
   }
+
+  #[test]
+  fn chat_with_affine_ai_should_default_to_gpt_5_5() {
+    let spec = built_in_prompt_spec("Chat With AFFiNE AI").expect("chat prompt");
+
+    assert_eq!(spec.model, "gpt-5.5");
+    assert_eq!(
+      spec.optional_models.as_deref(),
+      Some(&["gpt-5.5".to_string(), "deepseek-v4-pro".to_string()][..])
+    );
+  }
+
+  #[test]
+  fn generate_image_should_default_to_gpt_image_2() {
+    let spec = built_in_prompt_spec("Generate image").expect("generate image prompt");
+
+    assert_eq!(spec.model, "gpt-image-2");
+  }
+
+  #[test]
+  fn built_in_prompt_models_should_use_openai_defaults() {
+    let prompt_names = built_in_prompt_specs()
+      .iter()
+      .map(|spec| spec.name.as_str())
+      .collect::<BTreeSet<_>>();
+    let image_prompt_names = BTreeSet::from([
+      "Generate image",
+      "Convert to Clay style",
+      "Convert to Sketch style",
+      "Convert to Anime style",
+      "Convert to Pixel style",
+      "Convert to sticker",
+      "Upscale image",
+      "Remove background",
+      "image.filter.sketch",
+      "image.filter.clay",
+      "image.filter.anime",
+      "image.filter.pixel",
+    ]);
+
+    for spec in built_in_prompt_specs() {
+      if prompt_names.contains(spec.model.as_str()) || spec.model.starts_with("workflowutils/") {
+        continue;
+      }
+
+      let action = spec.action.as_deref().unwrap_or_default();
+      let expected = if image_prompt_names.contains(spec.name.as_str())
+        || action == "image"
+        || action.starts_with("image.filter.")
+      {
+        "gpt-image-2"
+      } else {
+        "gpt-5.5"
+      };
+
+      assert_eq!(spec.model, expected, "{}", spec.name);
+      if spec.name == "Chat With AFFiNE AI" {
+        assert_eq!(
+          spec.optional_models.as_deref(),
+          Some(&["gpt-5.5".to_string(), "deepseek-v4-pro".to_string()][..])
+        );
+      } else if expected == "gpt-5.5" && spec.optional_models.is_some() {
+        assert!(
+          spec
+            .optional_models
+            .as_ref()
+            .is_some_and(|models| models.iter().all(|model| model == "gpt-5.5")),
+          "{}",
+          spec.name
+        );
+      }
+    }
+  }
 }

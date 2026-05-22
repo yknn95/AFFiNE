@@ -27,6 +27,8 @@ function toGraphqlByokProvider(provider: string): ByokProvider | null {
       return ByokProvider.openai;
     case ByokProvider.anthropic:
       return ByokProvider.anthropic;
+    case ByokProvider.deepseek:
+      return ByokProvider.deepseek;
     case ByokProvider.gemini:
       return ByokProvider.gemini;
     case ByokProvider.fal:

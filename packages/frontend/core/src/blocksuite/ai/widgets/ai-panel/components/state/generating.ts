@@ -1,3 +1,4 @@
+import { I18n } from '@affine/i18n';
 import {
   AIStarIconWithAnimation,
   AIStopIcon,
@@ -86,7 +87,7 @@ export class AIPanelGenerating extends WithDisposable(LitElement) {
         : nothing}
       <div class="generating-tip" data-testid="ai-generating">
         <div class="left">${generatingIcon}</div>
-        <div class="text">AI is generating...</div>
+        <div class="text">${I18n.t('AI is generating...')}</div>
         <div @click=${this.stopGenerating} class="right" data-testid="ai-stop">
           <span class="stop-icon">${AIStopIcon}</span>
           <span class="esc-label">ESC</span>

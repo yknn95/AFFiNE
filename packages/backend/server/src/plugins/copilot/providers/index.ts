@@ -3,6 +3,7 @@ export {
   AnthropicVertexProvider,
 } from './anthropic';
 export { CloudflareWorkersAIProvider } from './cloudflare';
+export { DeepSeekProvider } from './deepseek';
 export { CopilotProviderFactory } from './factory';
 export { FalProvider } from './fal';
 export { GeminiGenerativeProvider, GeminiVertexProvider } from './gemini';

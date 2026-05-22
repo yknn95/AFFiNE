@@ -6,6 +6,9 @@ import {
 import type { ChatMessage } from '../types';
 import { type ToolEvent, type Turn, TurnSchema } from './types';
 
+export const SYNTHETIC_EMPTY_RESPONSE_CONTENT =
+  'The model completed without returning displayable content. Please try again or rephrase the request.';
+
 const normalizeRenderTrace = (
   streamObjects: StreamObject[]
 ): StreamObject[] => {

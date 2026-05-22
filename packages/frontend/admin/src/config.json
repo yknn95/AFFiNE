@@ -338,6 +338,10 @@
       "desc": "The config for the openai provider.",
       "link": "https://github.com/openai/openai-node"
     },
+    "providers.deepseek": {
+      "type": "Object",
+      "desc": "The config for the deepseek provider."
+    },
     "providers.cloudflareWorkersAi": {
       "type": "Object",
       "desc": "The config for the Cloudflare Workers AI provider."

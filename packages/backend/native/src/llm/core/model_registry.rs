@@ -11,11 +11,82 @@ fn to_contract_variant(variant: &llm_adapter::core::ModelRegistryVariant) -> Res
     .map_err(crate::llm::map_json_error)
 }
 
+fn model_registry_variants() -> Vec<llm_adapter::core::ModelRegistryVariant> {
+  let mut variants = llm_adapter::core::default_model_registry_variants();
+
+  if variants
+    .iter()
+    .all(|variant| variant.backend_kind != "deepseek" || variant.raw_model_id != "deepseek-v4-pro")
+  {
+    variants.push(llm_adapter::core::ModelRegistryVariant {
+      backend_kind: "deepseek".to_string(),
+      canonical_key: "deepseek-v4-pro".to_string(),
+      raw_model_id: "deepseek-v4-pro".to_string(),
+      display_name: Some("DeepSeek V4 Pro".to_string()),
+      aliases: vec!["deepseek-v4-pro".to_string()],
+      legacy_aliases: None,
+      capabilities: vec![llm_adapter::core::ModelCapability {
+        input: vec!["text".to_string()],
+        output: vec!["text".to_string(), "object".to_string()],
+        attachments: None,
+        structured_attachments: None,
+        default_for_output_type: Some(true),
+      }],
+      protocol: Some("openai_chat".to_string()),
+      request_layer: Some("chat_completions".to_string()),
+      route_overrides: None,
+      behavior_flags: None,
+    });
+  }
+
+  if variants
+    .iter()
+    .all(|variant| variant.backend_kind != "openai_responses" || variant.raw_model_id != "gpt-5.5")
+  {
+    if let Some(template) = variants
+      .iter()
+      .find(|variant| variant.backend_kind == "openai_responses" && variant.raw_model_id == "gpt-5.2")
+      .cloned()
+    {
+      variants.push(llm_adapter::core::ModelRegistryVariant {
+        canonical_key: "gpt-5.5".to_string(),
+        raw_model_id: "gpt-5.5".to_string(),
+        display_name: Some("GPT 5.5".to_string()),
+        aliases: vec!["gpt-5.5".to_string()],
+        legacy_aliases: None,
+        ..template
+      });
+    }
+  }
+
+  if variants
+    .iter()
+    .all(|variant| variant.backend_kind != "openai_responses" || variant.raw_model_id != "gpt-image-2")
+  {
+    if let Some(template) = variants
+      .iter()
+      .find(|variant| variant.backend_kind == "openai_responses" && variant.raw_model_id == "gpt-image-1")
+      .cloned()
+    {
+      variants.push(llm_adapter::core::ModelRegistryVariant {
+        canonical_key: "gpt-image-2".to_string(),
+        raw_model_id: "gpt-image-2".to_string(),
+        display_name: Some("GPT Image 2".to_string()),
+        aliases: vec!["gpt-image-2".to_string()],
+        legacy_aliases: None,
+        ..template
+      });
+    }
+  }
+
+  variants
+}
+
 #[napi(catch_unwind)]
 pub fn llm_resolve_model_registry_variant(
   request: ModelRegistryResolveRequest,
 ) -> Result<ModelRegistryResolveResponse> {
-  let variants = llm_adapter::core::default_model_registry_variants();
+  let variants = model_registry_variants();
   let response = match llm_adapter::core::resolve_model_registry_variant(
     &variants,
     request.backend_kind.as_deref(),
@@ -38,7 +109,7 @@ pub fn llm_resolve_model_registry_variant(
 
 #[napi(catch_unwind)]
 pub fn llm_match_model_registry(request: ModelRegistryMatchRequest) -> Result<ModelRegistryMatchResponse> {
-  let variants = llm_adapter::core::default_model_registry_variants();
+  let variants = model_registry_variants();
   let cond = serde_json::to_value(request.cond)
     .and_then(serde_json::from_value)
     .map_err(crate::llm::map_json_error)?;
@@ -90,6 +161,70 @@ mod tests {
 
     assert_eq!(response.matched_by.as_deref(), Some("legacy_alias"));
     assert_eq!(response.variant.unwrap().raw_model_id, "gpt-5");
+  }
+
+  #[test]
+  fn should_resolve_gpt_5_5_for_openai_responses() {
+    let response = llm_resolve_model_registry_variant(ModelRegistryResolveRequest {
+      backend_kind: Some("openai_responses".to_string()),
+      model_id: "gpt-5.5".to_string(),
+    })
+    .unwrap();
+
+    assert_eq!(response.variant.unwrap().raw_model_id, "gpt-5.5");
+  }
+
+  #[test]
+  fn should_resolve_deepseek_v4_pro_as_text_only_model() {
+    let response = llm_resolve_model_registry_variant(ModelRegistryResolveRequest {
+      backend_kind: Some("deepseek".to_string()),
+      model_id: "deepseek-v4-pro".to_string(),
+    })
+    .unwrap();
+
+    let variant = response.variant.unwrap();
+    assert_eq!(variant.raw_model_id, "deepseek-v4-pro");
+    assert_eq!(variant.protocol.as_deref(), Some("openai_chat"));
+    assert_eq!(variant.request_layer.as_deref(), Some("chat_completions"));
+    assert_eq!(variant.capabilities[0].input, vec!["text"]);
+    assert_eq!(variant.capabilities[0].output, vec!["text", "object"]);
+    assert!(variant.capabilities[0].attachments.is_none());
+  }
+
+  #[test]
+  fn should_match_deepseek_v4_pro_for_chat_object_streaming() {
+    let response = llm_match_model_registry(ModelRegistryMatchRequest {
+      backend_kind: "deepseek".to_string(),
+      cond: ModelConditionsContract {
+        input_types: Some(vec!["text".to_string()]),
+        attachment_kinds: None,
+        attachment_source_kinds: None,
+        has_remote_attachments: None,
+        model_id: Some("deepseek-v4-pro".to_string()),
+        output_type: Some("object".to_string()),
+      },
+    })
+    .unwrap();
+
+    assert_eq!(response.variant.unwrap().raw_model_id, "deepseek-v4-pro");
+  }
+
+  #[test]
+  fn should_reject_deepseek_v4_pro_for_image_input() {
+    let response = llm_match_model_registry(ModelRegistryMatchRequest {
+      backend_kind: "deepseek".to_string(),
+      cond: ModelConditionsContract {
+        input_types: Some(vec!["text".to_string(), "image".to_string()]),
+        attachment_kinds: Some(vec!["image".to_string()]),
+        attachment_source_kinds: Some(vec!["data".to_string()]),
+        has_remote_attachments: None,
+        model_id: Some("deepseek-v4-pro".to_string()),
+        output_type: Some("text".to_string()),
+      },
+    })
+    .unwrap();
+
+    assert!(response.variant.is_none());
   }
 
   #[test]
@@ -150,6 +285,24 @@ mod tests {
     .unwrap();
     assert_eq!(openai.protocol.as_deref(), Some("openai_images"));
     assert_eq!(openai.request_layer.as_deref(), Some("openai_images"));
+
+    let openai_gpt_image_2 = llm_match_model_registry(ModelRegistryMatchRequest {
+      backend_kind: "openai_responses".to_string(),
+      cond: ModelConditionsContract {
+        input_types: Some(vec!["text".to_string()]),
+        attachment_kinds: None,
+        attachment_source_kinds: None,
+        has_remote_attachments: None,
+        model_id: Some("gpt-image-2".to_string()),
+        output_type: Some("image".to_string()),
+      },
+    })
+    .unwrap()
+    .variant
+    .unwrap();
+    assert_eq!(openai_gpt_image_2.protocol.as_deref(), Some("openai_images"));
+    assert_eq!(openai_gpt_image_2.request_layer.as_deref(), Some("openai_images"));
+    assert_eq!(openai_gpt_image_2.raw_model_id, "gpt-image-2");
 
     let fal = llm_match_model_registry(ModelRegistryMatchRequest {
       backend_kind: "fal".to_string(),

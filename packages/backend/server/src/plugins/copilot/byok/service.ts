@@ -593,6 +593,7 @@ export class ByokService {
     const apiKey = this.crypto.decrypt(encryptedApiKey);
     switch (provider) {
       case ByokProvider.openai:
+      case ByokProvider.deepseek:
       case ByokProvider.gemini:
       case ByokProvider.anthropic:
         return { apiKey, ...(endpoint ? { baseURL: endpoint } : {}) };
@@ -619,7 +620,7 @@ export class ByokService {
     workspaceId?: string
   ): ByokProfileMeta | null {
     const match =
-      /^byok-([a-f0-9]{12})-(openai|anthropic|gemini|fal)-(.+)$/.exec(
+      /^byok-([a-f0-9]{12})-(openai|anthropic|deepseek|gemini|fal)-(.+)$/.exec(
         providerId
       );
     if (!match) return null;
@@ -683,6 +684,8 @@ export class ByokService {
     switch (provider) {
       case ByokProvider.openai:
         return ['Text', 'Image input', 'Actions', 'Image generate'];
+      case ByokProvider.deepseek:
+        return ['Text'];
       case ByokProvider.anthropic:
         return ['Text', 'Image input'];
       case ByokProvider.gemini:
@@ -784,6 +787,12 @@ export class ByokService {
         return {
           method: 'GET',
           url: `${endpoint ?? 'https://api.openai.com/v1'}/models`,
+          headers: { Authorization: `Bearer ${apiKey}` },
+        };
+      case ByokProvider.deepseek:
+        return {
+          method: 'GET',
+          url: `${endpoint ?? 'https://api.deepseek.com/v1'}/models`,
           headers: { Authorization: `Bearer ${apiKey}` },
         };
       case ByokProvider.anthropic:

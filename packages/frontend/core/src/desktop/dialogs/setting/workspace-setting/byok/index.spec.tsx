@@ -35,6 +35,7 @@ const WorkspaceServiceToken = vi.hoisted(() => class WorkspaceService {});
 const ByokProvider = vi.hoisted(() => ({
   openai: 'openai',
   anthropic: 'anthropic',
+  deepseek: 'deepseek',
   gemini: 'gemini',
   fal: 'fal',
 }));
@@ -245,7 +246,7 @@ function settings(overrides: Record<string, unknown> = {}) {
     serverEntitled: true,
     localEntitled: false,
     entitlementRequired: ['Pro', 'Team', 'Believer'],
-    allowedProviders: ['openai', 'anthropic', 'gemini', 'fal'],
+    allowedProviders: ['openai', 'anthropic', 'deepseek', 'gemini', 'fal'],
     localStorageSupported: false,
     customEndpointSupported: false,
     hasAiPlan: true,

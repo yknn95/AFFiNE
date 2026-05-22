@@ -301,6 +301,7 @@ enum ByokKeyTestStatus {
 
 enum ByokProvider {
   anthropic
+  deepseek
   fal
   gemini
   openai
@@ -1105,7 +1106,6 @@ enum FeatureType {
   FreePlan
   LifetimeProPlan
   ProPlan
-  QuotaExceededReadonlyWorkspace
   TeamPlan
   UnlimitedCopilot
   UnlimitedWorkspace

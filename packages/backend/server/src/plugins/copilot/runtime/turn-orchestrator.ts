@@ -223,7 +223,7 @@ export class TurnOrchestrator {
         userId,
         sessionId,
         prepared.session,
-        undefined,
+        selection.model,
         hasAttachment,
         finalMessage,
         {

@@ -1,3 +1,4 @@
+import { I18n } from '@affine/i18n';
 import { AIStarIcon } from '@blocksuite/affine/components/icons';
 import { DocModeProvider } from '@blocksuite/affine/shared/services';
 import {
@@ -57,7 +58,7 @@ export function AiSlashMenuConfigExtension() {
       ...basicItemConfig(item),
       subMenu: (item.subItem ?? []).map<SlashMenuActionItem>(
         ({ type, handler }) => ({
-          name: type,
+          name: I18n.t(type),
           action: ({ std }) => handler?.(std.host),
         })
       ),
@@ -66,7 +67,7 @@ export function AiSlashMenuConfigExtension() {
 
   const basicItemConfig = (item: AIItemConfig) => {
     return {
-      name: item.name,
+      name: I18n.t(item.name),
       icon: iconWrapper(item.icon),
       searchAlias: ['ai'],
       when: showWhenWrapper(item),
@@ -76,7 +77,7 @@ export function AiSlashMenuConfigExtension() {
   let index = 0;
   const AIMenuItems: SlashMenuItem[] = [
     {
-      name: 'Ask AI',
+      name: I18n.t('Ask AI'),
       icon: AIStarIcon,
       when: showWhenWrapper(),
       action: ({ std }) => {
@@ -93,7 +94,7 @@ export function AiSlashMenuConfigExtension() {
       ['Fix spelling', 'Fix grammar'].includes(name)
     ).map<SlashMenuActionItem>(item => ({
       ...actionItemWrapper(item),
-      name: `${item.name} from above`,
+      name: I18n.t('{{name}} from above', { name: I18n.t(item.name) }),
       group: `1_AFFiNE AI@${index++}`,
     })),
 
@@ -105,7 +106,7 @@ export function AiSlashMenuConfigExtension() {
     })),
 
     {
-      name: 'Action with above',
+      name: I18n.t('Action with above'),
       icon: iconWrapper(MoreHorizontalIcon({ width: '24px', height: '24px' })),
       group: `1_AFFiNE AI@${index++}`,
       subMenu: [

@@ -30,6 +30,8 @@ type ResolvePolicyModelInput = ResolveModelInput & {
   paymentEnabled?: boolean;
 };
 
+const UNLOCKED_CUSTOM_MODELS = new Set(['gpt-5.5', 'deepseek-v4-pro']);
+
 @Injectable()
 export class CapabilityPolicyHost {
   constructor(
@@ -69,6 +71,7 @@ export class CapabilityPolicyHost {
 
     if (
       input.paymentEnabled &&
+      !UNLOCKED_CUSTOM_MODELS.has(input.requestedModelId ?? '') &&
       this.modelSelection.matchesModelList(
         input.proModels ?? [],
         input.requestedModelId

@@ -408,6 +408,9 @@ export function setupAIProvider(
       client,
       sessionId,
       content: options.input,
+      params: {
+        language: 'Simplified Chinese',
+      },
     });
   });
 
@@ -530,6 +533,9 @@ Could you make a new website based on these notes and send back just the html fi
       client,
       sessionId,
       content: options.input,
+      params: {
+        language: 'Simplified Chinese',
+      },
     });
   });
 

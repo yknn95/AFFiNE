@@ -1,3 +1,4 @@
+import { I18n } from '@affine/i18n';
 import { LoadingIcon } from '@blocksuite/affine/components/icons';
 import { WithDisposable } from '@blocksuite/affine/global/lit';
 import { unsafeCSSVar } from '@blocksuite/affine/shared/theme';
@@ -94,7 +95,7 @@ export class GeneratingPlaceholder extends WithDisposable(LitElement) {
         }
       </style>
       ${this.showHeader
-        ? html`<div class="generating-header">Answer</div>`
+        ? html`<div class="generating-header">${I18n.t('Answer')}</div>`
         : nothing}
       <div class="generating-body">
         <div class="generating-icon">${LoadingIcon()}</div>

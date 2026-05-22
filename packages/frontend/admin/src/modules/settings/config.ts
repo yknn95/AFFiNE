@@ -152,6 +152,7 @@ export const KNOWN_CONFIG_GROUPS = [
       'enabled',
       'scenarios',
       'providers.openai',
+      'providers.deepseek',
       'providers.gemini',
       'providers.anthropic',
       'providers.fal',

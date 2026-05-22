@@ -31,6 +31,7 @@ import { CopilotContextService } from '../../plugins/copilot/context';
 import { CopilotContextResolver } from '../../plugins/copilot/context/resolver';
 import {
   chatMessageFromTurn,
+  SYNTHETIC_EMPTY_RESPONSE_CONTENT,
   turnFromChatMessage,
 } from '../../plugins/copilot/core';
 import { CopilotCronJobs } from '../../plugins/copilot/cron';
@@ -977,6 +978,64 @@ test('should preserve assistant render trace when converting between chat messag
     ['tool_call', 'tool_result']
   );
   t.deepEqual(chatMessageFromTurn(turn), message);
+});
+
+test('should not send synthetic empty assistant response back to model', async t => {
+  const { prompt, session } = t.context;
+
+  await prompt.set(promptName, 'model', [
+    { role: 'system', content: 'hello {{word}}' },
+  ]);
+
+  const sessionId = await session.create({
+    docId: 'test',
+    workspaceId: 'test',
+    userId,
+    promptName,
+    pinned: false,
+  });
+  const s = (await session.get(sessionId))!;
+  s.pushTurn(
+    buildTurn(sessionId, {
+      role: 'user',
+      content: '生成参考图',
+      createdAt: new Date(),
+    })
+  );
+  s.pushTurn(
+    buildTurn(sessionId, {
+      role: 'assistant',
+      content: SYNTHETIC_EMPTY_RESPONSE_CONTENT,
+      createdAt: new Date(),
+    })
+  );
+  s.pushTurn(
+    buildTurn(sessionId, {
+      role: 'user',
+      content: '润色一下文档',
+      createdAt: new Date(),
+    })
+  );
+
+  const messages = s.finish({ word: 'world' });
+
+  t.false(
+    messages.some(
+      message => message.content === SYNTHETIC_EMPTY_RESPONSE_CONTENT
+    )
+  );
+  t.deepEqual(
+    messages
+      .filter(message => message.role !== 'system')
+      .map(message => ({
+        role: message.role,
+        content: message.content,
+      })),
+    [
+      { role: 'user', content: '生成参考图' },
+      { role: 'user', content: '润色一下文档' },
+    ]
+  );
 });
 
 test('should save message correctly', async t => {

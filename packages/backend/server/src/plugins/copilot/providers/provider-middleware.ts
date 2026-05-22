@@ -15,6 +15,9 @@ const DEFAULT_MIDDLEWARE_BY_TYPE: Record<
   [CopilotProviderType.CloudflareWorkersAi]: {
     node: { text: DEFAULT_NODE_TEXT_MIDDLEWARE },
   },
+  [CopilotProviderType.DeepSeek]: {
+    node: { text: DEFAULT_NODE_TEXT_MIDDLEWARE },
+  },
   [CopilotProviderType.Anthropic]: {
     node: { text: DEFAULT_NODE_TEXT_MIDDLEWARE },
   },

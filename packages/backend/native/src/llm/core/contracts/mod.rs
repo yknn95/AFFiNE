@@ -318,7 +318,7 @@ pub struct RequestedModelMatchResponse {
 #[serde(deny_unknown_fields)]
 pub struct ModelRegistryResolveRequest {
   #[napi(
-    ts_type = "'openai_chat' | 'openai_responses' | 'anthropic' | 'cloudflare_workers_ai' | 'gemini_api' | \
+    ts_type = "'openai_chat' | 'openai_responses' | 'deepseek' | 'anthropic' | 'cloudflare_workers_ai' | 'gemini_api' | \
                'gemini_vertex' | 'fal' | 'anthropic_vertex'"
   )]
   #[serde(skip_serializing_if = "Option::is_none")]
@@ -332,7 +332,7 @@ pub struct ModelRegistryResolveRequest {
 #[serde(deny_unknown_fields)]
 pub struct ModelRegistryMatchRequest {
   #[napi(
-    ts_type = "'openai_chat' | 'openai_responses' | 'anthropic' | 'cloudflare_workers_ai' | 'gemini_api' | \
+    ts_type = "'openai_chat' | 'openai_responses' | 'deepseek' | 'anthropic' | 'cloudflare_workers_ai' | 'gemini_api' | \
                'gemini_vertex' | 'fal' | 'anthropic_vertex'"
   )]
   pub backend_kind: String,
@@ -345,7 +345,7 @@ pub struct ModelRegistryMatchRequest {
 #[serde(deny_unknown_fields)]
 pub struct ModelRegistryVariantContract {
   #[napi(
-    ts_type = "'openai_chat' | 'openai_responses' | 'anthropic' | 'cloudflare_workers_ai' | 'gemini_api' | \
+    ts_type = "'openai_chat' | 'openai_responses' | 'deepseek' | 'anthropic' | 'cloudflare_workers_ai' | 'gemini_api' | \
                'gemini_vertex' | 'fal' | 'anthropic_vertex'"
   )]
   pub backend_kind: String,

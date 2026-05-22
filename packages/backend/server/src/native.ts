@@ -539,6 +539,19 @@ function parseLlmToolLoopStreamEvent(
   eventJson: string
 ): LlmToolLoopStreamEvent {
   const event = parseLlmEventJson(eventJson);
+  if (event.type === 'error' && typeof event.message === 'string') {
+    const errorEvent: LlmToolLoopStreamEvent = {
+      type: 'error',
+      message: event.message,
+    };
+    if (typeof event.code === 'string') {
+      errorEvent.code = event.code;
+    }
+    if (typeof event.raw === 'string') {
+      errorEvent.raw = event.raw;
+    }
+    return errorEvent;
+  }
   if (
     event.type === 'provider_selected' &&
     typeof event.provider_id === 'string'

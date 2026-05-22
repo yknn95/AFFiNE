@@ -26,6 +26,7 @@ export enum CopilotProviderType {
   Anthropic = 'anthropic',
   AnthropicVertex = 'anthropicVertex',
   CloudflareWorkersAi = 'cloudflareWorkersAi',
+  DeepSeek = 'deepseek',
   FAL = 'fal',
   Gemini = 'gemini',
   GeminiVertex = 'geminiVertex',

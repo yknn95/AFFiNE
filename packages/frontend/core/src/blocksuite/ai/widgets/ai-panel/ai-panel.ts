@@ -1,3 +1,4 @@
+import { I18n } from '@affine/i18n';
 import { ColorScheme } from '@blocksuite/affine/model';
 import {
   DocModeProvider,
@@ -300,10 +301,12 @@ export class AffineAIPanelWidget extends WidgetComponent {
     this._discardModalAbort = new AbortController();
     return notification
       .confirm({
-        title: 'Stop generating',
-        message: 'AI is generating content. Do you want to stop generating?',
-        cancelText: 'Cancel',
-        confirmText: 'Stop',
+        title: I18n.t('Stop generating'),
+        message: I18n.t(
+          'AI is generating content. Do you want to stop generating?'
+        ),
+        cancelText: I18n.t('Cancel'),
+        confirmText: I18n.t('Stop'),
         abort: this._abortController.signal,
       })
       .finally(() => (this._discardModalAbort = null));
@@ -318,10 +321,12 @@ export class AffineAIPanelWidget extends WidgetComponent {
     this._discardModalAbort = new AbortController();
     return notification
       .confirm({
-        title: 'Discard the AI result',
-        message: 'Do you want to discard the results the AI just generated?',
-        cancelText: 'Cancel',
-        confirmText: 'Discard',
+        title: I18n.t('Discard the AI result'),
+        message: I18n.t(
+          'Do you want to discard the results the AI just generated?'
+        ),
+        cancelText: I18n.t('Cancel'),
+        confirmText: I18n.t('Discard'),
         abort: this._abortController.signal,
       })
       .finally(() => (this._discardModalAbort = null));

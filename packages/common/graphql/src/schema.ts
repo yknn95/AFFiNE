@@ -360,6 +360,7 @@ export enum ByokKeyTestStatus {
 
 export enum ByokProvider {
   anthropic = 'anthropic',
+  deepseek = 'deepseek',
   fal = 'fal',
   gemini = 'gemini',
   openai = 'openai',

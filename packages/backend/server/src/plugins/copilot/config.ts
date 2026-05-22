@@ -10,6 +10,7 @@ import {
   AnthropicVertexConfig,
 } from './providers/anthropic';
 import { CloudflareWorkersAIConfig } from './providers/cloudflare';
+import { DeepSeekConfig } from './providers/deepseek';
 import type { FalConfig } from './providers/fal';
 import { GeminiGenerativeConfig, GeminiVertexConfig } from './providers/gemini';
 import { OpenAIConfig } from './providers/openai';
@@ -21,6 +22,7 @@ import {
 
 export type CopilotProviderConfigMap = {
   [CopilotProviderType.OpenAI]: OpenAIConfig;
+  [CopilotProviderType.DeepSeek]: DeepSeekConfig;
   [CopilotProviderType.CloudflareWorkersAi]: CloudflareWorkersAIConfig;
   [CopilotProviderType.FAL]: FalConfig;
   [CopilotProviderType.Gemini]: GeminiGenerativeConfig;
@@ -111,6 +113,11 @@ const OpenAIConfigShape = z.object({
   oldApiStyle: z.boolean().optional(),
 });
 
+const DeepSeekConfigShape = z.object({
+  apiKey: z.string(),
+  baseURL: z.string().optional(),
+});
+
 const FalConfigShape = z.object({
   apiKey: z.string(),
 });
@@ -143,6 +150,10 @@ const CopilotProviderProfileShape = z.discriminatedUnion('type', [
   CopilotProviderProfileBaseShape.extend({
     type: z.literal(CopilotProviderType.OpenAI),
     config: OpenAIConfigShape,
+  }),
+  CopilotProviderProfileBaseShape.extend({
+    type: z.literal(CopilotProviderType.DeepSeek),
+    config: DeepSeekConfigShape,
   }),
   CopilotProviderProfileBaseShape.extend({
     type: z.literal(CopilotProviderType.FAL),
@@ -187,7 +198,7 @@ declare global {
       byok: {
         enabled: ConfigItem<boolean>;
         allowedProviders: ConfigItem<
-          Array<'openai' | 'anthropic' | 'gemini' | 'fal'>
+          Array<'openai' | 'anthropic' | 'deepseek' | 'gemini' | 'fal'>
         >;
         allowCustomEndpoint: ConfigItem<boolean>;
       };
@@ -202,6 +213,7 @@ declare global {
         profiles: ConfigItem<CopilotProviderProfile[]>;
         defaults: ConfigItem<CopilotProviderDefaults>;
         openai: ConfigItem<OpenAIConfig>;
+        deepseek: ConfigItem<DeepSeekConfig>;
         cloudflareWorkersAi: ConfigItem<CloudflareWorkersAIConfig>;
         fal: ConfigItem<FalConfig>;
         gemini: ConfigItem<GeminiGenerativeConfig>;
@@ -225,8 +237,10 @@ defineModuleConfig('copilot', {
   },
   'byok.allowedProviders': {
     desc: 'The allowlist for workspace BYOK providers.',
-    default: ['openai', 'anthropic', 'gemini', 'fal'],
-    shape: z.array(z.enum(['openai', 'anthropic', 'gemini', 'fal'])),
+    default: ['openai', 'anthropic', 'deepseek', 'gemini', 'fal'],
+    shape: z.array(
+      z.enum(['openai', 'anthropic', 'deepseek', 'gemini', 'fal'])
+    ),
   },
   'byok.allowCustomEndpoint': {
     desc: 'Whether workspace BYOK custom endpoints are accepted.',
@@ -250,6 +264,13 @@ defineModuleConfig('copilot', {
       baseURL: 'https://api.openai.com/v1',
     },
     link: 'https://github.com/openai/openai-node',
+  },
+  'providers.deepseek': {
+    desc: 'The config for the deepseek provider.',
+    default: {
+      apiKey: '',
+      baseURL: 'https://api.deepseek.com/v1',
+    },
   },
   'providers.cloudflareWorkersAi': {
     desc: 'The config for the Cloudflare Workers AI provider.',
